@@ -372,7 +372,7 @@ private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector) {
                 Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
             }
             Spacer(Modifier.height(18.dp))
-            Text("No $title.lowercase() yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+            Text("No ${title.lowercase()} yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(7.dp))
             Text("Add music to your device and scan your library to see it here.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 19.sp)
         }
@@ -464,8 +464,8 @@ private fun SettingsScreen(
                         Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ThemeChoice("Light", !darkTheme) { onDarkThemeChange(false) }
-                            ThemeChoice("Dark", darkTheme) { onDarkThemeChange(true) }
+                            ThemeChoice(Modifier.weight(1f), "Light", !darkTheme) { onDarkThemeChange(false) }
+                            ThemeChoice(Modifier.weight(1f), "Dark", darkTheme) { onDarkThemeChange(true) }
                         }
                         Spacer(Modifier.height(18.dp))
                         Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
@@ -500,9 +500,9 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ThemeChoice(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun ThemeChoice(modifier: Modifier, label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+        modifier = modifier.clip(RoundedCornerShape(12.dp))
             .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surfaceVariant)
             .border(if (selected) 1.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick).padding(vertical = 11.dp),
