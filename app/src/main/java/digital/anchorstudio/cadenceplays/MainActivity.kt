@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateTopPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,7 +30,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Crown
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -279,7 +280,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HeaderAction(Icons.Filled.Person, "Account") {}
                 HeaderAction(Icons.Filled.BarChart, "Listening stats") {}
-                HeaderAction(Icons.Filled.Crown, "Cadence Pro", tint = MaterialTheme.colorScheme.primary) {}
+                HeaderAction(Icons.Filled.WorkspacePremium, "Cadence Pro", tint = MaterialTheme.colorScheme.primary) {}
                 HeaderAction(Icons.Filled.Search, "Search") {}
                 HeaderAction(Icons.Filled.Settings, "Settings", onSettings)
             }
@@ -326,7 +327,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                         Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(20.dp))
-                    androidx.compose.foundation.layout.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
                         FeatureLabel(Icons.Filled.MusicNote, "Your own music")
