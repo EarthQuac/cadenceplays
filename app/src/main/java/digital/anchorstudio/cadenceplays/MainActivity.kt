@@ -278,11 +278,11 @@ private fun HomeScreen(onSettings: () -> Unit) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                HeaderAction(Icons.Filled.Person, "Account") {}
-                HeaderAction(Icons.Filled.BarChart, "Listening stats") {}
-                HeaderAction(Icons.Filled.WorkspacePremium, "Cadence Pro", tint = MaterialTheme.colorScheme.primary) {}
-                HeaderAction(Icons.Filled.Search, "Search") {}
-                HeaderAction(Icons.Filled.Settings, "Settings", onSettings)
+                HeaderAction(Icons.Filled.Person, "Account", onClick = {})
+                HeaderAction(Icons.Filled.BarChart, "Listening stats", onClick = {})
+                HeaderAction(Icons.Filled.WorkspacePremium, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
+                HeaderAction(Icons.Filled.Search, "Search", onClick = {})
+                HeaderAction(Icons.Filled.Settings, "Settings", onClick = onSettings)
             }
         }
 
@@ -340,9 +340,9 @@ private fun HomeScreen(onSettings: () -> Unit) {
 }
 
 @Composable
-private fun HeaderAction(icon: ImageVector, description: String, tint: Color = MaterialTheme.colorScheme.onSurface) {
+private fun HeaderAction(icon: ImageVector, description: String, tint: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(34.dp).clip(CircleShape).clickable { },
+        modifier = Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(19.dp))
