@@ -24,6 +24,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AudioFile
@@ -358,65 +369,294 @@ private fun FeatureLabel(icon: ImageVector, label: String) {
 
 @Composable
 private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector) {
+    when (title) {
+        "Songs" -> SongsScreen()
+        "Albums" -> AlbumsScreen()
+        else -> PlaylistsScreen()
+    }
+}
+
+@Composable
+private fun SongsScreen() {
+    var query by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf("Title") }
+    var descending by remember { mutableStateOf(false) }
+    var soundprintOpen by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle(title, subtitle)
+        PageTitle("Songs", "0 songs")
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            Box(
-                modifier = Modifier.size(66.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+            SearchBox(query, { query = it }, "Filter songs, artists, albums…")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                UtilityButton(Icons.Filled.FilterList, "Sort: $sort", Modifier.weight(1f)) {
+                    sort = when (sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Date added"; "Date added" -> "Duration"; else -> "Title" }
+                }
+                UtilityButton(Icons.Filled.Sort, if (descending) "Descending" else "Ascending", Modifier.weight(1f)) {
+                    descending = !descending
+                }
             }
-            Spacer(Modifier.height(18.dp))
-            Text("No ${title.lowercase()} yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            Text("Add music to your device and scan your library to see it here.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 19.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                UtilityButton(Icons.Filled.GraphicEq, "Soundprint", Modifier.weight(1f)) { soundprintOpen = !soundprintOpen }
+                UtilityButton(Icons.Filled.LibraryMusic, "Recycle Bin", Modifier.weight(1f)) { }
+            }
+            if (soundprintOpen) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(16.dp))
+                        .padding(15.dp)
+                ) {
+                    Text("Soundprint", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Find duplicate tracks in your library.", modifier = Modifier.padding(top = 3.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    CadenceActionButton("Basic scan", Modifier.padding(top = 12.dp)) {}
+                }
+            }
+            if (query.isNotBlank()) {
+                Text("0 matches", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            EmptyLibraryState(
+                icon = Icons.Filled.MusicNote,
+                title = "No music found",
+                description = "Add music to your device and scan your library to see your songs here."
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumsScreen() {
+    Column(modifier = Modifier.fillMaxSize()) {
+        PageTitle("Albums", "0 albums")
+        EmptyLibraryState(
+            icon = Icons.Filled.Album,
+            title = "No albums yet",
+            description = "Add music to your device and scan your library — albums are grouped from your files' tags."
+        )
+    }
+}
+
+@Composable
+private fun PlaylistsScreen() {
+    var query by remember { mutableStateOf("") }
+    var createOpen by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(
+                start = 18.dp, end = 16.dp,
+                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 18.dp,
+                bottom = 16.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Playlists", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
+                Text("0 playlists", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { createOpen = !createOpen },
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.Add, "New playlist", tint = MaterialTheme.colorScheme.onSurface) }
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(19.dp)
+        ) {
+            SearchBox(query, { query = it }, "Search playlists…")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("SMART MIXES", fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PlaylistMix(Icons.Filled.Favorite, "Liked Songs", "0 songs")
+                PlaylistMix(Icons.Filled.AccessTime, "Recently Played", "0 songs")
+                PlaylistMix(Icons.Filled.QueueMusic, "Recently Added", "0 songs")
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Smart playlists", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Automatically updated from your listening and library", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box(
+                        Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary)
+                            .clickable { createOpen = !createOpen }.padding(horizontal = 12.dp, vertical = 9.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+                            Text("New smart playlist", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                }
+                if (createOpen) {
+                    Text("Playlist creation will be connected to your local music library in the next implementation pass.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (query.isNotBlank()) {
+                Text("No playlists match your search.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                EmptyLibraryState(
+                    icon = Icons.Filled.QueueMusic,
+                    title = "No playlists yet",
+                    description = "Create a playlist to collect songs, or build a smart playlist that updates automatically."
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun DiscoverScreen() {
+    val moods = listOf(
+        "Workout", "Driving", "Chill", "Focus", "Party", "Upbeat",
+        "Happy", "Sad", "Romantic", "Sleep", "Late Night", "Angry",
+        "Dreamy", "Peaceful", "Melancholy", "Confident", "Nostalgic", "Intense"
+    )
+    var selectedMood by remember { mutableStateOf<String?>(null) }
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle("Discover", "Find the right sound in your own library.")
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        PageTitle("Discover", "Your music, in a different light")
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            item {
-                DiscoverFeature(Icons.Filled.Tune, "Find by Mood", "Explore songs by how they sound and feel.")
+            Column {
+                Text("YOUR LIBRARY, IN A DIFFERENT LIGHT", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                Text("Find your next mood.", modifier = Modifier.padding(top = 5.dp), fontSize = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, color = MaterialTheme.colorScheme.onBackground)
+                Text("Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.", modifier = Modifier.padding(top = 5.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            item {
-                DiscoverFeature(Icons.Filled.GraphicEq, "Discover", "Explore the moods and patterns in your music library.")
+            Column(
+                Modifier.fillMaxWidth().border(
+                    width = 0.dp, color = Color.Transparent
+                ).padding(vertical = 10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF4DAA78)))
+                    Spacer(Modifier.width(8.dp))
+                    Text("CLAP analysed · 0/0", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.weight(1f))
+                    Text("0 tracks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Column {
+                    Text("Choose a mood", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Tap one to jump straight to matching songs.", modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                moods.chunked(3).forEach { group ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        group.forEach { mood ->
+                            MoodChip(mood, selectedMood == mood, Modifier.weight(1f)) { selectedMood = mood }
+                        }
+                        if (group.size < 3) repeat(3 - group.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+            if (selectedMood != null) {
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 4.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp))
+                        .padding(16.dp)
+                ) {
+                    Text("PICKED FOR THIS MOMENT", fontSize = 10.sp, letterSpacing = 1.3.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Text(selectedMood!!, modifier = Modifier.padding(top = 5.dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("0 tracks", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Add music to Cadence, then return here to explore it by mood.", modifier = Modifier.padding(top = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverFeature(icon: ImageVector, title: String, description: String) {
+private fun SearchBox(value: String, onValueChange: (String) -> Unit, placeholder: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+        modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
-            .clickable { }.padding(16.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(9.dp))
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) Text(placeholder, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            BasicTextField(value, onValueChange, singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.fillMaxWidth())
         }
-        Spacer(Modifier.width(13.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(3.dp))
-            Text(description, fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (value.isNotEmpty()) {
+            Icon(Icons.Filled.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp).clickable { onValueChange("") })
         }
-        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun UtilityButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier = modifier.height(40.dp).clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun CadenceActionButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary)
+            .clickable(onClick = onClick).padding(horizontal = 17.dp, vertical = 11.dp),
+        contentAlignment = Alignment.Center
+    ) { Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary) }
+}
+
+@Composable
+private fun EmptyLibraryState(icon: ImageVector, title: String, description: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+        }
+        Text(title, modifier = Modifier.padding(top = 15.dp), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+        Text(description, modifier = Modifier.padding(top = 5.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        CadenceActionButton("Add music", Modifier.padding(top = 16.dp)) {}
+    }
+}
+
+@Composable
+private fun PlaylistMix(icon: ImageVector, title: String, subtitle: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface).clickable { }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+    }
+}
+
+@Composable
+private fun MoodChip(mood: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier = modifier.height(37.dp).clip(RoundedCornerShape(50))
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
+            .clickable(onClick = onClick).padding(horizontal = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(mood, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
     }
 }
 
