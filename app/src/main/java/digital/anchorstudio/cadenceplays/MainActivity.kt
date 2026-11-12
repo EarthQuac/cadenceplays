@@ -95,7 +95,7 @@ private val AmberLight = CadencePalette(
     background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
     primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
-    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF24180E)
+    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF160D07)
 )
 private val AmberDark = CadencePalette(
     background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
@@ -119,7 +119,7 @@ private val EmeraldLight = CadencePalette(
     background = Color(0xFFF6FCF7), foreground = Color(0xFF0C1F17),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEBF5EE),
     primary = Color(0xFF007852), muted = Color(0xFF5C6E65),
-    border = Color(0xFFD7E1DA), onPrimary = Color.White
+    border = Color(0xFFD7E1DA), onPrimary = Color(0xFFF4FAF5)
 )
 private val EmeraldDark = CadencePalette(
     background = Color(0xFF05130E), foreground = Color(0xFFEDF4EE),
@@ -679,8 +679,8 @@ private fun PageTitle(title: String, subtitle: String) {
 
 @Composable
 private fun SettingsScreen(
-    darkTheme: Boolean,
-    onDarkThemeChange: (Boolean) -> Unit,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
     onPaletteChange: (String) -> Unit,
     onBack: () -> Unit
