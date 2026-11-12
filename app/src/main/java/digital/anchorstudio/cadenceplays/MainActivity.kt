@@ -77,7 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
 
 private data class CadencePalette(
@@ -92,54 +92,53 @@ private data class CadencePalette(
 )
 
 private val AmberLight = CadencePalette(
-    background = Color(0xFFFAF9F6), foreground = Color(0xFF302D29),
-    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EB),
-    primary = Color(0xFFD98A45), muted = Color(0xFF81796F),
-    border = Color(0xFFE7E2DA), onPrimary = Color(0xFF24180E)
+    background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
+    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
+    primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
+    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF24180E)
 )
 private val AmberDark = CadencePalette(
-    background = Color(0xFF191715), foreground = Color(0xFFF3F0EA),
-    surface = Color(0xFF25221F), surface2 = Color(0xFF302C28),
-    primary = Color(0xFFE9AD68), muted = Color(0xFFB2AAA0),
-    border = Color(0xFF3B3631), onPrimary = Color(0xFF25180D)
+    background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
+    surface = Color(0xFF161310), surface2 = Color(0xFF201C18),
+    primary = Color(0xFFFC9E47), muted = Color(0xFF9C9792),
+    border = Color(0x17FFFFFF), onPrimary = Color(0xFF160D07)
 )
 private val BlueLight = CadencePalette(
-    background = Color(0xFFF9FAFC), foreground = Color(0xFF202B40),
-    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEEF2F8),
-    primary = Color(0xFF3869D8), muted = Color(0xFF68758A),
-    border = Color(0xFFDCE3EF), onPrimary = Color.White
+    background = Color(0xFFFAFCFE), foreground = Color(0xFF0C1723),
+    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEEF4FB),
+    primary = Color(0xFF156CDD), muted = Color(0xFF5E6A7A),
+    border = Color(0xFFD7DFE8), onPrimary = Color.White
 )
 private val BlueDark = CadencePalette(
-    background = Color(0xFF171D2B), foreground = Color(0xFFF1F4FC),
-    surface = Color(0xFF222B3E), surface2 = Color(0xFF2B3650),
-    primary = Color(0xFF8EAEFF), muted = Color(0xFFAAB6CC),
-    border = Color(0xFF3A465E), onPrimary = Color(0xFF17213A)
+    background = Color(0xFF090F1A), foreground = Color(0xFFF1F6FA),
+    surface = Color(0xFF121B29), surface2 = Color(0xFF1A2435),
+    primary = Color(0xFF59AAF8), muted = Color(0xFF99A6B4),
+    border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0A121F)
 )
 private val EmeraldLight = CadencePalette(
-    background = Color(0xFFF8FAF7), foreground = Color(0xFF25362F),
-    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEDF3EE),
-    primary = Color(0xFF397B61), muted = Color(0xFF718078),
-    border = Color(0xFFDCE7DF), onPrimary = Color.White
+    background = Color(0xFFF6FCF7), foreground = Color(0xFF0C1F17),
+    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEBF5EE),
+    primary = Color(0xFF007852), muted = Color(0xFF5C6E65),
+    border = Color(0xFFD7E1DA), onPrimary = Color.White
 )
 private val EmeraldDark = CadencePalette(
-    background = Color(0xFF17221D), foreground = Color(0xFFF0F5F0),
-    surface = Color(0xFF222F28), surface2 = Color(0xFF2C3B33),
-    primary = Color(0xFF83C5A5), muted = Color(0xFFAAB9AF),
-    border = Color(0xFF3A4A40), onPrimary = Color(0xFF14251C)
+    background = Color(0xFF05130E), foreground = Color(0xFFEDF4EE),
+    surface = Color(0xFF0A1C16), surface2 = Color(0xFF10271F),
+    primary = Color(0xFF5ACA94), muted = Color(0xFF99AA9E),
+    border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0B1E15)
 )
 private val MonoLight = CadencePalette(
-    background = Color(0xFFF8F8F8), foreground = Color(0xFF252525),
-    surface = Color.White, surface2 = Color(0xFFEFEFEF),
-    primary = Color(0xFF333333), muted = Color(0xFF777777),
-    border = Color(0xFFE2E2E2), onPrimary = Color.White
+    background = Color(0xFFF8F8F8), foreground = Color(0xFF121212),
+    surface = Color.White, surface2 = Color(0xFFF0F0F0),
+    primary = Color(0xFF1F1F1F), muted = Color(0xFF696969),
+    border = Color(0xFFDEDEDE), onPrimary = Color.White
 )
 private val MonoDark = CadencePalette(
-    background = Color(0xFF171717), foreground = Color(0xFFF3F3F3),
-    surface = Color(0xFF242424), surface2 = Color(0xFF303030),
-    primary = Color(0xFFE5E5E5), muted = Color(0xFFAAAAAA),
-    border = Color(0xFF3D3D3D), onPrimary = Color(0xFF202020)
+    background = Color(0xFF090909), foreground = Color(0xFFF5F5F5),
+    surface = Color(0xFF141414), surface2 = Color(0xFF1D1D1D),
+    primary = Color(0xFFE8E8E8), muted = Color(0xFFA4A4A4),
+    border = Color(0x1FFFFFFF), onPrimary = Color(0xFF141414)
 )
-
 private fun palette(name: String, dark: Boolean): CadencePalette = when (name) {
     "Blue" -> if (dark) BlueDark else BlueLight
     "Emerald" -> if (dark) EmeraldDark else EmeraldLight
@@ -151,8 +150,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            var darkTheme by remember { mutableStateOf(true) }
-            var selectedPalette by remember { mutableStateOf("Amber") }
+            val preferences = remember { getSharedPreferences("cadence_native_preferences", MODE_PRIVATE) }
+            var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
+            var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
+            val darkTheme = when (themeMode) {
+                "light" -> false
+                "system" -> isSystemInDarkTheme()
+                else -> true
+            }
             val colors = palette(selectedPalette, darkTheme)
             window.statusBarColor = colors.background.toArgb()
             window.navigationBarColor = colors.background.toArgb()
@@ -175,10 +180,10 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 CadenceApp(
-                    darkTheme = darkTheme,
-                    onDarkThemeChange = { darkTheme = it },
+                    themeMode = themeMode,
+                    onThemeModeChange = { mode -> themeMode = mode; preferences.edit().putString("theme", mode).apply() },
                     selectedPalette = selectedPalette,
-                    onPaletteChange = { selectedPalette = it }
+                    onPaletteChange = { name -> selectedPalette = name; preferences.edit().putString("palette", name).apply() }
                 )
             }
         }
@@ -197,8 +202,8 @@ private val tabs = listOf(
 
 @Composable
 private fun CadenceApp(
-    darkTheme: Boolean,
-    onDarkThemeChange: (Boolean) -> Unit,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
     onPaletteChange: (String) -> Unit
 ) {
@@ -209,8 +214,8 @@ private fun CadenceApp(
         Column(modifier = Modifier.fillMaxSize()) {
             if (settingsOpen) {
                 SettingsScreen(
-                    darkTheme = darkTheme,
-                    onDarkThemeChange = onDarkThemeChange,
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
                     selectedPalette = selectedPalette,
                     onPaletteChange = onPaletteChange,
                     onBack = { settingsOpen = false }
@@ -703,9 +708,10 @@ private fun SettingsScreen(
                     Column(Modifier.padding(15.dp)) {
                         Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ThemeChoice(Modifier.weight(1f), "Light", !darkTheme) { onDarkThemeChange(false) }
-                            ThemeChoice(Modifier.weight(1f), "Dark", darkTheme) { onDarkThemeChange(true) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            ThemeChoice(Modifier.weight(1f), "System", themeMode == "system") { onThemeModeChange("system") }
+                            ThemeChoice(Modifier.weight(1f), "Light", themeMode == "light") { onThemeModeChange("light") }
+                            ThemeChoice(Modifier.weight(1f), "Dark", themeMode == "dark") { onThemeModeChange("dark") }
                         }
                         Spacer(Modifier.height(18.dp))
                         Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
