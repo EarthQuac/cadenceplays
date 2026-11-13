@@ -77,6 +77,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -178,15 +179,67 @@ class MainActivity : ComponentActivity() {
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
             val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
             var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
+            var librarySources by remember { mutableStateOf(libraryRepository.allSources()) }
+            var libraryStatus by remember { mutableStateOf("Checking your saved music locations…") }
             val scope = rememberCoroutineScope()
+            fun refreshLibraryState() {
+                libraryTrackCount = libraryRepository.count()
+                librarySources = libraryRepository.allSources()
+            }
             val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
-                if (uri != null) {
-                    runCatching { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                    scope.launch {
-                        withContext(Dispatchers.IO) { libraryRepository.importTree(uri) }
-                        libraryTrackCount = withContext(Dispatchers.IO) { libraryRepository.count() }
-                    }
+                if (uri != null) scope.launch {
+                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importTree(uri) } }
+                    refreshLibraryState()
+                    libraryStatus = result.fold(
+                        { "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "Folder import failed: ${it.message ?: "Unknown error"}" }
+                    )
                 }
+            }
+            val filesPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                if (uris.isNotEmpty()) scope.launch {
+                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) } }
+                    refreshLibraryState()
+                    libraryStatus = result.fold(
+                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "File import failed: ${it.message ?: "Unknown error"}" }
+                    )
+                }
+            }
+            val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                if (uri != null) scope.launch {
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) {
+                            contentResolver.openOutputStream(uri)?.use { libraryRepository.writeBackup(it) }
+                                ?: error("Android could not create the backup file.")
+                        }
+                    }
+                    libraryStatus = result.fold({ "Library backup saved." }, { "Backup failed: ${it.message ?: "Unknown error"}" })
+                }
+            }
+            val backupOpener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) scope.launch {
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) {
+                            contentResolver.openInputStream(uri)?.use { libraryRepository.restoreBackup(it, false) }
+                                ?: error("Android could not open this backup.")
+                        }
+                    }
+                    if (result.isSuccess) {
+                        val scan = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
+                        refreshLibraryState()
+                        libraryStatus = "Backup restored (${result.getOrNull()} records). " +
+                            scan.fold({ "Recovery scan found ${it.unavailable} unavailable locations." }, { "Recovery scan failed: ${it.message}" })
+                    } else libraryStatus = "Restore failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
+                }
+            }
+            LaunchedEffect(Unit) {
+                val recovery = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
+                refreshLibraryState()
+                libraryStatus = recovery.fold(
+                    { "Startup recovery: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
+                    { "Startup recovery failed: ${it.message ?: "Unknown error"}" }
+                )
             }
             val darkTheme = when (themeMode) {
                 "light" -> false
@@ -226,7 +279,34 @@ class MainActivity : ComponentActivity() {
                         preferences.edit().putBoolean("has_seen_launch_landing", true).apply()
                     },
                     libraryTrackCount = libraryTrackCount,
-                    onImportMusic = { folderPicker.launch(null) }
+                    librarySources = librarySources,
+                    libraryStatus = libraryStatus,
+                    onImportMusic = { folderPicker.launch(null) },
+                    onImportFiles = { filesPicker.launch(arrayOf("audio/*")) },
+                    onRescan = {
+                        scope.launch {
+                            val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
+                            refreshLibraryState()
+                            libraryStatus = result.fold(
+                                { "Rescan complete: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
+                                { "Rescan failed: ${it.message ?: "Unknown error"}" }
+                            )
+                        }
+                    },
+                    onRemoveSource = { sourceUri ->
+                        scope.launch {
+                            libraryRepository.removeSource(sourceUri)
+                            refreshLibraryState()
+                            libraryStatus = "Music location removed. Original audio files were not deleted."
+                        }
+                    },
+                    onBackup = { backupSaver.launch("cadence-library-backup.json") },
+                    onRestore = { backupOpener.launch(arrayOf("application/json")) },
+                    onClearLibrary = {
+                        libraryRepository.clearLibrary()
+                        refreshLibraryState()
+                        libraryStatus = "Library records cleared. Your original audio files were not deleted."
+                    }
                 )
                 }
             }
@@ -253,7 +333,15 @@ private fun CadenceApp(
     enteredLibrary: Boolean,
     onEnterLibrary: () -> Unit,
     libraryTrackCount: Int,
-    onImportMusic: () -> Unit
+    librarySources: List<MusicLibrarySource>,
+    libraryStatus: String,
+    onImportMusic: () -> Unit,
+    onImportFiles: () -> Unit,
+    onRescan: () -> Unit,
+    onRemoveSource: (String) -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+    onClearLibrary: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
@@ -270,7 +358,15 @@ private fun CadenceApp(
                     onPaletteChange = onPaletteChange,
                     onBack = { settingsOpen = false },
                     libraryTrackCount = libraryTrackCount,
-                    onImportMusic = onImportMusic
+                    librarySources = librarySources,
+                    libraryStatus = libraryStatus,
+                    onImportMusic = onImportMusic,
+                    onImportFiles = onImportFiles,
+                    onRescan = onRescan,
+                    onRemoveSource = onRemoveSource,
+                    onBackup = onBackup,
+                    onRestore = onRestore,
+                    onClearLibrary = onClearLibrary
                 )
             } else {
                 when (selectedTab) {
@@ -1018,7 +1114,15 @@ private fun SettingsScreen(
     onPaletteChange: (String) -> Unit,
     onBack: () -> Unit,
     libraryTrackCount: Int,
-    onImportMusic: () -> Unit
+    librarySources: List<MusicLibrarySource>,
+    libraryStatus: String,
+    onImportMusic: () -> Unit,
+    onImportFiles: () -> Unit,
+    onRescan: () -> Unit,
+    onRemoveSource: (String) -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+    onClearLibrary: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
     var gapless by remember { mutableStateOf(true) }
@@ -1036,7 +1140,6 @@ private fun SettingsScreen(
     var clearDialog by remember { mutableStateOf(false) }
     var historyDialog by remember { mutableStateOf(false) }
     var helpDialog by remember { mutableStateOf(false) }
-    var backupDialog by remember { mutableStateOf(false) }
     val needle = query.trim().lowercase()
     fun matches(vararg words: String): Boolean = needle.isEmpty() || words.any { it.lowercase().contains(needle) }
 
@@ -1152,14 +1255,31 @@ private fun SettingsScreen(
             if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
                 SettingsSection("LIBRARY") {
                     SettingsToggleRow("Custom artwork", "Show Cadence artwork only when a song has no embedded cover. Turn this off anytime to remove Cadence artwork from your library.", customArtwork) { customArtwork = it }
-                    SettingsActionRow("Your music", "$libraryTrackCount songs stored on this device", "Add", onClick = onImportMusic)
-                    SettingsActionRow("Rescan folders", "Check imported folders for new songs", "Rescan")
+                    SettingsActionRow("Your music", "$libraryTrackCount songs stored on this device", "Add folder", onClick = onImportMusic)
+                    SettingsActionRow("Import audio files", "Choose individual audio files from your device", "Import", onClick = onImportFiles)
+                    SettingsActionRow("Rescan folders", "Recover saved locations and check for new or changed songs", "Rescan", onClick = onRescan)
+                    if (libraryStatus.isNotBlank()) Text(libraryStatus, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (librarySources.isNotEmpty()) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Text("IMPORTED LOCATIONS", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            librarySources.forEach { source ->
+                                Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(source.displayName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(if (source.lastScannedAt > 0L) "Saved music location" else "Individual audio file", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    TextButton(onClick = { onRemoveSource(source.uri) }) { Text("Remove", color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
+                                }
+                            }
+                        }
+                        SettingsDivider()
+                    }
                     SettingsActionRow("Audio tag editor", "Manually edit title, artist, album and genre — free for everyone", "Open")
                     SettingsActionRow("Playback history", "Clear recently played songs, play counts, listening time and streaks", "Clear") { historyDialog = true }
-                    SettingsActionRow("Backup library", "Export songs, audio files, playlists, favourites, stats and preferences", "Backup") { backupDialog = true }
-                    SettingsActionRow("Restore backup", "Restore a Cadence backup file from your device", "Restore") { backupDialog = true }
+                    SettingsActionRow("Backup library", "Export your library records, playlists, favourites and listening stats", "Backup", onClick = onBackup)
+                    SettingsActionRow("Restore backup", "Restore a Cadence library backup from your device", "Restore", onClick = onRestore)
                     SettingsToggleRow("Ignore clips under 30s", "Skips ringtones and notification sounds", ignoreShortTracks) { ignoreShortTracks = it }
-                    SettingsActionRow("Clear library", "Removes all imported files from this device", "Clear", destructive = true) { clearDialog = true }
+                    SettingsActionRow("Clear library", "Removes imported tracks and saved locations from Cadence; audio files stay on your device", "Clear", destructive = true) { clearDialog = true }
                 }
             }
             if (matches("tutorial replay tutorial")) {
@@ -1181,7 +1301,7 @@ private fun SettingsScreen(
         onDismissRequest = { clearDialog = false },
         title = { Text("Clear your library?") },
         text = { Text("This will remove all songs from this device, stop any music currently playing, and clear your playlists, favourites, and recently played history. Your music files will not be deleted from your device's normal storage.") },
-        confirmButton = { TextButton(onClick = { clearDialog = false }) { Text("Clear everything", color = MaterialTheme.colorScheme.error) } },
+        confirmButton = { TextButton(onClick = { clearDialog = false; onClearLibrary() }) { Text("Clear everything", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { clearDialog = false }) { Text("Cancel") } }
     )
     if (historyDialog) AlertDialog(
@@ -1190,12 +1310,6 @@ private fun SettingsScreen(
         text = { Text("This clears recently played songs, play counts, listening time and streaks on this device. Your audio files, library, playlists and favourites will remain.") },
         confirmButton = { TextButton(onClick = { historyDialog = false }) { Text("Clear history", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { historyDialog = false }) { Text("Cancel") } }
-    )
-    if (backupDialog) AlertDialog(
-        onDismissRequest = { backupDialog = false },
-        title = { Text("Backup & Restore") },
-        text = { Text("Backup and restore actions will be connected to the native library in the next implementation phase.") },
-        confirmButton = { TextButton(onClick = { backupDialog = false }) { Text("Got it") } }
     )
     if (helpDialog) AlertDialog(
         onDismissRequest = { helpDialog = false },
