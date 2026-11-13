@@ -77,6 +77,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -283,6 +284,16 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     fun pause() {
         pendingScanMode = null
         scanJob?.cancel()
+    }
+
+    suspend fun clearLibraryState() {
+        val activeJob = synchronized(this) {
+            pendingScanMode = null
+            scanJob
+        }
+        activeJob?.cancelAndJoin()
+        preferences.edit().remove("mood_corrections").remove("failures").apply()
+        mutableState.value = ClapLibraryScanState()
     }
 
     fun retryFailed() = startScan(retryFailedOnly = true)
