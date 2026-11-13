@@ -133,7 +133,7 @@ private fun ProPageHeader(onBack: () -> Unit) {
             Text("‹", fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
         }
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
-            Text("TwinSense", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            Text("Soundprint Pro", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
         }
     }
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
@@ -150,7 +150,7 @@ private fun ProHero() {
             Spacer(Modifier.width(7.dp))
             Text("Your music. Your way.", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
-        Text("Meet TwinSense.", modifier = Modifier.padding(top = 18.dp), fontSize = 31.sp, lineHeight = 36.sp,
+        Text("Meet Soundprint Pro.", modifier = Modifier.padding(top = 18.dp), fontSize = 31.sp, lineHeight = 36.sp,
             letterSpacing = (-0.8).sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text("More control, smarter music tools, and a deeper listening experience. Keep enjoying Soundprint for free, or unlock the Pro power suite with the plan that works for you.",
             modifier = Modifier.padding(top = 10.dp), fontSize = 13.sp, lineHeight = 21.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -194,7 +194,7 @@ private fun ProPlans() {
                 modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ProPlanCard("Lifetime", "$24.99", "once", "Pay once. Keep the included TwinSense features for life, with no recurring bill.",
+            ProPlanCard("Lifetime", "$24.99", "once", "Pay once. Keep the included Soundprint Pro features for life, with no recurring bill.",
                 "Best for long-term listeners", true, Modifier.weight(1f), Icons.Filled.AllInclusive)
             ProPlanCard("Monthly", "$2.99", "/ month", "A smaller payment to get started. Cancel any time; Pro access would end when your paid period ends.",
                 "Budget-friendly", false, Modifier.weight(1f), Icons.Filled.Timer)
@@ -324,7 +324,7 @@ private fun ProFeaturesGrid() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text("Every Pro feature", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-            Text("The tools included with TwinSense.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("The tools included with Soundprint Pro.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         proFeatures.forEach { feature ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
@@ -353,7 +353,7 @@ private fun ProActiveCard(trialEndsAt: String?) {
             Spacer(Modifier.width(7.dp))
             Text("Pro active", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
-        Text(if (trialEndsAt != null) "Your 14-day Pro trial is active" else "Welcome to TwinSense",
+        Text(if (trialEndsAt != null) "Your 14-day Pro trial is active" else "Welcome to Soundprint Pro",
             modifier = Modifier.padding(top = 16.dp), fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text(if (trialEndsAt != null) "Your no-payment trial ends " + trialEndsAt + ". No charge will be made, and access ends when the trial expires."
             else "Your Pro entitlement is active on this account. Sign in on your other devices to access your account benefits.",
