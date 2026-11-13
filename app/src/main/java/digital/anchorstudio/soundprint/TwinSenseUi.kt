@@ -495,6 +495,7 @@ private fun NativeSongLibraryRow(
     var editOpen by remember { mutableStateOf(false) }
     var playlistsOpen by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    var artistOpen by remember { mutableStateOf(false) }
     var title by remember(track.id) { mutableStateOf(track.title) }
     var artist by remember(track.id) { mutableStateOf(track.artist) }
     var album by remember(track.id) { mutableStateOf(track.album) }
@@ -528,6 +529,7 @@ private fun NativeSongLibraryRow(
                 })
                 DropdownMenuItem(text = { Text("Add to playlist") }, leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) }, onClick = { menuOpen = false; playlistsOpen = true })
                 DropdownMenuItem(text = { Text("Edit song info") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; editOpen = true })
+                DropdownMenuItem(text = { Text("Go to artist") }, leadingIcon = { Icon(Icons.Filled.Person, null) }, onClick = { menuOpen = false; artistOpen = true })
                 DropdownMenuItem(text = { Text("Move to Recycle Bin") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = {
                     menuOpen = false
                     scope.launch { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "Removed from song menu") }; onChanged() }
@@ -558,6 +560,25 @@ private fun NativeSongLibraryRow(
                 }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (artistOpen) {
+        val artistTracks = remember(track.artist) { library.artistTracks(track.artist) }
+        AlertDialog(
+            onDismissRequest = { artistOpen = false },
+            title = { Text(track.artist) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${artistTracks.size} songs", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    artistTracks.take(12).forEachIndexed { index, artistTrack ->
+                        TextButton(onClick = { artistOpen = false; playback.playTracks(artistTracks, index) }) {
+                            Text(artistTrack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { artistOpen = false }) { Text("Close") } }
         )
     }
 
