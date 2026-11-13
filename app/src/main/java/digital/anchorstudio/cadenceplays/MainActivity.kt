@@ -231,10 +231,10 @@ private fun CadenceApp(
             } else {
                 when (selectedTab) {
                     0 -> HomeScreen(onSettings = { settingsOpen = true })
-                    1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote)
-                    2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album)
+                    1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote) { selectedTab = 0 }
+                    2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album) { selectedTab = 0 }
                     3 -> LibraryScreen("Playlists", "Your playlists, made around your music.", Icons.Filled.QueueMusic)
-                    else -> DiscoverScreen()
+                    else -> DiscoverScreen { selectedTab = 0 }
                 }
                 NavigationBar(
                     modifier = Modifier.fillMaxWidth(),
@@ -381,22 +381,22 @@ private fun FeatureLabel(icon: Int, label: String) {
 }
 
 @Composable
-private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector) {
+private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector, onBack: () -> Unit) {
     when (title) {
-        "Songs" -> SongsScreen()
-        "Albums" -> AlbumsScreen()
+        "Songs" -> SongsScreen(onBack)
+        "Albums" -> AlbumsScreen(onBack)
         else -> PlaylistsScreen()
     }
 }
 
 @Composable
-private fun SongsScreen() {
+private fun SongsScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("Title") }
     var descending by remember { mutableStateOf(false) }
     var soundprintOpen by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle("Songs", "0 songs")
+        PageTitle("Songs", "0 songs", onBack)
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(11.dp)
@@ -439,9 +439,9 @@ private fun SongsScreen() {
 }
 
 @Composable
-private fun AlbumsScreen() {
+private fun AlbumsScreen(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle("Albums", "0 albums")
+        PageTitle("Albums", "0 albums", onBack)
         EmptyLibraryState(
             icon = Icons.Filled.Album,
             title = "No albums yet",
@@ -517,7 +517,7 @@ private fun PlaylistsScreen() {
 }
 
 @Composable
-private fun DiscoverScreen() {
+private fun DiscoverScreen(onBack: () -> Unit) {
     val moods = listOf(
         "Workout", "Driving", "Chill", "Focus", "Party", "Upbeat",
         "Happy", "Sad", "Romantic", "Sleep", "Late Night", "Angry",
@@ -525,7 +525,7 @@ private fun DiscoverScreen() {
     )
     var selectedMood by remember { mutableStateOf<String?>(null) }
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle("Discover", "Your music, in a different light")
+        PageTitle("Discover", "Your music, in a different light", onBack)
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -674,7 +674,7 @@ private fun MoodChip(mood: String, selected: Boolean, modifier: Modifier = Modif
 }
 
 @Composable
-private fun PageTitle(title: String, subtitle: String) {
+private fun PageTitle(title: String, subtitle: String, onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(
@@ -685,7 +685,7 @@ private fun PageTitle(title: String, subtitle: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                Modifier.size(36.dp).clip(CircleShape).clickable { }
+                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack)
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
