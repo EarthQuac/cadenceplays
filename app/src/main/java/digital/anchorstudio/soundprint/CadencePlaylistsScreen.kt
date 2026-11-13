@@ -593,7 +593,7 @@ private fun SmartPlaylistEditorDialog(
                     limitText = it.filter(Char::isDigit).take(4)
                     onDraftChange(draft.copy(limit = limitText.toIntOrNull()?.coerceIn(1, 1000)))
                 }, singleLine = true, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Limit (optional)") })
-                Text("Mood label and energy rules are evaluated from saved on-device CLAP profiles. A scan fills in missing profiles in the background.", fontSize = 10.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Mood label and energy rules use saved on-device CLAP profiles. CLAP does not estimate BPM or read lyrics, so Tempo and Has lyrics conditions will not match until those data sources are added.", fontSize = 10.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
