@@ -158,10 +158,10 @@ class MusicLibraryDatabase(context: Context) :
         if(favoritesOnly) clauses += "is_favorite=1"
         if(query.isNotBlank()) {
             clauses += "(title LIKE ? OR artist LIKE ? OR album LIKE ? OR album_artist LIKE ? OR genre LIKE ? OR folder LIKE ?)"
-            repeat(6) { args += "%\${query.trim()}%" }
+            repeat(6) { args += "%${query.trim()}%" }
         }
         val direction=if(ascending) "ASC" else "DESC"
-        return readableDatabase.rawQuery("SELECT * FROM tracks WHERE \${clauses.joinToString(" AND ")} ORDER BY $order $direction",args.toTypedArray())
+        return readableDatabase.rawQuery("SELECT * FROM tracks WHERE ${clauses.joinToString(" AND ")} ORDER BY $order $direction",args.toTypedArray())
             .use { c -> buildList { while(c.moveToNext()) add(c.toMusicTrack()) } }
     }
 
@@ -279,10 +279,10 @@ class MusicLibraryDatabase(context: Context) :
             id=s("id"),uri=s("uri"),title=s("title"),artist=s("artist"),album=s("album"),albumArtist=s("album_artist"),
             genre=s("genre"),durationMs=n("duration_ms"),trackNumber=n("track_number").toInt(),year=n("year").toInt(),
             mimeType=s("mime_type"),sizeBytes=n("size_bytes"),modifiedAt=n("modified_at"),folder=s("folder"),
-            artworkUri=s("artwork_uri"),addedAt=n("added_at"),isFavorite=n("is_favorite")==1,playCount=n("play_count").toInt(),
+            artworkUri=s("artwork_uri"),addedAt=n("added_at"),isFavorite=n("is_favorite")==1L,playCount=n("play_count").toInt(),
             lastPlayedAt=if(isNull(last)) null else getLong(last),bitrate=n("bitrate").toInt(),sampleRate=n("sample_rate").toInt(),
             channelCount=n("channel_count").toInt(),discNumber=n("disc_number").toInt(),contentHash=s("content_hash"),
-            duplicateOf=s("duplicate_of"),sourceUri=s("source_uri"),isAvailable=n("is_available")==1
+            duplicateOf=s("duplicate_of"),sourceUri=s("source_uri"),isAvailable=n("is_available")==1L
         )
     }
 }
@@ -464,7 +464,7 @@ class MusicLibraryRepository(context:Context) {
     private fun cacheArtwork(bytes:ByteArray,uri:String):String? = runCatching {
         if(!artworkDir.exists()) artworkDir.mkdirs()
         val key=MessageDigest.getInstance("SHA-256").digest(uri.toByteArray()).joinToString("") { "%02x".format(it) }
-        val target=java.io.File(artworkDir,"\${key}.jpg")
+        val target=java.io.File(artworkDir,"${key}.jpg")
         if(!target.exists()) target.writeBytes(bytes)
         target.absolutePath
     }.getOrNull()
