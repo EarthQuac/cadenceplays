@@ -128,7 +128,7 @@ fun ProScreen(onBack: () -> Unit, entitled: Boolean = false, trialEndsAt: String
 
 @Composable
 private fun ProPageHeader(onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
             Text("‹", fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
         }
@@ -136,7 +136,7 @@ private fun ProPageHeader(onBack: () -> Unit) {
             Text("Cadence Pro", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
         }
     }
-    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -170,7 +170,7 @@ private fun ProFounderOffer(onClaim: (() -> Unit)?) {
         Text("Founder Access is staying. The first 100 eligible accounts can claim lifetime Pro at no cost while spots remain.",
             fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.07f))
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f), RoundedCornerShape(24.dp)).padding(16.dp)) {
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), RoundedCornerShape(24.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Headphones, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -209,7 +209,7 @@ private fun ProPlanCard(title: String, price: String, cadence: String, descripti
                         featured: Boolean, modifier: Modifier = Modifier, icon: ImageVector) {
     Column(modifier.clip(RoundedCornerShape(20.dp))
         .background(if (featured) MaterialTheme.colorScheme.primary.copy(alpha = 0.055f) else MaterialTheme.colorScheme.surface)
-        .border(1.dp, if (featured) MaterialTheme.colorScheme.primary.copy(alpha = 0.36f) else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+        .border(1.dp, if (featured) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
         .padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
@@ -237,7 +237,7 @@ private fun ProPlanCard(title: String, price: String, cadence: String, descripti
 @Composable
 private fun ProTrialCard(onStartTrial: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(20.dp)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.Top) {
             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center) {
@@ -278,7 +278,7 @@ private fun ProTutorialSection() {
 private fun ProGuideRow(number: Int, guide: ProGuide) {
     var expanded by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
-        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(16.dp))) {
+        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(16.dp))) {
         Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
                 Text(number.toString(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
@@ -328,7 +328,7 @@ private fun ProFeaturesGrid() {
         }
         proFeatures.forEach { feature ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.75f), RoundedCornerShape(18.dp)).padding(14.dp),
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(18.dp)).padding(14.dp),
                 verticalAlignment = Alignment.Top) {
                 Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                     contentAlignment = Alignment.Center) {
