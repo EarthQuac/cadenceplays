@@ -241,7 +241,7 @@ private fun ProTrialCard(onStartTrial: (() -> Unit)?) {
         Row(verticalAlignment = Alignment.Top) {
             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.WorkspacePremium, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
+                Icon(Icons.Filled.Headphones, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text("Try Pro for 14 days", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
@@ -349,7 +349,7 @@ private fun ProActiveCard(trialEndsAt: String?) {
         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(24.dp)).padding(18.dp)) {
         Row(Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.WorkspacePremium, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Headphones, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(7.dp))
             Text("Pro active", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
