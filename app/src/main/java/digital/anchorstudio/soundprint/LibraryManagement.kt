@@ -303,19 +303,19 @@ class MusicLibraryManager(context:Context) {
         return evaluateNativeSmartPlaylist(playlist,SmartPlaylistContext(repository.tracks(),listeningStats(),state.history(10000),resolvedProfiles))
     }
 
-    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint)=repository.saveSoundprintFingerprint(fingerprint)
-    fun soundprintFingerprint(trackId:String,size:Long,modifiedAt:Long)=repository.soundprintFingerprint(trackId,size,modifiedAt)
-    fun deleteSoundprintFingerprint(trackId:String)=repository.deleteSoundprintFingerprint(trackId)
+    fun saveTwinSenseFingerprint(fingerprint:TwinSenseFingerprint)=repository.saveTwinSenseFingerprint(fingerprint)
+    fun twinSenseFingerprint(trackId:String,size:Long,modifiedAt:Long)=repository.twinSenseFingerprint(trackId,size,modifiedAt)
+    fun deleteTwinSenseFingerprint(trackId:String)=repository.deleteTwinSenseFingerprint(trackId)
 
     fun moveToRecycleBin(id:String,reason:String="user") {
-        require(repository.track(id)!=null) { "Song not found." };repository.moveToSoundprintTrash(id);state.addRecycleBinEntry(id,reason)
+        require(repository.track(id)!=null) { "Song not found." };repository.moveToTwinSenseTrash(id);state.addRecycleBinEntry(id,reason)
     }
     fun recycleBin():List<RecycleBinEntry> {
         purgeExpiredRecycleBin()
         return state.recycleBin().mapNotNull { (id,removed,reason) -> repository.track(id)?.let { RecycleBinEntry(it,removed,reason) } }
     }
     fun restoreFromRecycleBin(id:String) {
-        check(state.recycleBin().any { it.first==id }) { "Recycle Bin item not found." };repository.restoreFromSoundprintTrash(id);state.removeRecycleBinEntry(id)
+        check(state.recycleBin().any { it.first==id }) { "Recycle Bin item not found." };repository.restoreFromTwinSenseTrash(id);state.removeRecycleBinEntry(id)
     }
     /** Removes Soundprint's record only. The original audio file in Android storage is untouched. */
     fun permanentlyRemoveFromLibrary(id:String) { state.removeRecycleBinEntry(id);state.removeTrackReferences(id);repository.removeTrackRecord(id) }
