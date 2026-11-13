@@ -426,15 +426,19 @@ private fun SoundprintApp(
                 } else {
                     when (selectedTab) {
                         0 -> HomeScreen(
+                            libraryManager = libraryManager,
+                            playback = playbackConnection,
+                            libraryTrackCount = libraryTrackCount,
                             onSettings = { settingsOpen = true },
                             onImportAudio = onImportFiles,
                             onImportSingle = onImportSingle,
                             onImportFolder = onImportMusic,
                             onRescan = onRescan,
                             onListeningStats = { statsOpen = true },
-                            onOpenPro = { proOpen = true }
+                            onOpenPro = { proOpen = true },
+                            onOpenSongs = { selectedTab = 1 }
                         )
-                        1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
+                        1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, playbackConnection, onImportFiles) { selectedTab = 0 }
                         2 -> SoundprintAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
                         3 -> SoundprintPlaylistsScreen(libraryManager, playbackConnection, clapScanner)
                         else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
@@ -599,81 +603,71 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HomeScreen(
-    modifier: Modifier = Modifier,
+    libraryManager: MusicLibraryManager,
+    playback: SoundprintPlaybackConnection,
+    libraryTrackCount: Int,
     onSettings: () -> Unit,
     onImportAudio: () -> Unit,
     onImportSingle: () -> Unit,
     onImportFolder: () -> Unit,
     onRescan: () -> Unit,
     onListeningStats: () -> Unit,
-    onOpenPro: () -> Unit
+    onOpenPro: () -> Unit,
+    onOpenSongs: () -> Unit
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    var searchOpen by remember { mutableStateOf(false) }
+    if (searchOpen) {
+        HomeSearchScreen(libraryManager, playback) { searchOpen = false }
+        return
+    }
+    val recentTracks = remember(libraryTrackCount) {
+        libraryManager.allSongs(sort = TrackSort.DATE_ADDED, ascending = false).take(8)
+    }
+    Column(Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 12.dp, end = 12.dp,
-                    top = 20.dp,
-                    bottom = 16.dp
-                ),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Image(
-                    painter = painterResource(id = R.drawable.soundprint_icon),
-                    contentDescription = "Soundprint",
-                    modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
-                )
+                Image(painterResource(R.drawable.soundprint_icon), "Soundprint", Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("YOUR LIBRARY", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                     Text("Soundprint", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
                 HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = onListeningStats)
                 HeaderAction(R.drawable.lucide_crown, "Soundprint Pro", tint = MaterialTheme.colorScheme.primary, onClick = onOpenPro)
-                HeaderAction(R.drawable.lucide_search, "Search", onClick = {})
+                HeaderAction(R.drawable.lucide_search, "Search", onClick = { searchOpen = true })
                 HeaderAction(R.drawable.lucide_settings, "Settings", onClick = onSettings)
             }
         }
-
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            Modifier.weight(1f).fillMaxWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
+            if (libraryTrackCount == 0) item {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(22.dp))
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
                         .background(MaterialTheme.colorScheme.surface)
                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(22.dp))
                         .padding(20.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(painterResource(R.drawable.lucide_music), null, modifier = Modifier.size(20.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Image(painterResource(R.drawable.lucide_music), null, Modifier.size(20.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
                     }
                     Spacer(Modifier.height(24.dp))
                     Text("A FRESH START", fontSize = 12.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Text("Your music goes here.", fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Add the songs already on your device. Your library stays yours, and you can organise it into albums, playlists and favourites as you go.",
-                        fontSize = 14.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("Add the songs already on your device. Your library stays yours, and you can organise it into albums, playlists and favourites as you go.", fontSize = 14.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(24.dp))
                     AddMusicMenuButton(
                         modifier = Modifier.fillMaxWidth().height(44.dp),
@@ -685,14 +679,79 @@ private fun HomeScreen(
                     Spacer(Modifier.height(28.dp))
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         FeatureLabel(R.drawable.lucide_music, "Your own music")
                         FeatureLabel(R.drawable.lucide_list_music, "Playlists that fit")
                         FeatureLabel(R.drawable.lucide_headphones, "Listen offline")
+                    }
+                }
+            } else item {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("YOUR MUSIC", fontSize = 10.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                            Text("$libraryTrackCount songs in your library", fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+                        }
+                        TextButton(onClick = onOpenSongs) { Text("See all") }
+                    }
+                    recentTracks.forEachIndexed { index, track ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(MaterialTheme.colorScheme.surface)
+                                .clickable { playback.playTracks(recentTracks, index) }.padding(11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            NativeArtwork(track.artworkUri, track.id, Modifier.size(44.dp), 10)
+                            Spacer(Modifier.width(11.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                                Text(track.artist, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    OutlinedButton(onClick = onImportAudio, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text("Add more music")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeSearchScreen(library: MusicLibraryManager, playback: SoundprintPlaybackConnection, onBack: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var songs by remember { mutableStateOf(emptyList<MusicTrack>()) }
+    var loading by remember { mutableStateOf(false) }
+    LaunchedEffect(query) {
+        loading = true
+        songs = withContext(Dispatchers.IO) { if (query.isBlank()) emptyList() else library.searchSongs(query) }
+        loading = false
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            HeaderAction(R.drawable.lucide_arrow_left, "Back", onClick = onBack)
+            Spacer(Modifier.width(8.dp))
+            Text("Search your music", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+        }
+        SearchBox(query, { query = it }, "Songs, artists, albums or genres…")
+        when {
+            query.isBlank() -> Text("Search songs, artists, albums and genres in your library.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            loading -> Text("Searching…", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            songs.isEmpty() -> Text("No matches found.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                items(songs.size) { index ->
+                    val track = songs[index]
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { playback.playTracks(songs, index) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        NativeArtwork(track.artworkUri, track.id, Modifier.size(42.dp), 9)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -775,11 +834,12 @@ private fun LibraryScreen(
     subtitle: String,
     icon: ImageVector,
     libraryManager: MusicLibraryManager,
+    playback: SoundprintPlaybackConnection,
     onImportFiles: () -> Unit,
     onBack: () -> Unit
 ) {
     when (title) {
-        "Songs" -> SongsScreen(libraryManager, onImportFiles, onBack)
+        "Songs" -> SongsScreen(libraryManager, playback, onImportFiles, onBack)
         "Albums" -> AlbumsScreen(onBack)
         else -> PlaylistsScreen(onBack)
     }
@@ -788,10 +848,11 @@ private fun LibraryScreen(
 @Composable
 private fun SongsScreen(
     libraryManager: MusicLibraryManager,
+    playback: SoundprintPlaybackConnection,
     onImportFiles: () -> Unit,
     onBack: () -> Unit
 ) {
-    SongsLibraryScreen(libraryManager, onImportFiles, onBack)
+    SongsLibraryScreen(libraryManager, playback, onImportFiles, onBack)
 }
 
 @Composable
