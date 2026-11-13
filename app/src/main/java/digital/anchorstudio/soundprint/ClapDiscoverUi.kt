@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -371,34 +371,37 @@ fun ClapDiscoverScreen(
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text("‹", modifier = Modifier.clip(CircleShape).clickable(onClick = onBack).padding(horizontal = 12.dp, vertical = 4.dp), fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
             Column(Modifier.weight(1f)) {
-                Text("DISCOVER", fontSize = 10.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                Text("Find your next mood.", fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text("Discover", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onSurface)
+                Text("Your library, in a different light", modifier = Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            androidx.compose.material3.Icon(Icons.Filled.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(25.dp))
+            androidx.compose.material3.Icon(Icons.Filled.Explore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(21.dp))
         }
         Text(
-            "Choose a mood to find songs from your library that fit.",
-            modifier = Modifier.padding(top = 6.dp, bottom = 18.dp),
+            "Find your next mood.",
+            modifier = Modifier.padding(top = 22.dp),
+            fontSize = 26.sp, lineHeight = 31.sp, fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            "Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.",
+            modifier = Modifier.padding(top = 6.dp, bottom = 22.dp),
             fontSize = 13.sp, lineHeight = 19.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Spacer(Modifier.height(22.dp))
-        Text("CHOOSE A MOOD", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("What are you in the mood for?", modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Choose a mood", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Text("Tap one to jump straight to matching songs.", modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             SoundprintMood.entries.forEach { mood ->
                 val active = selectedMood == mood
                 Text(
                     mood.title,
                     modifier = Modifier.clip(CircleShape)
-                        .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                        .border(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                        .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .border(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), CircleShape)
                         .clickable { selectedMood = mood }
-                        .padding(horizontal = 13.dp, vertical = 9.dp),
-                    fontSize = 12.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    fontSize = 11.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                     color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -448,8 +451,6 @@ fun ClapDiscoverScreen(
                             Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(track.artist, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("${(score.coerceAtMost(1f) * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(6.dp))
                         var expanded by remember(track.id) { mutableStateOf(false) }
                         androidx.compose.foundation.layout.Box {
                             Text("···", modifier = Modifier.clickable { expanded = true }.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
