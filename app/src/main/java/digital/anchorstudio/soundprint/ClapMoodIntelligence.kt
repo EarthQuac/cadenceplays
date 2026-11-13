@@ -19,15 +19,15 @@ private const val CLAP_TEXT_MODEL_SHA256 = "8f9f29c5f6adee917553d4b3a70729c731c0
 
 enum class SoundprintMood(val id: String, val title: String, val prompt: String) {
     WORKOUT("workout","Workout","high-energy workout music with a driving beat, powerful drums and intense rhythm"),
-    UPBEAT("upbeat","Upbeat","bright upbeat lively music with an energetic and cheerful sound"),
+    DRIVING("driving","Driving","engaging road trip music with a steady pulse and balanced energy"),
     CHILL("chill","Chill","relaxed mellow chill music with a soft groove and gentle energy"),
     FOCUS("focus","Focus","steady unobtrusive instrumental music suitable for concentration and studying"),
-    SLEEP("sleep","Sleep","very soft slow calming music suitable for falling asleep"),
-    DRIVING("driving","Driving","engaging road trip music with a steady pulse and balanced energy"),
     PARTY("party","Party","dance floor party music with a strong beat and exciting rhythm"),
+    UPBEAT("upbeat","Upbeat","bright upbeat lively music with an energetic and cheerful sound"),
     HAPPY("happy","Happy","joyful positive cheerful music with a bright uplifting sound"),
     SAD("sad","Sad","sad emotional music with a gentle reflective and sorrowful feeling"),
     ROMANTIC("romantic","Romantic","warm intimate romantic love music with a tender expressive sound"),
+    SLEEP("sleep","Sleep","very soft slow calming music suitable for falling asleep"),
     LATE_NIGHT("late-night","Late Night","moody atmospheric late night music with a deep mellow sound"),
     ANGRY("angry","Angry","aggressive hard-hitting angry music with forceful drums and distorted intensity"),
     DREAMY("dreamy","Dreamy","dreamy hazy floating atmospheric music with spacious textures"),
