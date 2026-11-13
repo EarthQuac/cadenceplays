@@ -14,7 +14,7 @@ import kotlin.coroutines.coroutineContext
 
 const val CLAP_MODEL_VERSION = "larger-clap-music-speech-56bcfdb-v1"
 private const val CLAP_MODEL_BASE = "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/56bcfdb/"
-private const val CLAP_AUDIO_MODEL_SHA256 = "021dd4fb962b4ed20cc3a6730b09e0ccf9c49931047032118a3b64828513a6"
+private const val CLAP_AUDIO_MODEL_SHA256 = "021dd4fb962b4ed20cc3a6730b09e0ccf9f9c49931047032118a3b64828513a6"
 private const val CLAP_TEXT_MODEL_SHA256 = "8f9f29c5f6adee917553d4b3a70729c731c0d18b88efca0ae67c1a1fc278f3b6"
 
 enum class SoundprintMood(val id: String, val title: String, val prompt: String) {
