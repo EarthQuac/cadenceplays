@@ -266,6 +266,13 @@ fun ClapDiscoverScreen(
         tracks = loaded.first
         profiles = loaded.second
     }
+    androidx.compose.runtime.LaunchedEffect(tracks.size, profiles.size) {
+        // Once the one-time model download has been approved and installed,
+        // opening Discover automatically fills any missing mood profiles.
+        if (tracks.isNotEmpty() && scanner.modelInstalled() && profiles.size < tracks.size) {
+            scanner.startScan()
+        }
+    }
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
     var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
