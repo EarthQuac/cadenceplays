@@ -123,8 +123,8 @@ private val smartFields = listOf(
     SmartField.DURATION to ("Duration (seconds)" to "number"),
     SmartField.FAVORITE to ("Favorite" to "boolean"),
     SmartField.HAS_LYRICS to ("Has lyrics" to "boolean"),
-    SmartField.MOOD_LABEL to ("CLAP mood" to "text"),
-    SmartField.ENERGY to ("CLAP energy (0–100)" to "number"),
+    SmartField.MOOD_LABEL to ("Mood" to "text"),
+    SmartField.ENERGY to ("Energy (0–100)" to "number"),
     SmartField.TEMPO to ("Tempo (BPM)" to "number")
 )
 
