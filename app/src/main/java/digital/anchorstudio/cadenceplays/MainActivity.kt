@@ -59,6 +59,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -722,49 +723,115 @@ private fun SettingsScreen(
     onPaletteChange: (String) -> Unit,
     onBack: () -> Unit
 ) {
+    var query by remember { mutableStateOf("") }
+    var gapless by remember { mutableStateOf(true) }
+    var fadeOnPause by remember { mutableStateOf(false) }
+    var loudness by remember { mutableStateOf(true) }
+    var resume by remember { mutableStateOf(true) }
+    var rememberPosition by remember { mutableStateOf(true) }
+    var replaceQueue by remember { mutableStateOf(false) }
+    var autoAdd by remember { mutableStateOf(true) }
+    val needle = query.trim().lowercase()
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                start = 18.dp, end = 18.dp,
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 14.dp,
-                bottom = 16.dp
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onBack) { Text("Back", color = MaterialTheme.colorScheme.primary) }
-            Spacer(Modifier.width(8.dp))
-            Text("Settings", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-        }
+        PageTitle("Settings", "", onBack)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            item {
-                SettingsSection("APPEARANCE") {
-                    Column(Modifier.padding(15.dp)) {
-                        Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            ThemeChoice(Modifier.weight(1f), "System", themeMode == "system") { onThemeModeChange("system") }
-                            ThemeChoice(Modifier.weight(1f), "Light", themeMode == "light") { onThemeModeChange("light") }
-                            ThemeChoice(Modifier.weight(1f), "Dark", themeMode == "dark") { onThemeModeChange("dark") }
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(10.dp))
-                        listOf("Amber", "Blue", "Emerald", "Mono").forEach { name ->
-                            PaletteChoice(name, selectedPalette == name) { onPaletteChange(name) }
+            item { SearchBox(query, { query = it }, "Search settings…") }
+            if (needle.isEmpty() || "appearance theme colour palette amber blue emerald mono".contains(needle)) {
+                item {
+                    SettingsSection("APPEARANCE") {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                            Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.height(9.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ThemeChoice(Modifier.weight(1f), "System", R.drawable.lucide_sun_moon, themeMode == "system") { onThemeModeChange("system") }
+                                ThemeChoice(Modifier.weight(1f), "Light", R.drawable.lucide_sun, themeMode == "light") { onThemeModeChange("light") }
+                                ThemeChoice(Modifier.weight(1f), "Dark", R.drawable.lucide_moon, themeMode == "dark") { onThemeModeChange("dark") }
+                            }
+                            Spacer(Modifier.height(18.dp))
+                            Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.height(9.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    PaletteChoice("Amber", selectedPalette == "Amber", Modifier.weight(1f)) { onPaletteChange("Amber") }
+                                    PaletteChoice("Blue & white", selectedPalette == "Blue", Modifier.weight(1f)) { onPaletteChange("Blue") }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    PaletteChoice("Emerald", selectedPalette == "Emerald", Modifier.weight(1f)) { onPaletteChange("Emerald") }
+                                    PaletteChoice("Mono", selectedPalette == "Mono", Modifier.weight(1f)) { onPaletteChange("Mono") }
+                                }
+                            }
                         }
                     }
                 }
             }
-            item {
-                SettingsSection("ABOUT CADENCE") {
-                    Column(Modifier.padding(15.dp)) {
-                        Text("Offline-first music player", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Your music library, organised around the music already on your device.", fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (needle.isEmpty() || "audio gapless playback fade pause loudness leveling equalizer crossfade".contains(needle)) {
+                item {
+                    SettingsSection("AUDIO") {
+                        SettingsToggleRow("Gapless playback", "Preloads the next track to reduce the gap", gapless) { gapless = it }
+                        SettingsToggleRow("Fade on pause", "Short fade instead of an abrupt stop", fadeOnPause) { fadeOnPause = it }
+                        SettingsToggleRow("Loudness leveling", "Smooths playback volume between tracks", loudness) { loudness = it }
+                        SettingsActionRow("Equalizer", "Adjust your sound with the 10-band EQ", "Open")
+                    }
+                }
+            }
+            if (needle.isEmpty() || "playback resume position double tap seek".contains(needle)) {
+                item {
+                    SettingsSection("PLAYBACK") {
+                        SettingsToggleRow("Resume playback", "Restore the last song when Cadence opens", resume) { resume = it }
+                        SettingsToggleRow("Remember position", "Continue from where you stopped", rememberPosition) { rememberPosition = it }
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("Double-tap to seek", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Choose how far to skip on the Now Playing artwork.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 10.dp)) {
+                                listOf("5s", "10s", "15s", "20s").forEach { value -> ThemeChoice(Modifier.weight(1f), value, null, value == "10s") {} }
+                            }
+                        }
+                    }
+                }
+            }
+            if (needle.isEmpty() || "queue replace auto add discovered songs".contains(needle)) {
+                item {
+                    SettingsSection("QUEUE") {
+                        SettingsToggleRow("Replace queue on play", "Playing a list clears the previous queue", replaceQueue) { replaceQueue = it }
+                        SettingsToggleRow("Auto-add newly discovered songs", "New imports join your library automatically", autoAdd) { autoAdd = it }
+                    }
+                }
+            }
+            if (needle.isEmpty() || "music intelligence mood scan clap background".contains(needle)) {
+                item {
+                    SettingsSection("MUSIC INTELLIGENCE") {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("CLAP scan status", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Your library mood profiles are saved on this device.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(12.dp))
+                            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
+                            Text("0 songs analysed · 0 pending", modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            if (needle.isEmpty() || "library add music rescan artwork backup".contains(needle)) {
+                item {
+                    SettingsSection("LIBRARY") {
+                        SettingsActionRow("Your music", "0 songs stored on this device", "Add")
+                        SettingsActionRow("Rescan folders", "Check imported folders for new songs", "Rescan")
+                        SettingsActionRow("Audio tag editor", "Edit title, artist, album and genre", "Open")
+                        SettingsActionRow("Playback history", "Recently played songs and listening statistics", "View")
+                    }
+                }
+            }
+            if (needle.isEmpty() || "about cadence offline music player".contains(needle)) {
+                item {
+                    SettingsSection("ABOUT CADENCE") {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Offline-first music player", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Your music library, organised around the music already on your device.", fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
