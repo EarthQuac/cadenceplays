@@ -12,7 +12,9 @@ enum class HistoryEventType { PLAY, SKIP }
 data class LibraryHistoryEvent(val id:Long,val trackId:String,val type:HistoryEventType,val timestamp:Long,val positionMs:Long,val durationMs:Long)
 data class LibraryListeningStats(val trackId:String,val plays:Int,val skips:Int,val lastPlayedAt:Long?,val totalListenedMs:Long)
 data class ManagedPlaylist(val id:String,val name:String,val trackIds:List<String>,val createdAt:Long,val updatedAt:Long)
-data class RecycleBinEntry(val track:MusicTrack,val removedAt:Long,val reason:String,val expiresAt:Long get()=removedAt+RECYCLE_BIN_RETENTION_MS)
+data class RecycleBinEntry(val track:MusicTrack,val removedAt:Long,val reason:String) {
+    val expiresAt:Long get()=removedAt+RECYCLE_BIN_RETENTION_MS
+}
 data class LibraryAlbum(val id:String,val name:String,val artist:String,val tracks:List<MusicTrack>,val artworkUri:String?,val durationMs:Long)
 data class LibraryArtist(val name:String,val tracks:List<MusicTrack>,val albums:Int)
 data class LibraryCategory(val name:String,val tracks:List<MusicTrack>)
@@ -234,7 +236,7 @@ class MusicLibraryManager(context:Context) {
     fun recordSkip(id:String,positionMs:Long,durationMs:Long) {
         require(repository.track(id)!=null) { "Song not found." };state.addHistory(id,HistoryEventType.SKIP,positionMs,durationMs)
     }
-    fun listeningHistory(limit:Int=100):List<Pair<LibraryHistoryEvent,MusicTrack?>>=state.history(limit).map { it to repository.track(it.trackId) }.filter { it.second!=null }
+    fun listeningHistory(limit:Int=100):List<Pair<LibraryHistoryEvent,MusicTrack?>> = state.history(limit).map { it to repository.track(it.trackId) }.filter { it.second!=null }
     fun trackHistory(id:String,limit:Int=100)=state.history(limit,id)
     fun listeningStats()=state.stats()
     fun clearListeningHistory() { state.clearHistory();repository.tracks().forEach { repository.resetPlayStats(it.id) } }
