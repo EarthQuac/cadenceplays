@@ -604,7 +604,7 @@ object SoundprintCleanupPlanner {
         (if (track.artist.isNotBlank() && track.artist != "Unknown artist") 6 else 0) +
         (if (track.album.isNotBlank() && track.album != "Unknown album") 4 else 0) +
         (if (track.durationMs > 0) 3 else 0) +
-        (if (track.bitrate > 0) 2 else 0) +
+        (track.bitrate / 32_000).coerceIn(0, 20) +
         (if (track.sampleRate > 0) 2 else 0) +
         (if (track.channelCount > 0) 1 else 0) +
         (if (!track.artworkUri.isNullOrBlank()) 2 else 0) +
