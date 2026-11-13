@@ -767,7 +767,7 @@ class MusicLibraryRepository(context:Context) {
         val payload=JSONObject().put("trackId",track.id).put("sourceSize",track.sizeBytes)
             .put("sourceModifiedAt",track.modifiedAt).put("modelVersion",modelVersion)
             .put("analyzedAt",System.currentTimeMillis()).put("scores",JSONObject().apply { scores.forEach { (key,value) -> put(key,value.toDouble()) } })
-        db.saveAnalysis("clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:$modelVersion",payload.toString(),track.sizeBytes,track.mimeType)
+        db.saveAnalysis("clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.mimeType}:$modelVersion",payload.toString(),track.sizeBytes,track.mimeType)
     }
     fun clapMoodProfile(track:MusicTrack,modelVersion:String):ClapMoodProfile? {
         val key="clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:$modelVersion"

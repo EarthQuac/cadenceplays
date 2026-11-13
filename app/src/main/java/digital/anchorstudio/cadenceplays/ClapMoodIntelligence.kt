@@ -108,7 +108,10 @@ class ClapModelManager(context: Context) {
                     target.delete()
                     val temp = File(modelDir,asset.name + ".download")
                     temp.parentFile?.mkdirs()
-                    download(asset,temp,completed,total,onProgress)
+                    val partialIsComplete = temp.isFile && asset.expectedBytes != null &&
+                        temp.length() >= (asset.expectedBytes * 0.95).toLong() &&
+                        (asset.sha256 == null || sha256(temp) == asset.sha256)
+                    if (!partialIsComplete) download(asset,temp,completed,total,onProgress)
                     if (asset.expectedBytes != null && temp.length() < (asset.expectedBytes * 0.95).toLong()) {
                         temp.delete()
                         error("The downloaded ${asset.name} is incomplete.")
@@ -123,6 +126,11 @@ class ClapModelManager(context: Context) {
                 onProgress(ClapModelInstallProgress(asset.name,completed,total,
                     ((completed * 100L) / total).toInt().coerceIn(0,100)))
             }
+            File(modelDir,"MODEL-NOTICE.txt").writeText(
+                "Cadence includes Xenova/larger_clap_music_and_speech (LAION larger CLAP) quantized ONNX weights. " +
+                "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
+                "Pinned revision: 56bcfdb. Inference is performed locally on this device."
+            )
             File(modelDir,".verified").writeText(CLAP_MODEL_VERSION)
             files()
         }
@@ -150,25 +158,33 @@ class ClapModelManager(context: Context) {
             setRequestProperty("User-Agent","Cadence-Android")
         }
         try {
+            val existingBytes = target.takeIf { it.isFile }?.length() ?: 0L
+            if (existingBytes > 0L) connection.setRequestProperty("Range","bytes=${existingBytes}-")
             connection.connect()
-            check(connection.responseCode in 200..299) { "CLAP download failed (HTTP ${connection.responseCode})." }
-            val stream = BufferedInputStream(connection.inputStream)
-            FileOutputStream(target).use { output ->
-                val buffer = ByteArray(256 * 1024)
-                var assetBytes = 0L
-                while (true) {
-                    coroutineContext.ensureActive()
-                    val count = stream.read(buffer)
-                    if (count < 0) break
-                    output.write(buffer,0,count)
-                    assetBytes += count
-                    val overall = completedBefore + assetBytes
-                    onProgress(ClapModelInstallProgress(asset.name,overall,total,
-                        ((overall * 100L) / total).toInt().coerceIn(0,99)))
-                }
-                output.fd.sync()
+            val response = connection.responseCode
+            check(response == HttpURLConnection.HTTP_OK || response == HttpURLConnection.HTTP_PARTIAL) {
+                "CLAP download failed (HTTP $response)."
             }
-            stream.close()
+            val append = existingBytes > 0L && response == HttpURLConnection.HTTP_PARTIAL
+            if (existingBytes > 0L && !append) target.delete()
+            val startingBytes = if (append) existingBytes else 0L
+            BufferedInputStream(connection.inputStream).use { stream ->
+                FileOutputStream(target,append).use { output ->
+                    val buffer = ByteArray(256 * 1024)
+                    var assetBytes = startingBytes
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val count = stream.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer,0,count)
+                        assetBytes += count
+                        val overall = completedBefore + assetBytes
+                        onProgress(ClapModelInstallProgress(asset.name,overall,total,
+                            ((overall * 100L) / total).toInt().coerceIn(0,99)))
+                    }
+                    output.fd.sync()
+                }
+            }
         } finally {
             connection.disconnect()
         }
