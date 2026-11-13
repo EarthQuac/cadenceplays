@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

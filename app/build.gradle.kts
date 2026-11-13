@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "digital.anchorstudio.soundprint"
+    namespace = "digital.anchorstudio.cadenceplays"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "digital.anchorstudio.soundprint"
+        applicationId = "digital.anchorstudio.cadenceplays"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
