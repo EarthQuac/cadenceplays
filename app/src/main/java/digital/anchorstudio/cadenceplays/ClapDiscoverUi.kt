@@ -62,6 +62,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class ClapLibraryScanState(
@@ -103,37 +104,50 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
 
     fun startScan(retryFailedOnly: Boolean = false) {
         if (scanJob?.isActive == true) return
-        val allTracks = library.allSongs()
-        val allIds = allTracks.map { it.id }.toSet()
-        val failureMap = readFailures().filterKeys { it in allIds }
-        val correctedIds = moodCorrections().keys
-        val requested = if (retryFailedOnly) {
-            allTracks.filter { failureMap.containsKey(it.id) && it.id !in correctedIds }
-        } else {
-            allTracks.filter { it.id !in correctedIds }
-        }
-        val tracks = requested.filter { library.clapMoodProfile(it) == null }
-        if (tracks.isEmpty()) {
-            mutableState.value = mutableState.value.copy(
-                running = false, downloadingModel = false, completed = requested.size,
-                total = requested.size, failed = failureMap.size,
-                failureMessages = failureMap, message = if (requested.isEmpty()) "Your library has no tracks to analyse." else if (retryFailedOnly) "There are no failed tracks to retry." else "All available tracks already have saved CLAP profiles."
-            )
-            return
-        }
+        mutableState.value = mutableState.value.copy(
+            running = true, downloadingModel = false, stage = "Preparing",
+            message = "Preparing offline music intelligence…"
+        )
         scanJob = scope.launch {
-            var done = 0
-            val errors = readFailures().filterKeys { id -> allIds.contains(id) }.toMutableMap()
-            mutableState.value = ClapLibraryScanState(
-                running = true, completed = 0, total = tracks.size,
-                failed = errors.size, failureMessages = errors, message = "Preparing offline music intelligence…"
-            )
-            val engine = ClapOnnxEngine(app)
+            var engine: ClapOnnxEngine? = null
             try {
+                val allTracks = library.allSongs()
+                val allIds = allTracks.map { it.id }.toSet()
+                val errors = readFailures().filterKeys { it in allIds }.toMutableMap()
+                val correctedIds = moodCorrections().keys
+                val requested = if (retryFailedOnly) {
+                    allTracks.filter { errors.containsKey(it.id) && it.id !in correctedIds }
+                } else {
+                    allTracks.filter { it.id !in correctedIds }
+                }
+                val tracks = requested.filter { library.clapMoodProfile(it) == null }
+                if (tracks.isEmpty()) {
+                    mutableState.value = mutableState.value.copy(
+                        running = false, downloadingModel = false, completed = requested.size,
+                        total = requested.size, failed = errors.size, failureMessages = errors,
+                        message = when {
+                            requested.isEmpty() && allTracks.isEmpty() -> "Your library has no tracks to analyse."
+                            requested.isEmpty() && retryFailedOnly -> "There are no failed tracks to retry."
+                            requested.isEmpty() -> "All tracks have a saved manual mood assignment."
+                            retryFailedOnly -> "There are no failed tracks to retry."
+                            else -> "All available tracks already have saved CLAP profiles."
+                        }
+                    )
+                    return@launch
+                }
+
+                var done = 0
+                mutableState.value = ClapLibraryScanState(
+                    running = true, completed = 0, total = tracks.size,
+                    failed = errors.size, failureMessages = errors,
+                    message = "Preparing offline music intelligence…"
+                )
+                engine = ClapOnnxEngine(app)
                 engine.prepare { progress ->
                     mutableState.value = mutableState.value.copy(
                         downloadingModel = true, modelPercent = progress.percent,
-                        stage = "Downloading CLAP model", message = "Installing the offline model · ${progress.currentAsset}"
+                        stage = "Downloading CLAP model",
+                        message = "Installing the offline model · ${progress.currentAsset}"
                     )
                 }
                 mutableState.value = mutableState.value.copy(
@@ -142,29 +156,21 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 )
                 tracks.forEach { track ->
                     kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                    val cached = library.clapMoodProfile(track)
-                    if (cached != null) {
+                    try {
+                        val scores = engine.analyse(track)
+                        library.saveClapMoodProfile(track, scores)
                         errors.remove(track.id)
-                    } else {
-                        mutableState.value = mutableState.value.copy(
-                            currentTitle = track.title, stage = "Decoding and scoring",
-                            message = "Analysing ${track.title}"
-                        )
-                        try {
-                            val scores = engine.analyse(track)
-                            library.saveClapMoodProfile(track, scores)
-                            errors.remove(track.id)
-                        } catch (cancel: CancellationException) {
-                            throw cancel
-                        } catch (error: Exception) {
-                            errors[track.id] = error.message ?: "CLAP could not analyse this audio."
-                        }
-                        writeFailures(errors)
+                    } catch (cancel: CancellationException) {
+                        throw cancel
+                    } catch (error: Exception) {
+                        errors[track.id] = error.message ?: "CLAP could not analyse this audio."
                     }
                     done++
+                    writeFailures(errors)
                     mutableState.value = mutableState.value.copy(
                         completed = done, total = tracks.size, failed = errors.size,
-                        failureMessages = errors.toMap(), currentTitle = track.title
+                        failureMessages = errors.toMap(), currentTitle = track.title,
+                        stage = "Decoding and scoring", message = "Analysing ${track.title}"
                     )
                 }
                 writeFailures(errors)
@@ -175,7 +181,8 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 )
             } catch (cancel: CancellationException) {
                 mutableState.value = mutableState.value.copy(
-                    running = false, downloadingModel = false, message = "Scan paused. Completed profiles are saved and will be reused next time."
+                    running = false, downloadingModel = false,
+                    message = "Scan paused. Completed profiles are saved and will be reused next time."
                 )
                 throw cancel
             } catch (error: Exception) {
@@ -184,7 +191,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                     message = error.message ?: "CLAP could not be prepared on this device."
                 )
             } finally {
-                engine.close()
+                engine?.close()
             }
         }
     }
@@ -246,9 +253,18 @@ fun ClapDiscoverScreen(
     onBack: () -> Unit
 ) {
     val scan by scanner.state.collectAsState()
-    val tracks = remember { libraryManager.allSongs() }
-    val profiles = remember(tracks, scan.completed, scan.failed, scan.running) {
-        tracks.mapNotNull { track -> libraryManager.clapMoodProfile(track)?.let { track.id to it } }.toMap()
+    var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
+    var profiles by remember { mutableStateOf(emptyMap<String,ClapMoodProfile>()) }
+    androidx.compose.runtime.LaunchedEffect(scan.completed, scan.failed, scan.running) {
+        val loaded = withContext(Dispatchers.IO) {
+            val allTracks = libraryManager.allSongs()
+            val allProfiles = allTracks.mapNotNull { track ->
+                libraryManager.clapMoodProfile(track)?.let { track.id to it }
+            }.toMap()
+            allTracks to allProfiles
+        }
+        tracks = loaded.first
+        profiles = loaded.second
     }
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
     var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
