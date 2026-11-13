@@ -347,9 +347,8 @@ fun ClapDiscoverScreen(
         if (profile != null) profiles = profiles + (id to profile)
     }
     androidx.compose.runtime.LaunchedEffect(tracks.size, profiles.size) {
-        // Once the one-time model download has been approved and installed,
-        // opening Discover automatically fills any missing mood profiles.
-        if (tracks.isNotEmpty() && scanner.modelInstalled() && profiles.size < tracks.size) {
+        // Fill missing mood matches quietly while the library is available.
+        if (tracks.isNotEmpty() && profiles.size < tracks.size && !scan.running) {
             scanner.startScan()
         }
     }
@@ -379,45 +378,12 @@ fun ClapDiscoverScreen(
             }
             androidx.compose.material3.Icon(Icons.Filled.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(25.dp))
         }
-        Text("CLAP matches the sound of your own music. Your library stays on this device.", modifier = Modifier.padding(top = 6.dp, bottom = 18.dp), fontSize = 13.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp)).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("OFFLINE MUSIC INTELLIGENCE", fontSize = 10.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text(if (scanner.modelInstalled()) "CLAP model installed" else "Install the CLAP model", modifier = Modifier.padding(top = 5.dp), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (scanner.modelInstalled()) "Mood analysis runs locally, without a connection." else "One-time model download · about 205 MB", modifier = Modifier.padding(top = 3.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (scan.running) {
-                    OutlinedButton(onClick = scanner::pause) { androidx.compose.material3.Icon(Icons.Filled.Pause, null); Spacer(Modifier.width(5.dp)); Text("Pause") }
-                } else {
-                    Button(onClick = { scanner.startScan() }, enabled = tracks.isNotEmpty()) { Text(if (profiles.isEmpty()) "Scan library" else "Scan missing") }
-                }
-            }
-            if (scan.downloadingModel) {
-                Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(progress = { scan.modelPercent / 100f }, modifier = Modifier.fillMaxWidth())
-                Text("Downloading model · ${scan.modelPercent}%", modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else if (scan.running || scan.total > 0) {
-                Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(progress = { scan.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${scan.completed} of ${scan.total} analysed", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${scan.percent}%", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                }
-                if (scan.stage.isNotBlank()) Text(scan.stage, modifier = Modifier.padding(top = 5.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (scan.currentTitle.isNotBlank()) Text("Now analysing · ${scan.currentTitle}", modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (scan.message.isNotBlank()) Text(scan.message, modifier = Modifier.padding(top = 10.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${profiles.size} ready · ${scan.pending} queued", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${scan.failureMessages.size} need retry", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (scan.failureMessages.isNotEmpty() && !scan.running) {
-                    TextButton(onClick = scanner::retryFailed) { androidx.compose.material3.Icon(Icons.Filled.Refresh, null); Text("Retry failed") }
-                }
-            }
-        }
+        Text(
+            "Choose a mood to find songs from your library that fit.",
+            modifier = Modifier.padding(top = 6.dp, bottom = 18.dp),
+            fontSize = 13.sp, lineHeight = 19.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Spacer(Modifier.height(22.dp))
         Text("CHOOSE A MOOD", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -472,7 +438,7 @@ fun ClapDiscoverScreen(
                 }
             }
             if (recommendations.isEmpty()) {
-                Text(if (profiles.isEmpty()) "Scan your library to build mood matches." else "No analysed tracks match this mood yet.", modifier = Modifier.padding(vertical = 16.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("No matches yet.", modifier = Modifier.padding(vertical = 16.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 recommendations.forEachIndexed { index, (track, score) ->
                     Row(Modifier.fillMaxWidth().clickable { playback.playTracks(recommendations.map { it.first }, startIndex = index) }.padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -499,10 +465,10 @@ fun ClapDiscoverScreen(
                         Column(Modifier.fillMaxWidth().padding(start = 33.dp, end = 8.dp, bottom = 10.dp)) {
                             Text("SONG INSIGHTS", fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                             if (profile != null) {
-                                Text("Strongest CLAP mood · ${profile.primaryMood?.title ?: "Unclassified"}", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Other audio matches · " + profile.scores.entries.sortedByDescending { it.value }.drop(1).take(3).joinToString(" · ") { "${SoundprintMood.entries.firstOrNull { mood -> mood.id == it.key }?.title ?: it.key} ${(it.value * 100).toInt()}%" }, modifier = Modifier.padding(top = 3.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Primary mood · ${profile.primaryMood?.title ?: "Unclassified"}", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Other moods · " + profile.scores.entries.sortedByDescending { it.value }.drop(1).take(3).joinToString(" · ") { "${SoundprintMood.entries.firstOrNull { mood -> mood.id == it.key }?.title ?: it.key} ${(it.value * 100).toInt()}%" }, modifier = Modifier.padding(top = 3.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
-                                Text("This song was assigned a mood manually because its audio could not be analysed.", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("This song has a manually selected mood.", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -513,7 +479,7 @@ fun ClapDiscoverScreen(
 
         if (scan.failureMessages.isNotEmpty()) {
             Spacer(Modifier.height(22.dp))
-            Text("TRACKS THAT NEED ATTENTION", fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("SONGS WITHOUT A MATCH", fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             scan.failureMessages.forEach { (id, message) ->
                 val track = tracks.firstOrNull { it.id == id }
                 if (track != null) {
@@ -521,7 +487,7 @@ fun ClapDiscoverScreen(
                         Column(Modifier.weight(1f)) {
                             Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             Text(track.artist, modifier = Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(message, modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                            Text("No mood match is available for this song yet.", modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         TextButton(onClick = { editingTrack = track }) { Text("Assign mood") }
                     }
