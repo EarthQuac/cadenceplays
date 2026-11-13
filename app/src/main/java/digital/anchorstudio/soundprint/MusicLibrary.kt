@@ -357,7 +357,7 @@ class MusicLibraryDatabase(context: Context) :
     fun restoreFromTrash(id:String) { writableDatabase.delete("soundprint_trash","track_id=?",arrayOf(id)) }
     fun pruneTrash(now:Long=System.currentTimeMillis()):Int =
         writableDatabase.delete("soundprint_trash","removed_at < ?",arrayOf((now-30L*86_400_000L).toString()))
-    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint) {
+    fun saveTwinSenseFingerprint(fingerprint:TwinSenseFingerprint) {
         writableDatabase.insertWithOnConflict("soundprint_fingerprints",null,ContentValues().apply {
             put("track_id",fingerprint.trackId);put("source_size",fingerprint.sourceSize)
             put("source_modified_at",fingerprint.sourceModifiedAt);put("duration_ms",fingerprint.durationMs)
@@ -366,10 +366,10 @@ class MusicLibraryDatabase(context: Context) :
             put("generated_at",fingerprint.generatedAt);put("fingerprint_version",fingerprint.version)
         },SQLiteDatabase.CONFLICT_REPLACE)
     }
-    fun soundprintFingerprint(trackId:String,sourceSize:Long,sourceModifiedAt:Long):SoundprintFingerprint? =
+    fun twinSenseFingerprint(trackId:String,sourceSize:Long,sourceModifiedAt:Long):TwinSenseFingerprint? =
         readableDatabase.rawQuery("SELECT * FROM soundprint_fingerprints WHERE track_id=? AND source_size=? AND source_modified_at=? AND fingerprint_version=?",
             arrayOf(trackId,sourceSize.toString(),sourceModifiedAt.toString(),"1")).use { c ->
-            if(!c.moveToFirst()) null else SoundprintFingerprint(
+            if(!c.moveToFirst()) null else TwinSenseFingerprint(
                 trackId=c.getString(c.getColumnIndexOrThrow("track_id")),
                 sourceSize=c.getLong(c.getColumnIndexOrThrow("source_size")),
                 sourceModifiedAt=c.getLong(c.getColumnIndexOrThrow("source_modified_at")),
@@ -382,7 +382,7 @@ class MusicLibraryDatabase(context: Context) :
                 version=c.getInt(c.getColumnIndexOrThrow("fingerprint_version"))
             )
         }
-    fun deleteSoundprintFingerprint(trackId:String) { writableDatabase.delete("soundprint_fingerprints","track_id=?",arrayOf(trackId)) }
+    fun deleteTwinSenseFingerprint(trackId:String) { writableDatabase.delete("soundprint_fingerprints","track_id=?",arrayOf(trackId)) }
 
     fun saveAnalysis(fingerprint:String,profileJson:String,sourceSize:Long,sourceMime:String) {
         writableDatabase.insertWithOnConflict("audio_analysis_cache",null,ContentValues().apply {
@@ -726,8 +726,8 @@ class MusicLibraryRepository(context:Context) {
     fun markPlayed(id:String)=db.markPlayed(id)
     fun createPlaylist(name:String)=db.createPlaylist(name)
     fun addToPlaylist(playlistId:String,trackId:String)=db.addToPlaylist(playlistId,trackId)
-    fun moveToSoundprintTrash(id:String)=db.moveToTrash(id,"soundprint")
-    fun restoreFromSoundprintTrash(id:String)=db.restoreFromTrash(id)
+    fun moveToTwinSenseTrash(id:String)=db.moveToTrash(id,"soundprint")
+    fun restoreFromTwinSenseTrash(id:String)=db.restoreFromTrash(id)
     fun pruneExpiredTrash()=db.pruneTrash()
     fun sources()=db.sources()
     fun fileSources()=db.fileSources()
@@ -758,9 +758,9 @@ class MusicLibraryRepository(context:Context) {
 
     fun removeTrackRecord(id:String)=db.removeTrackRecord(id)
     fun saveAnalysis(fingerprint:String,profileJson:String,size:Long,mime:String)=db.saveAnalysis(fingerprint,profileJson,size,mime)
-    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint)=db.saveSoundprintFingerprint(fingerprint)
-    fun soundprintFingerprint(trackId:String,size:Long,modifiedAt:Long)=db.soundprintFingerprint(trackId,size,modifiedAt)
-    fun deleteSoundprintFingerprint(trackId:String)=db.deleteSoundprintFingerprint(trackId)
+    fun saveTwinSenseFingerprint(fingerprint:TwinSenseFingerprint)=db.saveTwinSenseFingerprint(fingerprint)
+    fun twinSenseFingerprint(trackId:String,size:Long,modifiedAt:Long)=db.twinSenseFingerprint(trackId,size,modifiedAt)
+    fun deleteTwinSenseFingerprint(trackId:String)=db.deleteTwinSenseFingerprint(trackId)
     fun cachedAnalysis(fingerprint:String)=db.analysis(fingerprint)
     fun saveClapMoodProfile(track:MusicTrack,modelVersion:String,scores:Map<String,Float>) {
         require(scores.isNotEmpty() && scores.values.all { it.isFinite() && it in 0f..1f }) { "CLAP returned invalid mood scores." }
