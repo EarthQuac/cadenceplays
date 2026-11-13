@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.os.Bundle
 import android.net.Uri
@@ -106,9 +106,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
-private val SoundprintFontFamily = FontFamily(Font(R.font.inter_tight_variable))
+private val CadenceFontFamily = FontFamily(Font(R.font.inter_tight_variable))
 
-private data class SoundprintPalette(
+private data class CadencePalette(
     val background: Color,
     val foreground: Color,
     val surface: Color,
@@ -119,55 +119,55 @@ private data class SoundprintPalette(
     val onPrimary: Color
 )
 
-private val AmberLight = SoundprintPalette(
+private val AmberLight = CadencePalette(
     background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
     primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
     border = Color(0xFFE0DEDA), onPrimary = Color(0xFF160D07)
 )
-private val AmberDark = SoundprintPalette(
+private val AmberDark = CadencePalette(
     background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
     surface = Color(0xFF161310), surface2 = Color(0xFF201C18),
     primary = Color(0xFFFC9E47), muted = Color(0xFF9C9792),
     border = Color(0x17FFFFFF), onPrimary = Color(0xFF160D07)
 )
-private val BlueLight = SoundprintPalette(
+private val BlueLight = CadencePalette(
     background = Color(0xFFFAFCFE), foreground = Color(0xFF0C1723),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEEF4FB),
     primary = Color(0xFF156CDD), muted = Color(0xFF5E6A7A),
     border = Color(0xFFD7DFE8), onPrimary = Color.White
 )
-private val BlueDark = SoundprintPalette(
+private val BlueDark = CadencePalette(
     background = Color(0xFF090F1A), foreground = Color(0xFFF1F6FA),
     surface = Color(0xFF121B29), surface2 = Color(0xFF1A2435),
     primary = Color(0xFF59AAF8), muted = Color(0xFF99A6B4),
     border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0A121F)
 )
-private val EmeraldLight = SoundprintPalette(
+private val EmeraldLight = CadencePalette(
     background = Color(0xFFF6FCF7), foreground = Color(0xFF0C1F17),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEBF5EE),
     primary = Color(0xFF007852), muted = Color(0xFF5C6E65),
     border = Color(0xFFD7E1DA), onPrimary = Color(0xFFF4FAF5)
 )
-private val EmeraldDark = SoundprintPalette(
+private val EmeraldDark = CadencePalette(
     background = Color(0xFF05130E), foreground = Color(0xFFEDF4EE),
     surface = Color(0xFF0A1C16), surface2 = Color(0xFF10271F),
     primary = Color(0xFF5ACA94), muted = Color(0xFF99AA9E),
     border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0B1E15)
 )
-private val MonoLight = SoundprintPalette(
+private val MonoLight = CadencePalette(
     background = Color(0xFFF8F8F8), foreground = Color(0xFF121212),
     surface = Color.White, surface2 = Color(0xFFF0F0F0),
     primary = Color(0xFF1F1F1F), muted = Color(0xFF696969),
     border = Color(0xFFDBDBDB), onPrimary = Color.White
 )
-private val MonoDark = SoundprintPalette(
+private val MonoDark = CadencePalette(
     background = Color(0xFF090909), foreground = Color(0xFFF5F5F5),
     surface = Color(0xFF141414), surface2 = Color(0xFF1D1D1D),
     primary = Color(0xFFE8E8E8), muted = Color(0xFFA4A4A4),
     border = Color(0x1FFFFFFF), onPrimary = Color(0xFF141414)
 )
-private fun palette(name: String, dark: Boolean): SoundprintPalette = when (name) {
+private fun palette(name: String, dark: Boolean): CadencePalette = when (name) {
     "Blue" -> if (dark) BlueDark else BlueLight
     "Emerald" -> if (dark) EmeraldDark else EmeraldLight
     "Mono" -> if (dark) MonoDark else MonoLight
@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val preferences = remember { getSharedPreferences("soundprint_native_preferences", MODE_PRIVATE) }
+            val preferences = remember { getSharedPreferences("cadence_native_preferences", MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
             var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
@@ -273,8 +273,8 @@ class MainActivity : ComponentActivity() {
                     outline = colors.border
                 )
             ) {
-                CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(fontFamily = SoundprintFontFamily)) {
-                SoundprintApp(
+                CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(fontFamily = CadenceFontFamily)) {
+                CadenceApp(
                     libraryManager = libraryManager,
                     themeMode = themeMode,
                     onThemeModeChange = { mode -> themeMode = mode; preferences.edit().putString("theme", mode).apply() },
@@ -307,7 +307,7 @@ class MainActivity : ComponentActivity() {
                             libraryStatus = "Music location removed. Original audio files were not deleted."
                         }
                     },
-                    onBackup = { backupSaver.launch("soundprint-library-backup.json") },
+                    onBackup = { backupSaver.launch("cadence-library-backup.json") },
                     onRestore = { backupOpener.launch(arrayOf("application/json")) },
                     onClearLibrary = {
                         libraryRepository.clearLibrary()
@@ -332,7 +332,7 @@ private val tabs = listOf(
 )
 
 @Composable
-private fun SoundprintApp(
+private fun CadenceApp(
     libraryManager: MusicLibraryManager,
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
@@ -353,7 +353,7 @@ private fun SoundprintApp(
 ) {
     val appContext = LocalContext.current
     val clapScanner = remember { ClapLibraryScanner(appContext, libraryManager) }
-    val playbackConnection = remember { SoundprintPlaybackConnection(appContext) }
+    val playbackConnection = remember { CadencePlaybackConnection(appContext) }
     DisposableEffect(clapScanner, playbackConnection) {
         onDispose {
             clapScanner.close()
@@ -498,13 +498,13 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(R.drawable.soundprint_icon),
+                painter = painterResource(R.drawable.cadence_icon),
                 contentDescription = null,
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                "Soundprint",
+                "Cadence",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.6).sp,
@@ -551,7 +551,7 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Continue to Soundprint",
+                    "Continue to Cadence",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimary
@@ -583,20 +583,20 @@ private fun HomeScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Image(
-                    painter = painterResource(id = R.drawable.soundprint_icon),
-                    contentDescription = "Soundprint",
+                    painter = painterResource(id = R.drawable.cadence_icon),
+                    contentDescription = "Cadence",
                     modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
                 )
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("YOUR LIBRARY", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
-                    Text("Soundprint", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
+                    Text("Cadence", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
                 HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = onListeningStats)
-                HeaderAction(R.drawable.lucide_crown, "Soundprint Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
+                HeaderAction(R.drawable.lucide_crown, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
                 HeaderAction(R.drawable.lucide_search, "Search", onClick = {})
                 HeaderAction(R.drawable.lucide_settings, "Settings", onClick = onSettings)
             }
@@ -806,7 +806,7 @@ private fun DiscoverScreen(onBack: () -> Unit) {
             Column {
                 Text("YOUR LIBRARY, IN A DIFFERENT LIGHT", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 Text("Find your next mood.", modifier = Modifier.padding(top = 5.dp), fontSize = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, color = MaterialTheme.colorScheme.onBackground)
-                Text("Pick a feeling or a moment. Soundprint finds the tracks in your own library that fit.", modifier = Modifier.padding(top = 4.dp), fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.", modifier = Modifier.padding(top = 4.dp), fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(
                 Modifier.fillMaxWidth().border(
@@ -845,7 +845,7 @@ private fun DiscoverScreen(onBack: () -> Unit) {
                     Text("PICKED FOR THIS MOMENT", fontSize = 10.sp, letterSpacing = 1.3.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text(selectedMood!!, modifier = Modifier.padding(top = 5.dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     Text("0 tracks", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Add music to Soundprint, then return here to explore it by mood.", modifier = Modifier.padding(top = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Add music to Cadence, then return here to explore it by mood.", modifier = Modifier.padding(top = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -890,7 +890,7 @@ private fun UtilityButton(icon: ImageVector, label: String, modifier: Modifier =
 }
 
 @Composable
-private fun SoundprintActionButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun CadenceActionButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary)
             .clickable(onClick = onClick).padding(horizontal = 17.dp, vertical = 11.dp),
@@ -909,7 +909,7 @@ private fun EmptyLibraryState(icon: ImageVector, title: String, description: Str
         }
         Text(title, modifier = Modifier.padding(top = 15.dp), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
         Text(description, modifier = Modifier.padding(top = 5.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SoundprintActionButton("Add music", Modifier.padding(top = 16.dp)) {}
+        CadenceActionButton("Add music", Modifier.padding(top = 16.dp)) {}
     }
 }
 
@@ -1069,7 +1069,7 @@ private fun SettingsScreen(
             }
             if (matches("playback resume position double tap seek skip seconds")) {
                 SettingsSection("PLAYBACK") {
-                    SettingsToggleRow("Resume playback", "Restore the last song when Soundprint opens", resume) { resume = it }
+                    SettingsToggleRow("Resume playback", "Restore the last song when Cadence opens", resume) { resume = it }
                     SettingsToggleRow("Remember position", "Continue from where you stopped", rememberPosition) { rememberPosition = it }
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
                         Text("Double-tap to seek", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
@@ -1102,12 +1102,12 @@ private fun SettingsScreen(
                 SettingsSection("QUEUE") {
                     SettingsToggleRow("Replace queue on play", "Playing a list clears the previous queue", replaceQueue) { replaceQueue = it }
                     SettingsToggleRow("Auto-add newly discovered songs", "New imports join your library automatically", autoAdd) { autoAdd = it }
-                    SettingsActionRow("Folder auto-watch", "Choose a folder to scan every 30 seconds while Soundprint is open.", "Choose")
+                    SettingsActionRow("Folder auto-watch", "Choose a folder to scan every 30 seconds while Cadence is open.", "Choose")
                 }
             }
             if (matches("music intelligence background mood scan clap")) {
                 SettingsSection("MUSIC INTELLIGENCE") {
-                    SettingsToggleRow("Scan entire library in background", "Build and save offline mood profiles for your music while Soundprint is open", backgroundScan) {
+                    SettingsToggleRow("Scan entire library in background", "Build and save offline mood profiles for your music while Cadence is open", backgroundScan) {
                         backgroundScan = it
                         clapScanner.setAutoScanEnabled(it)
                     }
@@ -1148,7 +1148,7 @@ private fun SettingsScreen(
             }
             if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
                 SettingsSection("LIBRARY") {
-                    SettingsToggleRow("Custom artwork", "Show Soundprint artwork only when a song has no embedded cover. Turn this off anytime to remove Soundprint artwork from your library.", customArtwork) { customArtwork = it }
+                    SettingsToggleRow("Custom artwork", "Show Cadence artwork only when a song has no embedded cover. Turn this off anytime to remove Cadence artwork from your library.", customArtwork) { customArtwork = it }
                     SettingsActionRow("Your music", "$libraryTrackCount songs stored on this device", "Add folder", onClick = onImportMusic)
                     SettingsActionRow("Import audio files", "Choose individual audio files from your device", "Import", onClick = onImportFiles)
                     SettingsActionRow("Rescan folders", "Recover saved locations and check for new or changed songs", "Rescan", onClick = onRescan)
@@ -1171,22 +1171,22 @@ private fun SettingsScreen(
                     SettingsActionRow("Audio tag editor", "Manually edit title, artist, album and genre — free for everyone", "Open")
                     SettingsActionRow("Playback history", "Clear recently played songs, play counts, listening time and streaks", "Clear") { historyDialog = true }
                     SettingsActionRow("Backup library", "Export your library records, playlists, favourites and listening stats", "Backup", onClick = onBackup)
-                    SettingsActionRow("Restore backup", "Restore a Soundprint library backup from your device", "Restore", onClick = onRestore)
+                    SettingsActionRow("Restore backup", "Restore a Cadence library backup from your device", "Restore", onClick = onRestore)
                     SettingsToggleRow("Ignore clips under 30s", "Skips ringtones and notification sounds", ignoreShortTracks) { ignoreShortTracks = it }
-                    SettingsActionRow("Clear library", "Removes imported tracks and saved locations from Soundprint; audio files stay on your device", "Clear", destructive = true) { clearDialog = true }
+                    SettingsActionRow("Clear library", "Removes imported tracks and saved locations from Cadence; audio files stay on your device", "Clear", destructive = true) { clearDialog = true }
                 }
             }
             if (matches("tutorial replay tutorial")) {
                 SettingsSection("TUTORIAL") {
-                    SettingsActionRow("Replay tutorial", "Walk through the main Soundprint controls again", "Replay tutorial")
+                    SettingsActionRow("Replay tutorial", "Walk through the main Cadence controls again", "Replay tutorial")
                 }
             }
-            if (matches("about help info soundprint pro about legal version privacy terms")) {
+            if (matches("about help info cadence pro about legal version privacy terms")) {
                 SettingsSection("ABOUT") {
                     SettingsActionRow("Help & Info", "Learn how local playback, stats and backups work", "Open") { helpDialog = true }
-                    SettingsActionRow("Soundprint Pro", "Explore Pro features", "View Pro")
+                    SettingsActionRow("Cadence Pro", "Explore Pro features", "View Pro")
                     SettingsActionRow("About & Legal", "Privacy, Terms, Pro terms, refunds and copyright", "View policies")
-                    SettingsActionRow("Version", "Soundprint 1.0 · offline-first player", "1.0.0")
+                    SettingsActionRow("Version", "Cadence 1.0 · offline-first player", "1.0.0")
                 }
             }
         }
@@ -1208,7 +1208,7 @@ private fun SettingsScreen(
     if (helpDialog) AlertDialog(
         onDismissRequest = { helpDialog = false },
         title = { Text("Help & Info") },
-        text = { Text("Soundprint plays music stored on your device. Add audio files from Settings → Library → Your music. Use Rescan folders to check folders you have already selected. Your local audio stays on your device during normal playback.") },
+        text = { Text("Cadence plays music stored on your device. Add audio files from Settings → Library → Your music. Use Rescan folders to check folders you have already selected. Your local audio stays on your device during normal playback.") },
         confirmButton = { TextButton(onClick = { helpDialog = false }) { Text("Got it") } }
     )
 }

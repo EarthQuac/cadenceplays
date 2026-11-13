@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.content.Context
 import androidx.compose.foundation.background
@@ -90,12 +90,37 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelManager = ClapModelManager(app)
-    private val preferences = app.getSharedPreferences("soundprint_clap_scan", Context.MODE_PRIVATE)
+    private val preferences = app.getSharedPreferences("cadence_clap_scan", Context.MODE_PRIVATE)
     private val mutableState = MutableStateFlow(ClapLibraryScanState(
         failed = readFailures().size, failureMessages = readFailures()
     ))
     val state: StateFlow<ClapLibraryScanState> = mutableState
     private var scanJob: Job? = null
+
+    fun refreshSummary() {
+        if (mutableState.value.running) return
+        scope.launch {
+            val tracks = library.allSongs()
+            val ids = tracks.map { it.id }.toSet()
+            val corrected = moodCorrections().keys
+            val failures = readFailures().filterKeys { it in ids && it !in corrected }
+            val completed = tracks.count { it.id in corrected || library.clapMoodProfile(it) != null }
+            mutableState.value = mutableState.value.copy(
+                completed = completed, total = tracks.size, failed = failures.size,
+                failureMessages = failures
+            )
+        }
+    }
+
+    fun savedMoods(): Set<String> =
+        preferences.getStringSet("saved_moods", emptySet())?.toSet().orEmpty()
+
+    fun setMoodSaved(moodId: String, saved: Boolean) {
+        require(CadenceMood.entries.any { it.id == moodId })
+        val updated = savedMoods().toMutableSet()
+        if (saved) updated.add(moodId) else updated.remove(moodId)
+        preferences.edit().putStringSet("saved_moods", updated).apply()
+    }
 
     fun autoScanEnabled(): Boolean = preferences.getBoolean("background_scan_enabled", false)
 
@@ -219,7 +244,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     }.getOrDefault(emptyMap())
 
     fun saveMoodCorrection(trackId: String, moodId: String) {
-        require(SoundprintMood.entries.any { it.id == moodId })
+        require(CadenceMood.entries.any { it.id == moodId })
         val updated = moodCorrections().toMutableMap()
         updated[trackId] = moodId
         preferences.edit().putString("mood_corrections", JSONObject(updated as Map<*, *>).toString()).apply()
@@ -256,10 +281,11 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
 fun ClapDiscoverScreen(
     libraryManager: MusicLibraryManager,
     scanner: ClapLibraryScanner,
-    playback: SoundprintPlaybackConnection,
+    playback: CadencePlaybackConnection,
     onBack: () -> Unit
 ) {
     val scan by scanner.state.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { scanner.refreshSummary() }
     var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
     var profiles by remember { mutableStateOf(emptyMap<String,ClapMoodProfile>()) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -288,7 +314,8 @@ fun ClapDiscoverScreen(
         }
     }
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
-    var selectedMood by remember { mutableStateOf<SoundprintMood?>(null) }
+    var savedMoods by remember { mutableStateOf(scanner.savedMoods()) }
+    var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
     var insightTrackId by remember { mutableStateOf<String?>(null) }
 
@@ -355,7 +382,7 @@ fun ClapDiscoverScreen(
         Text("CHOOSE A MOOD", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("What are you in the mood for?", modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SoundprintMood.entries.forEach { mood ->
+            CadenceMood.entries.forEach { mood ->
                 val active = selectedMood == mood
                 Text(
                     mood.title,
@@ -369,6 +396,22 @@ fun ClapDiscoverScreen(
                 )
             }
         }
+        if (savedMoods.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("SAVED MOODS", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                CadenceMood.entries.filter { it.id in savedMoods }.forEach { mood ->
+                    Text(
+                        mood.title,
+                        modifier = Modifier.clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { selectedMood = mood }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
 
         if (selectedMood != null) {
             Spacer(Modifier.height(24.dp))
@@ -377,6 +420,11 @@ fun ClapDiscoverScreen(
                     Text("PICKED FOR THIS MOOD", fontSize = 10.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text(selectedMood!!.title, modifier = Modifier.padding(top = 3.dp), fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 }
+                TextButton(onClick = {
+                    val moodId = selectedMood!!.id
+                    scanner.setMoodSaved(moodId, moodId !in savedMoods)
+                    savedMoods = scanner.savedMoods()
+                }) { Text(if (selectedMood!!.id in savedMoods) "Saved" else "Save mood") }
                 if (recommendations.isNotEmpty()) {
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }) }) { androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null); Text("Play all") }
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }, shuffle = true) }) { androidx.compose.material3.Icon(Icons.Filled.Shuffle, null) }
@@ -411,7 +459,7 @@ fun ClapDiscoverScreen(
                             Text("SONG INSIGHTS", fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                             if (profile != null) {
                                 Text("Strongest CLAP mood · ${profile.primaryMood?.title ?: "Unclassified"}", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Other audio matches · " + profile.scores.entries.sortedByDescending { it.value }.drop(1).take(3).joinToString(" · ") { "${SoundprintMood.entries.firstOrNull { mood -> mood.id == it.key }?.title ?: it.key} ${(it.value * 100).toInt()}%" }, modifier = Modifier.padding(top = 3.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Other audio matches · " + profile.scores.entries.sortedByDescending { it.value }.drop(1).take(3).joinToString(" · ") { "${CadenceMood.entries.firstOrNull { mood -> mood.id == it.key }?.title ?: it.key} ${(it.value * 100).toInt()}%" }, modifier = Modifier.padding(top = 3.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
                                 Text("This song was assigned a mood manually because its audio could not be analysed.", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -447,7 +495,7 @@ fun ClapDiscoverScreen(
             title = { Text("Correct this song's mood") },
             text = {
                 Column(Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
-                    SoundprintMood.entries.forEach { mood ->
+                    CadenceMood.entries.forEach { mood ->
                         TextButton(onClick = {
                             scanner.saveMoodCorrection(editingTrack!!.id, mood.id)
                             corrections = scanner.moodCorrections()
