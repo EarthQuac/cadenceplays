@@ -421,7 +421,7 @@ fun ClapDiscoverScreen(
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-            "Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.",
+            "Pick a feeling or a moment. Soundprint finds the tracks in your own library that fit.",
             modifier = Modifier.padding(top = 6.dp, bottom = 22.dp),
             fontSize = 13.sp, lineHeight = 19.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
