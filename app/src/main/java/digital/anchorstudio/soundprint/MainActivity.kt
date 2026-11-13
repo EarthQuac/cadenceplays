@@ -201,7 +201,7 @@ class MainActivity : ComponentActivity() {
                     val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importTree(uri) } }
                     refreshLibraryState()
                     libraryStatus = result.fold(
-                        { "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
                         { "Folder import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
@@ -211,7 +211,7 @@ class MainActivity : ComponentActivity() {
                     val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(listOf(uri)) } }
                     refreshLibraryState()
                     libraryStatus = result.fold(
-                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
                         { "File import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
@@ -221,7 +221,7 @@ class MainActivity : ComponentActivity() {
                     val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) } }
                     refreshLibraryState()
                     libraryStatus = result.fold(
-                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
                         { "File import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
@@ -306,8 +306,9 @@ class MainActivity : ComponentActivity() {
                     librarySources = librarySources,
                     libraryStatus = libraryStatus,
                     onImportMusic = { folderPicker.launch(null) },
-                    onImportFiles = { filesPicker.launch(arrayOf("audio/*")) },
-                    onImportSingle = { singleFilePicker.launch(arrayOf("audio/*")) },
+                    // Include generic-MIME files too; the importer validates audio MIME types and extensions.
+                    onImportFiles = { filesPicker.launch(arrayOf("audio/*", "application/octet-stream")) },
+                    onImportSingle = { singleFilePicker.launch(arrayOf("audio/*", "application/octet-stream")) },
                     onRescan = {
                         scope.launch {
                             val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
@@ -328,9 +329,9 @@ class MainActivity : ComponentActivity() {
                     onBackup = { backupSaver.launch("soundprint-library-backup.json") },
                     onRestore = { backupOpener.launch(arrayOf("application/json")) },
                     onClearLibrary = {
-                        libraryRepository.clearLibrary()
+                        libraryManager.clearAllLibraryData()
                         refreshLibraryState()
-                        libraryStatus = "Library records cleared. Your original audio files were not deleted."
+                        libraryStatus = "Library cleared. Your original audio files are still on your device and can be imported again."
                     }
                 )
                 }
@@ -373,6 +374,7 @@ private fun SoundprintApp(
     val appContext = LocalContext.current
     val clapScanner = remember { ClapLibraryScanner(appContext, libraryManager) }
     val playbackConnection = remember { SoundprintPlaybackConnection(appContext) }
+    val screenScope = rememberCoroutineScope()
     DisposableEffect(clapScanner, playbackConnection) {
         onDispose {
             clapScanner.close()
@@ -413,8 +415,14 @@ private fun SoundprintApp(
                         onRemoveSource = onRemoveSource,
                         onBackup = onBackup,
                         onRestore = onRestore,
-                        onClearLibrary = onClearLibrary,
-                                )
+                        onClearLibrary = {
+                            screenScope.launch {
+                                clapScanner.clearLibraryState()
+                                playbackConnection.clearQueue()
+                                onClearLibrary()
+                            }
+                        },
+                    )
                 } else {
                     when (selectedTab) {
                         0 -> HomeScreen(
@@ -1213,7 +1221,7 @@ private fun SettingsScreen(
                     SettingsActionRow("Backup library", "Export your library records, playlists, favourites and listening stats", "Backup", onClick = onBackup)
                     SettingsActionRow("Restore backup", "Restore a Soundprint library backup from your device", "Restore", onClick = onRestore)
                     SettingsToggleRow("Ignore clips under 30s", "Skips ringtones and notification sounds", ignoreShortTracks) { ignoreShortTracks = it }
-                    SettingsActionRow("Clear library", "Removes imported tracks and saved locations from Soundprint; audio files stay on your device", "Clear", destructive = true) { clearDialog = true }
+                    SettingsActionRow("Clear library", "Removes imported tracks, playlists, favourites and listening history; original audio files stay untouched", "Clear", destructive = true) { clearDialog = true }
                 }
             }
             if (matches("tutorial replay tutorial")) {
@@ -1234,7 +1242,7 @@ private fun SettingsScreen(
     if (clearDialog) AlertDialog(
         onDismissRequest = { clearDialog = false },
         title = { Text("Clear your library?") },
-        text = { Text("This will remove all songs from this device, stop any music currently playing, and clear your playlists, favourites, and recently played history. Your music files will not be deleted from your device's normal storage.") },
+        text = { Text("This removes imported song entries, saved folder and file locations, playlists, favourites, listening history, and library analysis data from Soundprint. It does not delete or move your actual audio files. You can import them again afterwards.") },
         confirmButton = { TextButton(onClick = { clearDialog = false; onClearLibrary() }) { Text("Clear everything", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { clearDialog = false }) { Text("Cancel") } }
     )
