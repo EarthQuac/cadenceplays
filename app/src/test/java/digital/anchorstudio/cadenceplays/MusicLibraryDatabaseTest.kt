@@ -50,7 +50,8 @@ class MusicLibraryDatabaseTest {
         assertTrue(updated.isFavorite)
         assertEquals(1, updated.playCount)
 
-        db.markUnseenUnavailable("folder-A", "scan-A-next")
+        val sourceLossCount = db.completeSourceScan("folder-A", "scan-A-next", true)
+        assertEquals("A still-available overlapping source must not count as missing.", 0, sourceLossCount)
         assertTrue("The second source still makes this track available.", db.findById(original.id)!!.isAvailable)
 
         db.removeSource("folder-B")
@@ -94,6 +95,22 @@ class MusicLibraryDatabaseTest {
         val unavailableAfterCompleteScan = db.completeSourceScan("folder-interrupted", "scan-complete", true)
         assertEquals(1, unavailableAfterCompleteScan)
         assertFalse(db.findById(item.id)!!.isAvailable)
+        db.close()
+    }
+
+    @Test fun mergingBackupDoesNotInvalidateExistingTracksOrTrustNewPermissions() {
+        val db = MusicLibraryDatabase(context)
+        val existing = track("content://music/existing", "folder-existing")
+        val incoming = track("content://music/incoming", "folder-incoming")
+        db.upsert(existing, "scan-existing")
+        db.upsert(incoming, "scan-incoming")
+        val bytes = ByteArrayOutputStream().also { db.writeBackup(it) }.toByteArray()
+
+        db.clearLibrary()
+        db.upsert(existing, "scan-existing")
+        db.restoreBackup(ByteArrayInputStream(bytes), false)
+        assertTrue("A track already available in this install stays available during merge.", db.findById(existing.id)!!.isAvailable)
+        assertFalse("A newly restored URI must be revalidated before it is treated as playable.", db.findById(incoming.id)!!.isAvailable)
         db.close()
     }
 

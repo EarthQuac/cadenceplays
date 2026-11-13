@@ -281,11 +281,15 @@ class MusicLibraryDatabase(context: Context) :
         if(traversalSucceeded) markUnseenUnavailable(sourceUri,scanId) else 0
 
     fun markUnseenUnavailable(sourceUri:String,scanId:String):Int {
-        val before=readableDatabase.rawQuery("SELECT COUNT(DISTINCT track_id) FROM track_sources WHERE source_uri=? AND is_available=1",arrayOf(sourceUri)).use { if(it.moveToFirst()) it.getInt(0) else 0 }
+        val previouslyAvailable=mutableListOf<String>()
+        readableDatabase.rawQuery("SELECT DISTINCT track_id FROM track_sources WHERE source_uri=? AND is_available=1",arrayOf(sourceUri)).use { c ->
+            while(c.moveToNext()) previouslyAvailable+=c.getString(0)
+        }
         writableDatabase.execSQL("UPDATE track_sources SET is_available=0 WHERE source_uri=? AND (last_seen_scan_id IS NULL OR last_seen_scan_id<>?)",arrayOf(sourceUri,scanId))
         refreshAvailabilityForSource(sourceUri)
-        val after=readableDatabase.rawQuery("SELECT COUNT(DISTINCT track_id) FROM track_sources WHERE source_uri=? AND is_available=1",arrayOf(sourceUri)).use { if(it.moveToFirst()) it.getInt(0) else 0 }
-        return before-after
+        return previouslyAvailable.count { id ->
+            readableDatabase.rawQuery("SELECT is_available FROM tracks WHERE id=?",arrayOf(id)).use { it.moveToFirst() && it.getInt(0)==0 }
+        }
     }
     private fun refreshAvailabilityForSource(sourceUri:String) {
         writableDatabase.execSQL("""UPDATE tracks SET is_available=CASE
@@ -404,7 +408,10 @@ class MusicLibraryDatabase(context: Context) :
                             else -> values.put(key,value.toString())
                         }
                     }
-                    if(table=="tracks" && replaceExisting) values.put("is_available",0)
+                    if(table=="tracks") {
+                        val exists=readableDatabase.rawQuery("SELECT 1 FROM tracks WHERE id=? LIMIT 1",arrayOf(row.optString("id"))).use { it.moveToFirst() }
+                        if(replaceExisting || !exists) values.put("is_available",0)
+                    }
                     if(table=="track_sources") values.put("is_available",0)
                     db.insertWithOnConflict(table,null,values,SQLiteDatabase.CONFLICT_REPLACE)
                     restored++
