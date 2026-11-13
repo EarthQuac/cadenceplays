@@ -624,7 +624,7 @@ private fun HomeScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(22.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(22.dp))
                         .padding(20.dp)
                 ) {
                     Box(
@@ -849,7 +849,7 @@ private fun DiscoverScreen(onBack: () -> Unit) {
             if (selectedMood != null) {
                 Column(
                     Modifier.fillMaxWidth().padding(top = 4.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(18.dp))
                         .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp))
                         .padding(16.dp)
                 ) {
@@ -889,7 +889,7 @@ private fun UtilityButton(icon: ImageVector, label: String, modifier: Modifier =
     Row(
         modifier = modifier.height(40.dp).clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(12.dp))
             .clickable(onClick = onClick).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -983,7 +983,7 @@ private fun PageTitle(title: String, subtitle: String, onBack: () -> Unit) {
                 if (subtitle.isNotBlank()) Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
     }
 }
 
@@ -1066,7 +1066,7 @@ private fun SettingsScreen(
                                 Box(
                                     Modifier.width(31.dp).height(30.dp).clip(RoundedCornerShape(9.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(9.dp)),
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(9.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(if (seconds == 0) "Off" else "$seconds s", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1187,7 +1187,7 @@ private fun SettingsSearchBox(value: String, onValueChange: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
             .heightIn(min = 48.dp).clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1265,7 +1265,7 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun SettingsDivider() {
-    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), thickness = 0.7.dp)
+    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f), thickness = 0.7.dp)
 }
 
 @Composable
@@ -1281,7 +1281,7 @@ private fun ThemeChoice(modifier: Modifier, label: String, icon: Int?, selected:
     Column(
         modifier = modifier.height(76.dp).clip(RoundedCornerShape(16.dp))
             .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick).padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
