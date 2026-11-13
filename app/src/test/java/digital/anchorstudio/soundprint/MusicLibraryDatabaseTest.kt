@@ -137,7 +137,7 @@ class MusicLibraryDatabaseTest {
     }
 
 
-    @Test fun soundprintFingerprintsPersistAndInvalidateWhenTheSourceChanges() {
+    @Test fun twinSenseFingerprintsPersistAndInvalidateWhenTheSourceChanges() {
         val db = MusicLibraryDatabase(context)
         val item = track("content://music/soundprint-cache")
         db.upsert(item)
@@ -149,17 +149,17 @@ class MusicLibraryDatabaseTest {
 
         db.saveTwinSenseFingerprint(fingerprint)
 
-        val cached = db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt)!!
+        val cached = db.twinSenseFingerprint(item.id, item.sizeBytes, item.modifiedAt)!!
         assertEquals(fingerprint.frameCount, cached.frameCount)
         assertArrayEquals(fingerprint.compressedFeatures, cached.compressedFeatures)
-        assertNull(db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt + 1L))
+        assertNull(db.twinSenseFingerprint(item.id, item.sizeBytes, item.modifiedAt + 1L))
 
         db.removeTrackRecord(item.id)
-        assertNull(db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt))
+        assertNull(db.twinSenseFingerprint(item.id, item.sizeBytes, item.modifiedAt))
         db.close()
     }
 
-    @Test fun soundprintFingerprintsAreIncludedInLibraryBackups() {
+    @Test fun twinSenseFingerprintsAreIncludedInLibraryBackups() {
         val db = MusicLibraryDatabase(context)
         val item = track("content://music/soundprint-backup")
         db.upsert(item)
@@ -174,7 +174,7 @@ class MusicLibraryDatabaseTest {
         db.clearLibrary()
         db.restoreBackup(ByteArrayInputStream(backup.toByteArray()), true)
 
-        val restored = db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt)
+        val restored = db.twinSenseFingerprint(item.id, item.sizeBytes, item.modifiedAt)
         assertNotNull(restored)
         assertArrayEquals(fingerprint.compressedFeatures, restored!!.compressedFeatures)
         db.close()
