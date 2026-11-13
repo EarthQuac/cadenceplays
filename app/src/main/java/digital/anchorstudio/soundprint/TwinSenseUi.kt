@@ -533,6 +533,7 @@ private fun NativeSongLibraryRow(
                 DropdownMenuItem(text = { Text("Go to artist") }, leadingIcon = { Icon(Icons.Filled.Person, null) }, onClick = { menuOpen = false; artistOpen = true })
                 DropdownMenuItem(text = { Text("Move to Recycle Bin") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = {
                     menuOpen = false
+                    playback.removeTrackFromQueue(track.id)
                     scope.launch { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "Removed from song menu") }; onChanged() }
                 })
             }
