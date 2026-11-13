@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +28,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Infinity
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.QueueMusic
@@ -94,9 +99,9 @@ private val freeFeatures = listOf(
 @Composable
 fun ProScreen(onBack: () -> Unit, entitled: Boolean = false, trialEndsAt: String? = null,
               onStartTrial: (() -> Unit)? = null, onClaimFounder: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth()) {
-        PageTitle("Cadence Pro", "", onBack)
-        Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState())
+    Column(Modifier.fillMaxSize()) {
+        ProPageHeader(onBack)
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)) {
             if (entitled) {
@@ -122,6 +127,20 @@ fun ProScreen(onBack: () -> Unit, entitled: Boolean = false, trialEndsAt: String
     }
 }
 
+@Composable
+private fun ProPageHeader(onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+            Text("‹", fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+            Text("Cadence Pro", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+        }
+    }
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProHero() {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surface)
@@ -177,7 +196,7 @@ private fun ProPlans() {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ProPlanCard("Lifetime", "$24.99", "once", "Pay once. Keep the included Cadence Pro features for life, with no recurring bill.",
-                "Best for long-term listeners", true, Modifier.weight(1f), Icons.Filled.Infinity)
+                "Best for long-term listeners", true, Modifier.weight(1f), Icons.Filled.AllInclusive)
             ProPlanCard("Monthly", "$2.99", "/ month", "A smaller payment to get started. Cancel any time; Pro access would end when your paid period ends.",
                 "Budget-friendly", false, Modifier.weight(1f), Icons.Filled.Timer)
         }
