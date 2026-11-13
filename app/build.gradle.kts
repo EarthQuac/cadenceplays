@@ -1,3 +1,7 @@
+import java.io.File
+import java.net.URL
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -92,9 +96,9 @@ val prepareBundledClapAssets by tasks.registering {
         )
 
         assets.forEach { (relativePath, expectedSha, minimumBytes) ->
-            val destination = java.io.File(root, "clap/$relativePath")
+            val destination = File(root, "clap/$relativePath")
             fun digest(file: java.io.File): String {
-                val sha = java.security.MessageDigest.getInstance("SHA-256")
+                val sha = MessageDigest.getInstance("SHA-256")
                 file.inputStream().buffered(1024 * 1024).use { input ->
                     val buffer = ByteArray(1024 * 1024)
                     while (true) {
@@ -109,10 +113,10 @@ val prepareBundledClapAssets by tasks.registering {
                 (expectedSha.isEmpty() || digest(destination) == expectedSha)
             if (!valid) {
                 destination.parentFile.mkdirs()
-                val temporary = java.io.File(destination.parentFile, destination.name + ".part")
+                val temporary = File(destination.parentFile, destination.name + ".part")
                 temporary.delete()
                 println("Bundling CLAP asset: $relativePath")
-                val connection = java.net.URL(baseUrl + relativePath).openConnection().apply {
+                val connection = URL(baseUrl + relativePath).openConnection().apply {
                     connectTimeout = 20_000
                     readTimeout = 180_000
                     setRequestProperty("User-Agent", "Cadence-Android-Build")
