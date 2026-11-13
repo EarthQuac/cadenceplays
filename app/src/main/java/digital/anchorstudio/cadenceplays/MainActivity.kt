@@ -1,6 +1,13 @@
 package digital.anchorstudio.cadenceplays
 
 import android.os.Bundle
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -169,6 +176,18 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
             var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
+            val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
+            var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
+            val scope = rememberCoroutineScope()
+            val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+                if (uri != null) {
+                    runCatching { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                    scope.launch {
+                        withContext(Dispatchers.IO) { libraryRepository.importTree(uri) }
+                        libraryTrackCount = withContext(Dispatchers.IO) { libraryRepository.count() }
+                    }
+                }
+            }
             val darkTheme = when (themeMode) {
                 "light" -> false
                 "system" -> isSystemInDarkTheme()
@@ -205,7 +224,9 @@ class MainActivity : ComponentActivity() {
                     onEnterLibrary = {
                         enteredLibrary = true
                         preferences.edit().putBoolean("has_seen_launch_landing", true).apply()
-                    }
+                    },
+                    libraryTrackCount = libraryTrackCount,
+                    onImportMusic = { folderPicker.launch(null) }
                 )
                 }
             }
@@ -230,7 +251,9 @@ private fun CadenceApp(
     selectedPalette: String,
     onPaletteChange: (String) -> Unit,
     enteredLibrary: Boolean,
-    onEnterLibrary: () -> Unit
+    onEnterLibrary: () -> Unit,
+    libraryTrackCount: Int,
+    onImportMusic: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
@@ -245,7 +268,9 @@ private fun CadenceApp(
                     onThemeModeChange = onThemeModeChange,
                     selectedPalette = selectedPalette,
                     onPaletteChange = onPaletteChange,
-                    onBack = { settingsOpen = false }
+                    onBack = { settingsOpen = false },
+                    libraryTrackCount = libraryTrackCount,
+                    onImportMusic = onImportMusic
                 )
             } else {
                 when (selectedTab) {
@@ -991,7 +1016,9 @@ private fun SettingsScreen(
     onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
     onPaletteChange: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    libraryTrackCount: Int,
+    onImportMusic: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
     var gapless by remember { mutableStateOf(true) }
@@ -1125,7 +1152,7 @@ private fun SettingsScreen(
             if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
                 SettingsSection("LIBRARY") {
                     SettingsToggleRow("Custom artwork", "Show Cadence artwork only when a song has no embedded cover. Turn this off anytime to remove Cadence artwork from your library.", customArtwork) { customArtwork = it }
-                    SettingsActionRow("Your music", "0 songs stored on this device", "Add")
+                    SettingsActionRow("Your music", "$libraryTrackCount songs stored on this device", "Add", onClick = onImportMusic)
                     SettingsActionRow("Rescan folders", "Check imported folders for new songs", "Rescan")
                     SettingsActionRow("Audio tag editor", "Manually edit title, artist, album and genre — free for everyone", "Open")
                     SettingsActionRow("Playback history", "Clear recently played songs, play counts, listening time and streaks", "Clear") { historyDialog = true }
