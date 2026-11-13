@@ -395,8 +395,7 @@ private fun SoundprintApp(
                         onBackup = onBackup,
                         onRestore = onRestore,
                         onClearLibrary = onClearLibrary,
-                        clapScanner = clapScanner
-                    )
+                                )
                 } else {
                     when (selectedTab) {
                         0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true }, onOpenPro = { proOpen = true })
@@ -998,10 +997,8 @@ private fun SettingsScreen(
     onRemoveSource: (String) -> Unit,
     onBackup: () -> Unit,
     onRestore: () -> Unit,
-    onClearLibrary: () -> Unit,
-    clapScanner: ClapLibraryScanner
+    onClearLibrary: () -> Unit
 ) {
-    val clapScanState by clapScanner.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var gapless by remember { mutableStateOf(true) }
     var fadeOnPause by remember { mutableStateOf(false) }
@@ -1012,7 +1009,6 @@ private fun SettingsScreen(
     var seekSeconds by remember { mutableIntStateOf(10) }
     var replaceQueue by remember { mutableStateOf(false) }
     var autoAdd by remember { mutableStateOf(true) }
-    var backgroundScan by remember { mutableStateOf(clapScanner.autoScanEnabled()) }
     var customArtwork by remember { mutableStateOf(true) }
     var ignoreShortTracks by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
@@ -1109,49 +1105,6 @@ private fun SettingsScreen(
                     SettingsToggleRow("Replace queue on play", "Playing a list clears the previous queue", replaceQueue) { replaceQueue = it }
                     SettingsToggleRow("Auto-add newly discovered songs", "New imports join your library automatically", autoAdd) { autoAdd = it }
                     SettingsActionRow("Folder auto-watch", "Choose a folder to scan every 30 seconds while Soundprint is open.", "Choose")
-                }
-            }
-            if (matches("music intelligence background mood scan clap")) {
-                SettingsSection("MUSIC INTELLIGENCE") {
-                    SettingsToggleRow("Scan entire library in background", "Build and save offline mood profiles for your music while Soundprint is open", backgroundScan) {
-                        backgroundScan = it
-                        clapScanner.setAutoScanEnabled(it)
-                    }
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                            Text("CLAP scan status", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            Text(when {
-                                clapScanState.running -> "Scanning"
-                                clapScanner.modelInstalled() -> "Model ready"
-                                else -> "Not installed"
-                            }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        if (clapScanState.downloadingModel) {
-                            androidx.compose.material3.LinearProgressIndicator(progress = { clapScanState.modelPercent / 100f }, modifier = Modifier.fillMaxWidth())
-                        } else {
-                            androidx.compose.material3.LinearProgressIndicator(progress = { clapScanState.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                        }
-                        Text(
-                            if (clapScanState.downloadingModel) "Downloading model · ${clapScanState.modelPercent}%"
-                            else "${clapScanState.completed} of ${clapScanState.total} songs processed · ${clapScanState.percent}%",
-                            modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                            MoodCountCard("Saved", clapScanState.completed.toString())
-                            MoodCountCard("Errors", clapScanState.failureMessages.size.toString())
-                            MoodCountCard("Pending", clapScanState.pending.toString())
-                        }
-                        if (clapScanState.stage.isNotBlank()) Text(clapScanState.stage, modifier = Modifier.padding(top = 6.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (clapScanState.currentTitle.isNotBlank()) Text("Now analysing · " + clapScanState.currentTitle, modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (clapScanState.message.isNotBlank()) Text(clapScanState.message, modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                            TextButton(onClick = { if (clapScanState.running) clapScanner.pause() else clapScanner.startScan() }) {
-                                Text(if (clapScanState.running) "Pause scan" else "Scan now")
-                            }
-                            if (clapScanState.failureMessages.isNotEmpty()) TextButton(onClick = clapScanner::retryFailed) { Text("Retry failed") }
-                        }
-                    }
                 }
             }
             if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
