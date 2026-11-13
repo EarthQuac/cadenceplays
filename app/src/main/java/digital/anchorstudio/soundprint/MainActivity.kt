@@ -126,14 +126,14 @@ private data class SoundprintPalette(
 private val AmberLight = SoundprintPalette(
     background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
-    primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
-    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF160D07)
+    primary = Color(0xFFD58A52), muted = Color(0xFF6B655F),
+    border = Color(0xFFE7E5E1), onPrimary = Color(0xFF160D07)
 )
 private val AmberDark = SoundprintPalette(
     background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
     surface = Color(0xFF161310), surface2 = Color(0xFF201C18),
-    primary = Color(0xFFFC9E47), muted = Color(0xFF9C9792),
-    border = Color(0x17FFFFFF), onPrimary = Color(0xFF160D07)
+    primary = Color(0xFFE5A76F), muted = Color(0xFF9C9792),
+    border = Color(0x12FFFFFF), onPrimary = Color(0xFF160D07)
 )
 private val BlueLight = SoundprintPalette(
     background = Color(0xFFFAFCFE), foreground = Color(0xFF0C1723),
@@ -144,32 +144,32 @@ private val BlueLight = SoundprintPalette(
 private val BlueDark = SoundprintPalette(
     background = Color(0xFF090F1A), foreground = Color(0xFFF1F6FA),
     surface = Color(0xFF121B29), surface2 = Color(0xFF1A2435),
-    primary = Color(0xFF59AAF8), muted = Color(0xFF99A6B4),
-    border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0A121F)
+    primary = Color(0xFF78A9D6), muted = Color(0xFF99A6B4),
+    border = Color(0x14FFFFFF), onPrimary = Color(0xFF0A121F)
 )
 private val EmeraldLight = SoundprintPalette(
     background = Color(0xFFF6FCF7), foreground = Color(0xFF0C1F17),
     surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEBF5EE),
-    primary = Color(0xFF007852), muted = Color(0xFF5C6E65),
+    primary = Color(0xFF2D8265), muted = Color(0xFF5C6E65),
     border = Color(0xFFD7E1DA), onPrimary = Color(0xFFF4FAF5)
 )
 private val EmeraldDark = SoundprintPalette(
     background = Color(0xFF05130E), foreground = Color(0xFFEDF4EE),
     surface = Color(0xFF0A1C16), surface2 = Color(0xFF10271F),
-    primary = Color(0xFF5ACA94), muted = Color(0xFF99AA9E),
+    primary = Color(0xFF78B99B), muted = Color(0xFF99AA9E),
     border = Color(0x1CFFFFFF), onPrimary = Color(0xFF0B1E15)
 )
 private val MonoLight = SoundprintPalette(
     background = Color(0xFFF8F8F8), foreground = Color(0xFF121212),
     surface = Color.White, surface2 = Color(0xFFF0F0F0),
     primary = Color(0xFF1F1F1F), muted = Color(0xFF696969),
-    border = Color(0xFFDBDBDB), onPrimary = Color.White
+    border = Color(0xFFE5E5E5), onPrimary = Color.White
 )
 private val MonoDark = SoundprintPalette(
     background = Color(0xFF090909), foreground = Color(0xFFF5F5F5),
     surface = Color(0xFF141414), surface2 = Color(0xFF1D1D1D),
     primary = Color(0xFFE8E8E8), muted = Color(0xFFA4A4A4),
-    border = Color(0x1FFFFFFF), onPrimary = Color(0xFF141414)
+    border = Color(0x16FFFFFF), onPrimary = Color(0xFF141414)
 )
 private fun palette(name: String, dark: Boolean): SoundprintPalette = when (name) {
     "Blue" -> if (dark) BlueDark else BlueLight
