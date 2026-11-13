@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -242,37 +243,71 @@ private fun CadenceApp(
                     3 -> PlaylistsScreen { selectedTab = 0 }
                     else -> DiscoverScreen { selectedTab = 0 }
                 }
-                NavigationBar(
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.onBackground,
-                    tonalElevation = 0.dp,
-                    windowInsets = WindowInsets.navigationBars
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.95f))
                 ) {
-                    tabs.forEachIndexed { index, item ->
-                        NavigationBarItem(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            icon = {
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
+                        thickness = 0.7.dp
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 672.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .padding(start = 4.dp, end = 4.dp, top = 0.dp, bottom = maxOf(
+                                8.dp,
+                                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                            )),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        tabs.forEachIndexed { index, item ->
+                            val selected = selectedTab == index
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedTab = index }
+                                    .padding(vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Box(
                                     modifier = Modifier
+                                        .height(32.dp)
+                                        .widthIn(min = 56.dp)
                                         .clip(CircleShape)
-                                        .background(if (selectedTab == index) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else Color.Transparent)
-                                        .padding(horizontal = 17.dp, vertical = 5.dp)
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                            else Color.Transparent
+                                        )
+                                        .padding(horizontal = 16.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Image(painterResource(item.icon), contentDescription = item.label, modifier = Modifier.size(21.dp), colorFilter = ColorFilter.tint(if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant))
+                                    Image(
+                                        painter = painterResource(item.icon),
+                                        contentDescription = item.label,
+                                        modifier = Modifier.size(20.dp),
+                                        colorFilter = ColorFilter.tint(
+                                            if (selected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
                                 }
-                            },
-                            label = { Text(item.label, fontSize = 11.sp, maxLines = 1) },
-                            alwaysShowLabel = true,
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = Color.Transparent
-                            )
-                        )
+                                Text(
+                                    item.label,
+                                    fontSize = 11.sp,
+                                    lineHeight = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
