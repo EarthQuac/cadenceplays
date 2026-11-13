@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Trophy
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,7 +91,7 @@ fun ListeningStatsScreen(libraryManager:MusicLibraryManager,onBack:()->Unit) {
         item {
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 StatMetricCard("Plays counted",snapshot.plays.toString(),Icons.Default.MusicNote,Modifier.weight(1f))
-                StatMetricCard("Current streak","${snapshot.streak} ${if(snapshot.streak==1) "day" else "days"}",Icons.Default.Trophy,Modifier.weight(1f))
+                StatMetricCard("Current streak","${snapshot.streak} ${if(snapshot.streak==1) "day" else "days"}",Icons.Default.Waves,Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
             StatMetricCard("Songs in library",tracks.size.toString(),Icons.Default.Schedule,Modifier.fillMaxWidth())

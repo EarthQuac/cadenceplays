@@ -429,7 +429,7 @@ private fun CadenceApp(
                                     .widthIn(min = 56.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        if (!settingsOpen && selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                        if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                         else Color.Transparent
                                     )
                                     .padding(horizontal = 16.dp),
@@ -440,7 +440,7 @@ private fun CadenceApp(
                                     contentDescription = item.label,
                                     modifier = Modifier.size(20.dp),
                                     colorFilter = ColorFilter.tint(
-                                        if (!settingsOpen && selected) MaterialTheme.colorScheme.primary
+                                        if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
