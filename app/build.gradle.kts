@@ -119,7 +119,7 @@ val prepareBundledClapAssets by tasks.registering {
                 val connection = URL(baseUrl + relativePath).openConnection().apply {
                     connectTimeout = 20_000
                     readTimeout = 180_000
-                    setRequestProperty("User-Agent", "Cadence-Android-Build")
+                    setRequestProperty("User-Agent", "Soundprint-Android-Build")
                 }
                 connection.getInputStream().use { input ->
                     temporary.outputStream().buffered(1024 * 1024).use { output ->
