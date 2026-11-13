@@ -347,9 +347,9 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        FeatureLabel(Icons.Filled.MusicNote, "Your own music")
-                        FeatureLabel(Icons.Filled.QueueMusic, "Playlists that fit")
-                        FeatureLabel(Icons.Filled.PlayArrow, "Listen offline")
+                        FeatureLabel(R.drawable.lucide_music, "Your own music")
+                        FeatureLabel(R.drawable.lucide_list_music, "Playlists that fit")
+                        FeatureLabel(R.drawable.lucide_headphones, "Listen offline")
                     }
                 }
             }
@@ -368,9 +368,9 @@ private fun HeaderAction(icon: Int, description: String, tint: Color = MaterialT
 }
 
 @Composable
-private fun FeatureLabel(icon: ImageVector, label: String) {
+private fun FeatureLabel(icon: Int, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+        Image(painterResource(icon), contentDescription = null, modifier = Modifier.size(14.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     }
 }
