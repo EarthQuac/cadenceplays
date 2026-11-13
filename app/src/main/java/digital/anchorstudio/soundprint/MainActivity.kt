@@ -1,6 +1,9 @@
 package digital.anchorstudio.soundprint
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.systemBars
@@ -188,6 +191,8 @@ class MainActivity : ComponentActivity() {
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
             val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
             val libraryManager = remember { MusicLibraryManager(applicationContext) }
+            val importNotifications = remember { SoundprintImportNotifications(applicationContext) }
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
             var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
             var librarySources by remember { mutableStateOf(libraryRepository.allSources()) }
             var libraryStatus by remember { mutableStateOf("Checking your saved music locations…") }
@@ -198,31 +203,40 @@ class MainActivity : ComponentActivity() {
             }
             val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
                 if (uri != null) scope.launch {
-                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importTree(uri) } }
+                    importNotifications.begin(0, "Scanning selected folder")
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) { libraryRepository.importTree(uri) { progress -> importNotifications.update(progress) } }
+                    }
                     refreshLibraryState()
-                    libraryStatus = result.fold(
-                        { "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { "Folder import failed: ${it.message ?: "Unknown error"}" }
+                    result.fold(
+                        { importNotifications.complete(it); libraryStatus = "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
+                        { importNotifications.failed(it.message ?: "Folder import failed"); libraryStatus = "Folder import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
             }
             val singleFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 if (uri != null) scope.launch {
-                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(listOf(uri)) } }
+                    importNotifications.begin(1)
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) { libraryRepository.importFiles(listOf(uri)) { progress -> importNotifications.update(progress) } }
+                    }
                     refreshLibraryState()
-                    libraryStatus = result.fold(
-                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { "File import failed: ${it.message ?: "Unknown error"}" }
+                    result.fold(
+                        { importNotifications.complete(it); libraryStatus = "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
+                        { importNotifications.failed(it.message ?: "File import failed"); libraryStatus = "File import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
             }
             val filesPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                 if (uris.isNotEmpty()) scope.launch {
-                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) } }
+                    importNotifications.begin(uris.size)
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) { progress -> importNotifications.update(progress) } }
+                    }
                     refreshLibraryState()
-                    libraryStatus = result.fold(
-                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { "File import failed: ${it.message ?: "Unknown error"}" }
+                    result.fold(
+                        { importNotifications.complete(it); libraryStatus = "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
+                        { importNotifications.failed(it.message ?: "File import failed"); libraryStatus = "File import failed: ${it.message ?: "Unknown error"}" }
                     )
                 }
             }
@@ -254,6 +268,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
             LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
                 val recovery = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
                 refreshLibraryState()
                 libraryStatus = recovery.fold(
