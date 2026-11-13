@@ -473,7 +473,7 @@ fun ClapDiscoverScreen(
                             }
                         }
                     }
-                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
                 }
             }
         }
