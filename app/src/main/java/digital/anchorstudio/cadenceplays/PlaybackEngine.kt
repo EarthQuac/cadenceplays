@@ -105,6 +105,8 @@ class CadencePlaybackService : MediaSessionService() {
     private val handler = Handler(Looper.getMainLooper())
     private var activeTrackId: String? = null
     private var activeOccurrenceKey: String? = null
+    private var activeMediaIndex = -1
+    private var transitionSequence = 0L
     private var recordedOccurrenceKey: String? = null
     private var lastSamplePositionMs = 0L
     private var lastSampleElapsedMs = 0L
@@ -139,14 +141,18 @@ class CadencePlaybackService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val nextId = mediaItem?.mediaId?.takeIf(String::isNotBlank)
                 val previousId = activeTrackId
-                val nextOccurrenceKey = if (nextId == null) null else "${player.currentMediaItemIndex}:${nextId}"
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && previousId != null && activeOccurrenceKey != nextOccurrenceKey) {
+                val nextIndex = player.currentMediaItemIndex
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && previousId != null &&
+                    (previousId != nextId || activeMediaIndex != nextIndex)
+                ) {
                     recordSkip(previousId, lastSamplePositionMs, lastTrackDurationMs)
                 }
                 flushListeningTime()
                 activeTrackId = nextId
+                activeMediaIndex = nextIndex
                 lastTrackDurationMs = player.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0L) ?: 0L
-                activeOccurrenceKey = if (nextId == null) null else "${player.currentMediaItemIndex}:${nextId}"
+                transitionSequence += 1L
+                activeOccurrenceKey = if (nextId == null) null else "${transitionSequence}:${nextIndex}:${nextId}"
                 recordedOccurrenceKey = null
                 lastSamplePositionMs = player.currentPosition.coerceAtLeast(0L)
                 lastSampleElapsedMs = SystemClock.elapsedRealtime()
@@ -211,8 +217,9 @@ class CadencePlaybackService : MediaSessionService() {
     private fun restoreQueue() {
         val saved = queueStore.read()
         if (saved.queueIds.isEmpty()) return
+        val availableTracks = library.allSongs().associateBy { it.id }
         val resolved = saved.queueIds.mapIndexedNotNull { oldIndex, id ->
-            library.song(id)?.takeIf { it.isAvailable }?.let { oldIndex to it }
+            availableTracks[id]?.let { oldIndex to it }
         }
         if (resolved.isEmpty()) {
             queueStore.clear()
@@ -228,7 +235,8 @@ class CadencePlaybackService : MediaSessionService() {
         player.setMediaItems(resolved.map { it.second.toCadenceMediaItem() }, restoredIndex, saved.positionMs)
         player.prepare()
         activeTrackId = player.currentMediaItem?.mediaId
-        activeOccurrenceKey = if (activeTrackId == null) null else "${restoredIndex}:${activeTrackId}"
+        activeMediaIndex = restoredIndex
+        activeOccurrenceKey = if (activeTrackId == null) null else "restored:${restoredIndex}:${activeTrackId}"
     }
 
     private fun persistQueue() {
@@ -312,7 +320,8 @@ class CadencePlaybackConnection(
     context: Context,
     private val onConnected: (MediaController) -> Unit = {}
 ) {
-    private val executor = Executor { command -> command.run() }
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val executor = Executor { command -> mainHandler.post(command) }
     @Volatile var controller: MediaController? = null
         private set
     @Volatile private var closed = false
