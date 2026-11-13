@@ -78,6 +78,17 @@ private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(contex
         return result
     }
     fun clearHistory() { writableDatabase.delete("history_events",null,null) }
+    fun clearAllLibraryData() {
+        val db=writableDatabase;db.beginTransaction()
+        try {
+            db.delete("managed_playlist_tracks",null,null)
+            db.delete("managed_playlists",null,null)
+            db.delete("smart_playlists",null,null)
+            db.delete("history_events",null,null)
+            db.delete("recycle_bin",null,null)
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
     fun removeTrackReferences(trackId:String) {
         val db=writableDatabase;db.beginTransaction()
         try {
@@ -276,6 +287,10 @@ class MusicLibraryManager(context:Context) {
     fun listeningStats()=state.stats()
     fun listeningEvents(limit:Int=10000)=state.history(limit.coerceIn(1,10000))
     fun clearListeningHistory() { state.clearHistory();repository.tracks().forEach { repository.resetPlayStats(it.id) } }
+    fun clearAllLibraryData() {
+        repository.clearLibrary()
+        state.clearAllLibraryData()
+    }
 
     fun createPlaylist(name:String,trackIds:List<String> = emptyList()):String {
         require(trackIds.distinct().all { repository.track(it)!=null }) { "A selected song no longer exists in the library." }
