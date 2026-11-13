@@ -820,7 +820,7 @@ private fun DiscoverScreen(onBack: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF4DAA78)))
                     Spacer(Modifier.width(8.dp))
-                    Text("CLAP analysed · 0/0", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Your music library", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.weight(1f))
                     Text("0 tracks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
