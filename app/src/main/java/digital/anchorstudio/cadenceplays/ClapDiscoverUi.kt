@@ -142,8 +142,9 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                     failed = errors.size, failureMessages = errors,
                     message = "Preparing offline music intelligence…"
                 )
-                engine = ClapOnnxEngine(app)
-                engine.prepare { progress ->
+                val activeEngine = ClapOnnxEngine(app)
+                engine = activeEngine
+                activeEngine.prepare { progress ->
                     mutableState.value = mutableState.value.copy(
                         downloadingModel = true, modelPercent = progress.percent,
                         stage = "Downloading CLAP model",
@@ -157,7 +158,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 tracks.forEach { track ->
                     kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     try {
-                        val scores = engine.analyse(track)
+                        val scores = activeEngine.analyse(track)
                         library.saveClapMoodProfile(track, scores)
                         errors.remove(track.id)
                     } catch (cancel: CancellationException) {
