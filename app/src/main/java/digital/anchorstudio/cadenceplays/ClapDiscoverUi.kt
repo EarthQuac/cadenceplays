@@ -103,7 +103,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     }
 
     fun startScan(retryFailedOnly: Boolean = false) {
-        if (scanJob?.isActive == true) return
+        if (scanJob?.isCompleted == false) return
         mutableState.value = mutableState.value.copy(
             running = true, downloadingModel = false, stage = "Preparing",
             message = "Preparing offline music intelligence…"
@@ -199,7 +199,6 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
 
     fun pause() {
         scanJob?.cancel()
-        scanJob = null
     }
 
     fun retryFailed() = startScan(retryFailedOnly = true)
