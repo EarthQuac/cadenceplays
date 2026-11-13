@@ -782,10 +782,15 @@ private fun SettingsScreen(
                     SettingsToggleRow("Loudness leveling", "Smooths playback volume between tracks", loudness) { loudness = it }
                     SettingsActionRow("Equalizer", "Adjust your sound with the free 10-band EQ; Pro adds advanced audio controls", "Open Equalizer")
                     SettingsValueRow("Crossfade", if (crossfade == 0) "Off" else "$crossfade seconds") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(0, 2, 4, 6, 8).forEach { seconds ->
-                                TextButton(onClick = { crossfade = seconds }, enabled = false) {
-                                    Text(if (seconds == 0) "Off" else "$seconds s", color = if (crossfade == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                                Box(
+                                    Modifier.width(31.dp).height(30.dp).clip(RoundedCornerShape(9.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(9.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(if (seconds == 0) "Off" else "$seconds s", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -969,12 +974,12 @@ private fun SettingsActionRow(
 private fun SettingsValueRow(label: String, description: String, control: @Composable () -> Unit) {
     Column {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(end = 6.dp)) {
                 Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                 Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            control()
         }
-        Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) { control() }
         SettingsDivider()
     }
 }
@@ -994,7 +999,7 @@ private fun SettingsDivider() {
 
 @Composable
 private fun MoodCountCard(label: String, value: String) {
-    Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 9.dp)) {
+    Column(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 9.dp).width(88.dp)) {
         Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Text(value, modifier = Modifier.padding(top = 3.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
