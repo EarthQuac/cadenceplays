@@ -136,6 +136,50 @@ class MusicLibraryDatabaseTest {
         database.close()
     }
 
+
+    @Test fun soundprintFingerprintsPersistAndInvalidateWhenTheSourceChanges() {
+        val db = MusicLibraryDatabase(context)
+        val item = track("content://music/soundprint-cache")
+        db.upsert(item)
+        val fingerprint = SoundprintFingerprint(
+            trackId = item.id, sourceSize = item.sizeBytes, sourceModifiedAt = item.modifiedAt,
+            durationMs = item.durationMs, sampleRate = 22_050, frameCount = 8, featureBands = 24,
+            compressedFeatures = byteArrayOf(1, 2, 3, 4), generatedAt = 500L
+        )
+
+        db.saveSoundprintFingerprint(fingerprint)
+
+        val cached = db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt)!!
+        assertEquals(fingerprint.frameCount, cached.frameCount)
+        assertArrayEquals(fingerprint.compressedFeatures, cached.compressedFeatures)
+        assertNull(db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt + 1L))
+
+        db.removeTrackRecord(item.id)
+        assertNull(db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt))
+        db.close()
+    }
+
+    @Test fun soundprintFingerprintsAreIncludedInLibraryBackups() {
+        val db = MusicLibraryDatabase(context)
+        val item = track("content://music/soundprint-backup")
+        db.upsert(item)
+        val fingerprint = SoundprintFingerprint(
+            trackId = item.id, sourceSize = item.sizeBytes, sourceModifiedAt = item.modifiedAt,
+            durationMs = item.durationMs, sampleRate = 22_050, frameCount = 8, featureBands = 24,
+            compressedFeatures = byteArrayOf(9, 8, 7, 6), generatedAt = 600L
+        )
+        db.saveSoundprintFingerprint(fingerprint)
+        val backup = ByteArrayOutputStream()
+        db.writeBackup(backup)
+        db.clearLibrary()
+        db.restoreBackup(ByteArrayInputStream(backup.toByteArray()), true)
+
+        val restored = db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt)
+        assertNotNull(restored)
+        assertArrayEquals(fingerprint.compressedFeatures, restored!!.compressedFeatures)
+        db.close()
+    }
+
     @Test fun versionOneDatabaseMigratesThroughEverySchemaVersion() {
         val raw = context.openOrCreateDatabase("cadence_music_library.db", Context.MODE_PRIVATE, null)
         raw.execSQL("""CREATE TABLE tracks(
@@ -156,7 +200,7 @@ class MusicLibraryDatabaseTest {
 
         val migrated = MusicLibraryDatabase(context)
         assertEquals("Version one track", migrated.findById("v1")!!.title)
-        assertEquals(4, migrated.readableDatabase.version)
+        assertEquals(5, migrated.readableDatabase.version)
         val sourceColumns = mutableSetOf<String>()
         migrated.readableDatabase.rawQuery("PRAGMA table_info(library_sources)", null).use { cursor ->
             while (cursor.moveToNext()) sourceColumns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
@@ -189,7 +233,7 @@ class MusicLibraryDatabaseTest {
         val migrated = MusicLibraryDatabase(context)
         val item = migrated.findById("legacy")!!
         assertEquals("Legacy track", item.title)
-        assertEquals(4, migrated.readableDatabase.version)
+        assertEquals(5, migrated.readableDatabase.version)
         assertTrue(migrated.readableDatabase.rawQuery("SELECT 1 FROM track_sources WHERE track_id='legacy' AND source_uri='legacy-folder'", null).use { it.moveToFirst() })
         migrated.close()
     }

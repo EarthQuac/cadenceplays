@@ -271,6 +271,10 @@ class MusicLibraryManager(context:Context) {
         return evaluateNativeSmartPlaylist(playlist,SmartPlaylistContext(repository.tracks(),listeningStats(),state.history(10000),profiles))
     }
 
+    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint)=repository.saveSoundprintFingerprint(fingerprint)
+    fun soundprintFingerprint(trackId:String,size:Long,modifiedAt:Long)=repository.soundprintFingerprint(trackId,size,modifiedAt)
+    fun deleteSoundprintFingerprint(trackId:String)=repository.deleteSoundprintFingerprint(trackId)
+
     fun moveToRecycleBin(id:String,reason:String="user") {
         require(repository.track(id)!=null) { "Song not found." };repository.moveToSoundprintTrash(id);state.addRecycleBinEntry(id,reason)
     }

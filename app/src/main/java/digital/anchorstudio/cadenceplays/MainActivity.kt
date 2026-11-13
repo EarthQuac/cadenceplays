@@ -178,6 +178,7 @@ class MainActivity : ComponentActivity() {
             var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
             val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
+            val libraryManager = remember { MusicLibraryManager(applicationContext) }
             var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
             var librarySources by remember { mutableStateOf(libraryRepository.allSources()) }
             var libraryStatus by remember { mutableStateOf("Checking your saved music locations…") }
@@ -269,6 +270,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(fontFamily = CadenceFontFamily)) {
                 CadenceApp(
+                    libraryManager = libraryManager,
                     themeMode = themeMode,
                     onThemeModeChange = { mode -> themeMode = mode; preferences.edit().putString("theme", mode).apply() },
                     selectedPalette = selectedPalette,
@@ -326,6 +328,7 @@ private val tabs = listOf(
 
 @Composable
 private fun CadenceApp(
+    libraryManager: MusicLibraryManager,
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
@@ -371,8 +374,8 @@ private fun CadenceApp(
             } else {
                 when (selectedTab) {
                     0 -> HomeScreen(onSettings = { settingsOpen = true })
-                    1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote) { selectedTab = 0 }
-                    2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album) { selectedTab = 0 }
+                    1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
+                    2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
                     3 -> PlaylistsScreen { selectedTab = 0 }
                     else -> DiscoverScreen { selectedTab = 0 }
                 }
@@ -637,200 +640,28 @@ private fun FeatureLabel(icon: Int, label: String) {
 }
 
 @Composable
-private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector, onBack: () -> Unit) {
+private fun LibraryScreen(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    libraryManager: MusicLibraryManager,
+    onImportFiles: () -> Unit,
+    onBack: () -> Unit
+) {
     when (title) {
-        "Songs" -> SongsScreen(onBack)
+        "Songs" -> SongsScreen(libraryManager, onImportFiles, onBack)
         "Albums" -> AlbumsScreen(onBack)
         else -> PlaylistsScreen(onBack)
     }
 }
 
 @Composable
-private fun SongsScreen(onBack: () -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var sort by remember { mutableStateOf("Title") }
-    var descending by remember { mutableStateOf(false) }
-    var sortMenuOpen by remember { mutableStateOf(false) }
-    var soundprintOpen by remember { mutableStateOf(false) }
-    var recycleBinOpen by remember { mutableStateOf(false) }
-
-    val sortOptions = listOf("Title", "Artist", "Album", "Date added", "Duration")
-    val songCount = 0
-    val filteredCount = 0
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                start = 12.dp, end = 12.dp,
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
-                bottom = 12.dp
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack).padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(painterResource(R.drawable.lucide_arrow_left), null, Modifier.size(20.dp),
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
-            }
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Songs", fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onBackground)
-                Text("$songCount songs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Box(
-                Modifier.height(36.dp).clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
-                    .clickable { }.padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Image(painterResource(R.drawable.lucide_folder_plus), null, Modifier.size(15.dp),
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
-                    Text("Add music", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        }
-        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
-
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SearchBox(query, { query = it }, "Filter songs, artists, albums…")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) {
-                        UtilityButton(Icons.Filled.FilterList, "Sort: $sort", Modifier.fillMaxWidth()) {
-                            sortMenuOpen = true
-                        }
-                        DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
-                            sortOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(option, modifier = Modifier.weight(1f), fontSize = 13.sp)
-                                            if (sort == option) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                        }
-                                    },
-                                    onClick = { sort = option; sortMenuOpen = false }
-                                )
-                            }
-                        }
-                    }
-                    UtilityButton(Icons.Filled.Sort, if (descending) "Descending" else "Ascending", Modifier.weight(1f)) {
-                        descending = !descending
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    UtilityButton(Icons.Filled.GraphicEq, "Soundprint", Modifier.weight(1f)) {
-                        soundprintOpen = !soundprintOpen
-                        if (soundprintOpen) recycleBinOpen = false
-                    }
-                    UtilityButton(Icons.Filled.LibraryMusic, "Recycle Bin", Modifier.weight(1f)) {
-                        recycleBinOpen = !recycleBinOpen
-                        if (recycleBinOpen) soundprintOpen = false
-                    }
-                }
-                if (query.isNotBlank()) {
-                    Text("$filteredCount matches", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            if (recycleBinOpen) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                            contentAlignment = Alignment.Center
-                        ) { Icon(Icons.Filled.LibraryMusic, null, tint = MaterialTheme.colorScheme.primary) }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Soundprint Trash (0)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Removed tracks stay here for 30 days.", modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Text(
-                        "Your trash is empty. The native music library and restore system have not been connected yet.",
-                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp)
-                            .clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.background).padding(12.dp),
-                        fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (soundprintOpen) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {
-                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("Soundprint", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Find duplicate tracks in your library", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.padding(top = 14.dp).fillMaxWidth()
-                                .height(38.dp).clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                .padding(horizontal = 13.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(7.dp))
-                            Text("Basic scan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(
-                            "Not yet, We have to complete this first",
-                            modifier = Modifier.padding(top = 12.dp),
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            "The native app does not have its local audio library, persistent file access, or Soundprint fingerprint storage yet. The scan is intentionally unavailable rather than showing fake progress or duplicate results.",
-                            modifier = Modifier.padding(top = 4.dp),
-                            fontSize = 11.sp, lineHeight = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                }
-            }
-
-            EmptyLibraryState(
-                icon = Icons.Filled.MusicNote,
-                title = if (query.isBlank()) "No music found" else "No matches",
-                description = if (query.isBlank())
-                    "Add music to your device and scan your library to see your songs here."
-                else
-                    "No songs match your search. Try another title, artist or album."
-            )
-        }
-    }
+private fun SongsScreen(
+    libraryManager: MusicLibraryManager,
+    onImportFiles: () -> Unit,
+    onBack: () -> Unit
+) {
+    SongsLibraryScreen(libraryManager, onImportFiles, onBack)
 }
 
 @Composable

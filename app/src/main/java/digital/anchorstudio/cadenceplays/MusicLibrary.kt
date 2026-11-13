@@ -45,13 +45,14 @@ enum class TrackSort { TITLE, ARTIST, ALBUM, DATE_ADDED, DURATION, YEAR, PLAY_CO
 
 /** SQLite is the source of truth. Schema upgrades are additive and preserve existing user data. */
 class MusicLibraryDatabase(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "cadence_music_library.db", null, 4) {
+    SQLiteOpenHelper(context.applicationContext, "cadence_music_library.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) = createSchema(db)
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) migrateToV2(db)
         if (oldVersion < 3) migrateToV3(db)
         if (oldVersion < 4) migrateToV4(db)
+        if (oldVersion < 5) createSoundprintSchema(db)
     }
 
     private fun createSchema(db: SQLiteDatabase) {
@@ -71,11 +72,21 @@ class MusicLibraryDatabase(context: Context) :
         db.execSQL("CREATE INDEX playlist_tracks_order_idx ON playlist_tracks(playlist_id,position)")
         db.execSQL("CREATE TABLE soundprint_trash(track_id TEXT PRIMARY KEY, removed_at INTEGER NOT NULL, reason TEXT NOT NULL)")
         db.execSQL("CREATE TABLE audio_analysis_cache(fingerprint TEXT PRIMARY KEY, profile_json TEXT NOT NULL, source_size INTEGER NOT NULL, source_mime TEXT NOT NULL, created_at INTEGER NOT NULL)")
+        createSoundprintSchema(db)
         db.execSQL("CREATE TABLE library_sources(uri TEXT PRIMARY KEY, display_name TEXT NOT NULL, last_scanned_at INTEGER NOT NULL, last_scan_id TEXT)")
         db.execSQL("CREATE TABLE library_scan_errors(id INTEGER PRIMARY KEY AUTOINCREMENT, source_uri TEXT, file_uri TEXT, message TEXT NOT NULL, occurred_at INTEGER NOT NULL)")
         db.execSQL("CREATE INDEX library_scan_errors_time_idx ON library_scan_errors(occurred_at)")
         createSourceMapSchema(db)
         createFileSourceSchema(db)
+    }
+
+    private fun createSoundprintSchema(db:SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS soundprint_fingerprints(
+            track_id TEXT PRIMARY KEY, source_size INTEGER NOT NULL, source_modified_at INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL, sample_rate INTEGER NOT NULL, frame_count INTEGER NOT NULL,
+            feature_bands INTEGER NOT NULL, compressed_features BLOB NOT NULL, generated_at INTEGER NOT NULL,
+            fingerprint_version INTEGER NOT NULL)""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS soundprint_fingerprint_version_idx ON soundprint_fingerprints(fingerprint_version)")
     }
 
     private fun createSourceMapSchema(db:SQLiteDatabase) {
@@ -332,12 +343,12 @@ class MusicLibraryDatabase(context: Context) :
         val db=writableDatabase; db.beginTransaction()
         try {
             db.delete("tracks",null,null);db.delete("playlist_tracks",null,null);db.delete("playlists",null,null)
-            db.delete("soundprint_trash",null,null);db.delete("library_sources",null,null);db.delete("library_file_sources",null,null);db.delete("track_sources",null,null);db.delete("library_scan_errors",null,null);db.delete("audio_analysis_cache",null,null);db.setTransactionSuccessful()
+            db.delete("soundprint_trash",null,null);db.delete("soundprint_fingerprints",null,null);db.delete("library_sources",null,null);db.delete("library_file_sources",null,null);db.delete("track_sources",null,null);db.delete("library_scan_errors",null,null);db.delete("audio_analysis_cache",null,null);db.setTransactionSuccessful()
         } finally { db.endTransaction() }
     }
     fun removeTrackRecord(id:String) {
         val db=writableDatabase;db.beginTransaction()
-        try { db.delete("playlist_tracks","track_id=?",arrayOf(id));db.delete("soundprint_trash","track_id=?",arrayOf(id));db.delete("tracks","id=?",arrayOf(id));db.setTransactionSuccessful() }
+        try { db.delete("playlist_tracks","track_id=?",arrayOf(id));db.delete("soundprint_trash","track_id=?",arrayOf(id));db.delete("soundprint_fingerprints","track_id=?",arrayOf(id));db.delete("tracks","id=?",arrayOf(id));db.setTransactionSuccessful() }
         finally { db.endTransaction() }
     }
     fun moveToTrash(id:String,reason:String="user") {
@@ -346,6 +357,33 @@ class MusicLibraryDatabase(context: Context) :
     fun restoreFromTrash(id:String) { writableDatabase.delete("soundprint_trash","track_id=?",arrayOf(id)) }
     fun pruneTrash(now:Long=System.currentTimeMillis()):Int =
         writableDatabase.delete("soundprint_trash","removed_at < ?",arrayOf((now-30L*86_400_000L).toString()))
+    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint) {
+        writableDatabase.insertWithOnConflict("soundprint_fingerprints",null,ContentValues().apply {
+            put("track_id",fingerprint.trackId);put("source_size",fingerprint.sourceSize)
+            put("source_modified_at",fingerprint.sourceModifiedAt);put("duration_ms",fingerprint.durationMs)
+            put("sample_rate",fingerprint.sampleRate);put("frame_count",fingerprint.frameCount)
+            put("feature_bands",fingerprint.featureBands);put("compressed_features",fingerprint.compressedFeatures)
+            put("generated_at",fingerprint.generatedAt);put("fingerprint_version",fingerprint.version)
+        },SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun soundprintFingerprint(trackId:String,sourceSize:Long,sourceModifiedAt:Long):SoundprintFingerprint? =
+        readableDatabase.rawQuery("SELECT * FROM soundprint_fingerprints WHERE track_id=? AND source_size=? AND source_modified_at=? AND fingerprint_version=?",
+            arrayOf(trackId,sourceSize.toString(),sourceModifiedAt.toString(),"1")).use { c ->
+            if(!c.moveToFirst()) null else SoundprintFingerprint(
+                trackId=c.getString(c.getColumnIndexOrThrow("track_id")),
+                sourceSize=c.getLong(c.getColumnIndexOrThrow("source_size")),
+                sourceModifiedAt=c.getLong(c.getColumnIndexOrThrow("source_modified_at")),
+                durationMs=c.getLong(c.getColumnIndexOrThrow("duration_ms")),
+                sampleRate=c.getInt(c.getColumnIndexOrThrow("sample_rate")),
+                frameCount=c.getInt(c.getColumnIndexOrThrow("frame_count")),
+                featureBands=c.getInt(c.getColumnIndexOrThrow("feature_bands")),
+                compressedFeatures=c.getBlob(c.getColumnIndexOrThrow("compressed_features")),
+                generatedAt=c.getLong(c.getColumnIndexOrThrow("generated_at")),
+                version=c.getInt(c.getColumnIndexOrThrow("fingerprint_version"))
+            )
+        }
+    fun deleteSoundprintFingerprint(trackId:String) { writableDatabase.delete("soundprint_fingerprints","track_id=?",arrayOf(trackId)) }
+
     fun saveAnalysis(fingerprint:String,profileJson:String,sourceSize:Long,sourceMime:String) {
         writableDatabase.insertWithOnConflict("audio_analysis_cache",null,ContentValues().apply {
             put("fingerprint",fingerprint);put("profile_json",profileJson);put("source_size",sourceSize);put("source_mime",sourceMime);put("created_at",System.currentTimeMillis())
@@ -354,7 +392,7 @@ class MusicLibraryDatabase(context: Context) :
     fun analysis(fingerprint:String):String? =
         readableDatabase.rawQuery("SELECT profile_json FROM audio_analysis_cache WHERE fingerprint=?",arrayOf(fingerprint)).use { if(it.moveToFirst()) it.getString(0) else null }
 
-    private val backupTables=listOf("tracks","library_sources","library_file_sources","track_sources","playlists","playlist_tracks","soundprint_trash","audio_analysis_cache","library_scan_errors")
+    private val backupTables=listOf("tracks","library_sources","library_file_sources","track_sources","playlists","playlist_tracks","soundprint_trash","soundprint_fingerprints","audio_analysis_cache","library_scan_errors")
 
     fun writeBackup(output:OutputStream) {
         val root=JSONObject().put("format","cadence-native-library").put("formatVersion",1).put("exportedAt",System.currentTimeMillis())
@@ -715,6 +753,9 @@ class MusicLibraryRepository(context:Context) {
 
     fun removeTrackRecord(id:String)=db.removeTrackRecord(id)
     fun saveAnalysis(fingerprint:String,profileJson:String,size:Long,mime:String)=db.saveAnalysis(fingerprint,profileJson,size,mime)
+    fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint)=db.saveSoundprintFingerprint(fingerprint)
+    fun soundprintFingerprint(trackId:String,size:Long,modifiedAt:Long)=db.soundprintFingerprint(trackId,size,modifiedAt)
+    fun deleteSoundprintFingerprint(trackId:String)=db.deleteSoundprintFingerprint(trackId)
     fun cachedAnalysis(fingerprint:String)=db.analysis(fingerprint)
 
     private class MutableScanResult {
