@@ -210,6 +210,19 @@ class MusicLibraryManager(context:Context) {
     fun clearClapMoodProfile(trackId:String) = repository.clearClapMoodProfile(trackId)
     fun clapMoodProfiles():Map<String,ClapMoodProfile> =
         repository.tracks().mapNotNull { track -> repository.clapMoodProfile(track,CLAP_MODEL_VERSION)?.let { track.id to it } }.toMap()
+    fun clapAudioRuleProfiles():Map<String,AudioRuleProfile> {
+        val energyWeights=mapOf(
+            "workout" to .95,"upbeat" to .78,"chill" to .25,"focus" to .30,"sleep" to .05,
+            "driving" to .65,"party" to .95,"happy" to .75,"sad" to .15,"romantic" to .35,
+            "late-night" to .20,"angry" to .95,"dreamy" to .20,"peaceful" to .10,
+            "melancholy" to .15,"confident" to .75,"nostalgic" to .35,"intense" to .95
+        )
+        return clapMoodProfiles().mapValues { (_,profile) ->
+            val total=profile.scores.values.sum().coerceAtLeast(1e-9f)
+            val energy=profile.scores.entries.sumOf { (mood,score) -> score.toDouble()*(energyWeights[mood] ?: .5) }/total*100.0
+            AudioRuleProfile(energy=energy,moodLabel=profile.primaryMood?.id)
+        }
+    }
     fun updateSongMetadata(id:String,title:String,artist:String,album:String,genre:String) {
         val current=repository.track(id) ?: throw IllegalArgumentException("Song not found.")
         repository.updateTrack(current.copy(title=title.trim().ifBlank { current.title },artist=artist.trim().ifBlank { current.artist },album=album.trim().ifBlank { current.album },genre=genre.trim()))
@@ -276,7 +289,8 @@ class MusicLibraryManager(context:Context) {
     fun deleteSmartPlaylist(id:String)=state.deleteSmartPlaylist(id)
     fun evaluateSmartPlaylist(id:String,profiles:Map<String,AudioRuleProfile> = emptyMap()):List<MusicTrack> {
         val playlist=smartPlaylists().firstOrNull { it.id==id } ?: return emptyList()
-        return evaluateNativeSmartPlaylist(playlist,SmartPlaylistContext(repository.tracks(),listeningStats(),state.history(10000),profiles))
+        val resolvedProfiles=if(profiles.isEmpty()) clapAudioRuleProfiles() else profiles
+        return evaluateNativeSmartPlaylist(playlist,SmartPlaylistContext(repository.tracks(),listeningStats(),state.history(10000),resolvedProfiles))
     }
 
     fun saveSoundprintFingerprint(fingerprint:SoundprintFingerprint)=repository.saveSoundprintFingerprint(fingerprint)
@@ -379,10 +393,12 @@ fun nativeSmartPlaylistPresets():List<NativeSmartPlaylist> = listOf(
         SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="late-night"),
         SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="chill")
     ))),sortField=SmartSortField.LAST_PLAYED_DAYS_AGO,ascending=true,limit=40),
-    NativeSmartPlaylist(id="preset-workout",name="Workout",preset=true,groups=listOf(SmartConditionGroup(conditions=listOf(
-        SmartCondition(field=SmartField.ENERGY,operator=SmartOperator.GTE,value="55"),
-        SmartCondition(field=SmartField.TEMPO,operator=SmartOperator.GTE,value="115")
-    ))),sortField=SmartSortField.TEMPO,ascending=false,limit=60),
+    NativeSmartPlaylist(id="preset-workout",name="Workout",preset=true,groups=listOf(SmartConditionGroup(join=SmartJoin.OR,conditions=listOf(
+        SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="workout"),
+        SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="intense"),
+        SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="party"),
+        SmartCondition(field=SmartField.MOOD_LABEL,operator=SmartOperator.EQ,value="upbeat")
+    ))),sortField=SmartSortField.ENERGY,ascending=false,limit=60),
     NativeSmartPlaylist(id="preset-rediscover",name="Rediscover",preset=true,groups=listOf(SmartConditionGroup(conditions=listOf(
         SmartCondition(field=SmartField.PLAY_COUNT,operator=SmartOperator.LTE,value="2")
     ))),sortField=SmartSortField.LAST_PLAYED_DAYS_AGO,ascending=false,limit=50),
