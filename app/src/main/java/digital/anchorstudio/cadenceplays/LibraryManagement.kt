@@ -200,6 +200,7 @@ private fun smartPlaylistFromJson(json:JSONObject):NativeSmartPlaylist {
 class MusicLibraryManager(context:Context) {
     private val repository=MusicLibraryRepository(context.applicationContext)
     private val state=LibraryManagementDatabase(context.applicationContext)
+    private val clapPreferences=context.applicationContext.getSharedPreferences("cadence_clap_scan",Context.MODE_PRIVATE)
 
     fun allSongs(query:String="",sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=repository.tracks(query,sort,ascending)
     fun song(id:String)=repository.track(id)
@@ -217,11 +218,20 @@ class MusicLibraryManager(context:Context) {
             "late-night" to .20,"angry" to .95,"dreamy" to .20,"peaceful" to .10,
             "melancholy" to .15,"confident" to .75,"nostalgic" to .35,"intense" to .95
         )
-        return clapMoodProfiles().mapValues { (_,profile) ->
+        val result=clapMoodProfiles().mapValues { (_,profile) ->
             val total=profile.scores.values.sum().coerceAtLeast(1e-9f)
             val energy=profile.scores.entries.sumOf { (mood,score) -> score.toDouble()*(energyWeights[mood] ?: .5) }/total*100.0
             AudioRuleProfile(energy=energy,moodLabel=profile.primaryMood?.id)
+        }.toMutableMap()
+        val corrections=runCatching {
+            val raw=clapPreferences.getString("mood_corrections",null) ?: return@runCatching emptyMap()
+            val json=JSONObject(raw)
+            json.keys().asSequence().associateWith { json.getString(it) }
+        }.getOrDefault(emptyMap())
+        corrections.forEach { (trackId,moodId) ->
+            result[trackId]=AudioRuleProfile(energy=energyWeights[moodId]?.times(100.0),moodLabel=moodId)
         }
+        return result
     }
     fun updateSongMetadata(id:String,title:String,artist:String,album:String,genre:String) {
         val current=repository.track(id) ?: throw IllegalArgumentException("Song not found.")
