@@ -141,13 +141,13 @@ class MusicLibraryDatabaseTest {
         val db = MusicLibraryDatabase(context)
         val item = track("content://music/soundprint-cache")
         db.upsert(item)
-        val fingerprint = SoundprintFingerprint(
+        val fingerprint = TwinSenseFingerprint(
             trackId = item.id, sourceSize = item.sizeBytes, sourceModifiedAt = item.modifiedAt,
             durationMs = item.durationMs, sampleRate = 22_050, frameCount = 8, featureBands = 24,
             compressedFeatures = byteArrayOf(1, 2, 3, 4), generatedAt = 500L
         )
 
-        db.saveSoundprintFingerprint(fingerprint)
+        db.saveTwinSenseFingerprint(fingerprint)
 
         val cached = db.soundprintFingerprint(item.id, item.sizeBytes, item.modifiedAt)!!
         assertEquals(fingerprint.frameCount, cached.frameCount)
@@ -163,12 +163,12 @@ class MusicLibraryDatabaseTest {
         val db = MusicLibraryDatabase(context)
         val item = track("content://music/soundprint-backup")
         db.upsert(item)
-        val fingerprint = SoundprintFingerprint(
+        val fingerprint = TwinSenseFingerprint(
             trackId = item.id, sourceSize = item.sizeBytes, sourceModifiedAt = item.modifiedAt,
             durationMs = item.durationMs, sampleRate = 22_050, frameCount = 8, featureBands = 24,
             compressedFeatures = byteArrayOf(9, 8, 7, 6), generatedAt = 600L
         )
-        db.saveSoundprintFingerprint(fingerprint)
+        db.saveTwinSenseFingerprint(fingerprint)
         val backup = ByteArrayOutputStream()
         db.writeBackup(backup)
         db.clearLibrary()
