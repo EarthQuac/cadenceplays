@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Soundprint"
+rootProject.name = "CadencePlays"
 include(":app")

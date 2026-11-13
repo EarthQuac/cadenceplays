@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.content.Context
 import org.junit.After
@@ -20,15 +20,15 @@ class PlaybackEngineTest {
 
     @Before fun setUp() {
         context = org.robolectric.RuntimeEnvironment.getApplication()
-        context.deleteDatabase("soundprint_music_library.db")
-        context.deleteDatabase("soundprint_library_management.db")
-        context.getSharedPreferences("soundprint_playback_queue", Context.MODE_PRIVATE).edit().clear().commit()
+        context.deleteDatabase("cadence_music_library.db")
+        context.deleteDatabase("cadence_library_management.db")
+        context.getSharedPreferences("cadence_playback_queue", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @After fun tearDown() {
-        context.deleteDatabase("soundprint_music_library.db")
-        context.deleteDatabase("soundprint_library_management.db")
-        context.getSharedPreferences("soundprint_playback_queue", Context.MODE_PRIVATE).edit().clear().commit()
+        context.deleteDatabase("cadence_music_library.db")
+        context.deleteDatabase("cadence_library_management.db")
+        context.getSharedPreferences("cadence_playback_queue", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun track(uri: String) = MusicTrack(
@@ -47,7 +47,7 @@ class PlaybackEngineTest {
             currentIndex = 2,
             positionMs = 48_321L,
             shuffleEnabled = true,
-            repeatMode = SoundprintRepeatMode.ONE
+            repeatMode = CadenceRepeatMode.ONE
         )
 
         store.write(expected)
@@ -57,7 +57,7 @@ class PlaybackEngineTest {
 
     @Test fun clearingQueueSnapshotRemovesOldResumeState() {
         val store = PlaybackQueueStore(context)
-        store.write(PlaybackQueueSnapshot(listOf("track-a"), 0, 12_000L, true, SoundprintRepeatMode.ALL))
+        store.write(PlaybackQueueSnapshot(listOf("track-a"), 0, 12_000L, true, CadenceRepeatMode.ALL))
 
         store.clear()
 
@@ -66,20 +66,20 @@ class PlaybackEngineTest {
 
     @Test fun repeatModeAndShuffleStateArePersistedIndependently() {
         val store = PlaybackQueueStore(context)
-        store.write(PlaybackQueueSnapshot(listOf("a", "b"), 1, 0L, false, SoundprintRepeatMode.OFF))
+        store.write(PlaybackQueueSnapshot(listOf("a", "b"), 1, 0L, false, CadenceRepeatMode.OFF))
         assertFalse(store.read().shuffleEnabled)
-        assertEquals(SoundprintRepeatMode.OFF, store.read().repeatMode)
+        assertEquals(CadenceRepeatMode.OFF, store.read().repeatMode)
 
-        store.write(store.read().copy(shuffleEnabled = true, repeatMode = SoundprintRepeatMode.ALL))
+        store.write(store.read().copy(shuffleEnabled = true, repeatMode = CadenceRepeatMode.ALL))
 
         assertTrue(store.read().shuffleEnabled)
-        assertEquals(SoundprintRepeatMode.ALL, store.read().repeatMode)
+        assertEquals(CadenceRepeatMode.ALL, store.read().repeatMode)
     }
 
-    @Test fun mediaItemKeepsTheLocalContentUriAndSoundprintMetadata() {
+    @Test fun mediaItemKeepsTheLocalContentUriAndCadenceMetadata() {
         val song = track("content://music/provider/song-1")
 
-        val item = song.toSoundprintMediaItem()
+        val item = song.toCadenceMediaItem()
 
         assertEquals(song.id, item.mediaId)
         assertEquals(song.uri, item.localConfiguration?.uri.toString())

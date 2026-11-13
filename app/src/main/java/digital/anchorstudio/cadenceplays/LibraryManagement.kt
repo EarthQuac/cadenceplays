@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.content.ContentValues
 import android.content.Context
@@ -39,7 +39,7 @@ data class SmartPlaylistContext(
 
 private const val RECYCLE_BIN_RETENTION_MS=30L*24L*60L*60L*1000L
 
-private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(context.applicationContext,"soundprint_library_management.db",null,1) {
+private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(context.applicationContext,"cadence_library_management.db",null,1) {
     override fun onCreate(db:SQLiteDatabase) {
         db.execSQL("CREATE TABLE history_events(id INTEGER PRIMARY KEY AUTOINCREMENT,track_id TEXT NOT NULL,event_type TEXT NOT NULL,timestamp INTEGER NOT NULL,position_ms INTEGER NOT NULL DEFAULT 0,duration_ms INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE INDEX history_track_time_idx ON history_events(track_id,timestamp DESC)")
@@ -200,7 +200,7 @@ private fun smartPlaylistFromJson(json:JSONObject):NativeSmartPlaylist {
 class MusicLibraryManager(context:Context) {
     private val repository=MusicLibraryRepository(context.applicationContext)
     private val state=LibraryManagementDatabase(context.applicationContext)
-    private val clapPreferences=context.applicationContext.getSharedPreferences("soundprint_clap_scan",Context.MODE_PRIVATE)
+    private val clapPreferences=context.applicationContext.getSharedPreferences("cadence_clap_scan",Context.MODE_PRIVATE)
 
     fun allSongs(query:String="",sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=repository.tracks(query,sort,ascending)
     fun song(id:String)=repository.track(id)
@@ -317,7 +317,7 @@ class MusicLibraryManager(context:Context) {
     fun restoreFromRecycleBin(id:String) {
         check(state.recycleBin().any { it.first==id }) { "Recycle Bin item not found." };repository.restoreFromSoundprintTrash(id);state.removeRecycleBinEntry(id)
     }
-    /** Removes Soundprint's record only. The original audio file in Android storage is untouched. */
+    /** Removes Cadence's record only. The original audio file in Android storage is untouched. */
     fun permanentlyRemoveFromLibrary(id:String) { state.removeRecycleBinEntry(id);state.removeTrackReferences(id);repository.removeTrackRecord(id) }
     fun emptyRecycleBin() { state.recycleBin().map { it.first }.forEach { state.removeTrackReferences(it);repository.removeTrackRecord(it);state.removeRecycleBinEntry(it) } }
     fun purgeExpiredRecycleBin(now:Long=System.currentTimeMillis()):Int {

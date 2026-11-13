@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.content.ContentValues
 import android.content.Context
@@ -45,7 +45,7 @@ enum class TrackSort { TITLE, ARTIST, ALBUM, DATE_ADDED, DURATION, YEAR, PLAY_CO
 
 /** SQLite is the source of truth. Schema upgrades are additive and preserve existing user data. */
 class MusicLibraryDatabase(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "soundprint_music_library.db", null, 5) {
+    SQLiteOpenHelper(context.applicationContext, "cadence_music_library.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) = createSchema(db)
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -398,7 +398,7 @@ class MusicLibraryDatabase(context: Context) :
     private val backupTables=listOf("tracks","library_sources","library_file_sources","track_sources","playlists","playlist_tracks","soundprint_trash","soundprint_fingerprints","audio_analysis_cache","library_scan_errors")
 
     fun writeBackup(output:OutputStream) {
-        val root=JSONObject().put("format","soundprint-native-library").put("formatVersion",1).put("exportedAt",System.currentTimeMillis())
+        val root=JSONObject().put("format","cadence-native-library").put("formatVersion",1).put("exportedAt",System.currentTimeMillis())
         val tables=JSONObject()
         backupTables.forEach { table ->
             val rows=JSONArray()
@@ -426,7 +426,7 @@ class MusicLibraryDatabase(context: Context) :
 
     fun restoreBackup(input:InputStream,replaceExisting:Boolean):Int {
         val root=JSONObject(input.readBytes().toString(Charsets.UTF_8))
-        require(root.optString("format")=="soundprint-native-library") { "This is not a Soundprint library backup." }
+        require(root.optString("format")=="cadence-native-library") { "This is not a Cadence library backup." }
         require(root.optInt("formatVersion",0) in 1..1) { "This backup version is not supported." }
         val tables=root.optJSONObject("tables") ?: throw IllegalArgumentException("Backup is missing its data tables.")
         val db=writableDatabase;var restored=0;db.beginTransaction()
@@ -490,7 +490,7 @@ class MusicLibraryRepository(context:Context) {
         runCatching { app.contentResolver.takePersistableUriPermission(treeUri,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         val root=DocumentFile.fromTreeUri(app,treeUri) ?: throw IllegalArgumentException("Android could not open the selected folder.")
         if(!hasPersistedReadPermission(treeUri)) throw SecurityException("Folder permission is not persisted. Re-select the folder to grant access.")
-        if(!root.canRead()) throw SecurityException("Soundprint cannot read this folder. Re-select it to grant access.")
+        if(!root.canRead()) throw SecurityException("Cadence cannot read this folder. Re-select it to grant access.")
         scanRoot(root,treeUri.toString(),onProgress)
     }
 

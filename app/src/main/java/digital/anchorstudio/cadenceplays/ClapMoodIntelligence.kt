@@ -1,4 +1,4 @@
-package digital.anchorstudio.soundprint
+package digital.anchorstudio.cadenceplays
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +17,7 @@ private const val CLAP_MODEL_BASE = "https://huggingface.co/Xenova/larger_clap_m
 private const val CLAP_AUDIO_MODEL_SHA256 = "021dd4fb962b4ed20cc3a6730b09e0ccf9c49931047032118a3b64828513a6"
 private const val CLAP_TEXT_MODEL_SHA256 = "8f9f29c5f6adee917553d4b3a70729c731c0d18b88efca0ae67c1a1fc278f3b6"
 
-enum class SoundprintMood(val id: String, val title: String, val prompt: String) {
+enum class CadenceMood(val id: String, val title: String, val prompt: String) {
     WORKOUT("workout","Workout","high-energy workout music with a driving beat, powerful drums and intense rhythm"),
     UPBEAT("upbeat","Upbeat","bright upbeat lively music with an energetic and cheerful sound"),
     CHILL("chill","Chill","relaxed mellow chill music with a soft groove and gentle energy"),
@@ -46,9 +46,9 @@ data class ClapMoodProfile(
     val analyzedAt: Long,
     val scores: Map<String, Float>
 ) {
-    val primaryMood: SoundprintMood?
-        get() = SoundprintMood.entries.maxByOrNull { scores[it.id] ?: 0f }
-    fun score(mood: SoundprintMood): Float = scores[mood.id] ?: 0f
+    val primaryMood: CadenceMood?
+        get() = CadenceMood.entries.maxByOrNull { scores[it.id] ?: 0f }
+    fun score(mood: CadenceMood): Float = scores[mood.id] ?: 0f
 }
 
 data class ClapModelInstallProgress(
@@ -127,7 +127,7 @@ class ClapModelManager(context: Context) {
                     ((completed * 100L) / total).toInt().coerceIn(0,100)))
             }
             File(modelDir,"MODEL-NOTICE.txt").writeText(
-                "Soundprint includes Xenova/larger_clap_music_and_speech (LAION larger CLAP) quantized ONNX weights. " +
+                "Cadence includes Xenova/larger_clap_music_and_speech (LAION larger CLAP) quantized ONNX weights. " +
                 "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
                 "Pinned revision: 56bcfdb. Inference is performed locally on this device."
             )
@@ -155,7 +155,7 @@ class ClapModelManager(context: Context) {
             connectTimeout = 20_000
             readTimeout = 60_000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent","Soundprint-Android")
+            setRequestProperty("User-Agent","Cadence-Android")
         }
         try {
             val existingBytes = target.takeIf { it.isFile }?.length() ?: 0L
