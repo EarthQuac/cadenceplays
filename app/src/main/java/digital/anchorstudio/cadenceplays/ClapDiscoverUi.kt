@@ -95,6 +95,33 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     val state: StateFlow<ClapLibraryScanState> = mutableState
     private var scanJob: Job? = null
 
+    fun refreshSummary() {
+        if (mutableState.value.running) return
+        scope.launch {
+            val tracks = library.allSongs()
+            val ids = tracks.map { it.id }.toSet()
+            val corrected = moodCorrections().keys
+            val failures = readFailures().filterKeys { it in ids && it !in corrected }
+            val completed = tracks.count { it.id in corrected || library.clapMoodProfile(it) != null }
+            mutableState.value = mutableState.value.copy(
+                completed = completed,
+                total = tracks.size,
+                failed = failures.size,
+                failureMessages = failures
+            )
+        }
+    }
+
+    fun savedMoods(): Set<String> =
+        preferences.getStringSet("saved_moods", emptySet())?.toSet().orEmpty()
+
+    fun setMoodSaved(moodId: String, saved: Boolean) {
+        require(CadenceMood.entries.any { it.id == moodId })
+        val updated = savedMoods().toMutableSet()
+        if (saved) updated.add(moodId) else updated.remove(moodId)
+        preferences.edit().putStringSet("saved_moods", updated).apply()
+    }
+
     fun autoScanEnabled(): Boolean = preferences.getBoolean("background_scan_enabled", false)
 
     fun setAutoScanEnabled(enabled: Boolean) {
@@ -253,6 +280,7 @@ fun ClapDiscoverScreen(
     onBack: () -> Unit
 ) {
     val scan by scanner.state.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { scanner.refreshSummary() }
     var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
     var profiles by remember { mutableStateOf(emptyMap<String,ClapMoodProfile>()) }
     androidx.compose.runtime.LaunchedEffect(scan.completed, scan.failed, scan.running) {
@@ -274,6 +302,7 @@ fun ClapDiscoverScreen(
         }
     }
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
+    var savedMoods by remember { mutableStateOf(scanner.savedMoods()) }
     var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
     var insightTrackId by remember { mutableStateOf<String?>(null) }
@@ -355,6 +384,22 @@ fun ClapDiscoverScreen(
                 )
             }
         }
+        if (savedMoods.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("SAVED MOODS", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                CadenceMood.entries.filter { it.id in savedMoods }.forEach { mood ->
+                    Text(
+                        mood.title,
+                        modifier = Modifier.clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { selectedMood = mood }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
 
         if (selectedMood != null) {
             Spacer(Modifier.height(24.dp))
@@ -363,6 +408,11 @@ fun ClapDiscoverScreen(
                     Text("PICKED FOR THIS MOOD", fontSize = 10.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text(selectedMood!!.title, modifier = Modifier.padding(top = 3.dp), fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 }
+                TextButton(onClick = {
+                    val moodId = selectedMood!!.id
+                    scanner.setMoodSaved(moodId, moodId !in savedMoods)
+                    savedMoods = scanner.savedMoods()
+                }) { Text(if (selectedMood!!.id in savedMoods) "Saved" else "Save mood") }
                 if (recommendations.isNotEmpty()) {
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }) }) { androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null); Text("Play all") }
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }, shuffle = true) }) { androidx.compose.material3.Icon(Icons.Filled.Shuffle, null) }
