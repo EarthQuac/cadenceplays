@@ -527,7 +527,7 @@ private fun NativeSongLibraryRow(
                 })
                 DropdownMenuItem(text = { Text("Add to playlist") }, leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) }, onClick = { menuOpen = false; playlistsOpen = true })
                 DropdownMenuItem(text = { Text("Edit song info") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; editOpen = true })
-                DropdownMenuItem(text = { Text("Go to artist") }, leadingIcon = { Icon(Icons.Filled.Person, null) }, onClick = { menuOpen = false; artistOpen = true })
+                DropdownMenuItem(text = { Text("Go to artist") }, leadingIcon = { Icon(Icons.Filled.MusicNote, null) }, onClick = { menuOpen = false; artistOpen = true })
                 DropdownMenuItem(text = { Text("Move to Recycle Bin") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = {
                     menuOpen = false
                     playback.removeTrackFromQueue(track.id)
