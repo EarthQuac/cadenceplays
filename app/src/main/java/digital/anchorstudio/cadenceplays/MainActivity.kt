@@ -360,7 +360,7 @@ private fun CadenceApp(
             playbackConnection.close()
         }
     }
-    LaunchedEffect(enteredLibrary, libraryTrackCount) {
+    LaunchedEffect(enteredLibrary) {
         if (enteredLibrary && clapScanner.autoScanEnabled()) clapScanner.startScan()
     }
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -996,7 +996,6 @@ private fun SettingsScreen(
     clapScanner: ClapLibraryScanner
 ) {
     val clapScanState by clapScanner.state.collectAsState()
-    LaunchedEffect(Unit) { clapScanner.refreshSummary() }
     var query by remember { mutableStateOf("") }
     var gapless by remember { mutableStateOf(true) }
     var fadeOnPause by remember { mutableStateOf(false) }
