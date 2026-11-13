@@ -1,4 +1,4 @@
-name: Build Cadence Android APK
+name: Build Soundprint Android APK
 
 on:
   push:
@@ -46,7 +46,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: cadence-plays-debug-apk
+          name: soundprint-plays-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -59,12 +59,12 @@ jobs:
           publicKey: ${{ secrets.APPETIZE_PUBLIC_KEY }}
           appFile: app/build/outputs/apk/debug/app-debug.apk
           platform: android
-          note: "Cadence Plays - ${{ github.sha }}"
+          note: "Soundprint - ${{ github.sha }}"
 
       - name: Publish cloud preview link
         if: success()
         run: |
-          echo "## Cadence Plays cloud preview" >> "$GITHUB_STEP_SUMMARY"
-          echo " [Open Cadence Plays in Appetize](https://appetize.io/app/${{ steps.appetize.outputs.publicKey }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Soundprint cloud preview" >> "$GITHUB_STEP_SUMMARY"
+          echo " [Open Soundprint in Appetize](https://appetize.io/app/${{ steps.appetize.outputs.publicKey }})" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Appetize public key: ${{ steps.appetize.outputs.publicKey }}" >> "$GITHUB_STEP_SUMMARY"

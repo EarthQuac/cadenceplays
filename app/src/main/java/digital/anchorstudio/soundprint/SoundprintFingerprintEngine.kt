@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import android.content.Context
 import android.media.AudioFormat
@@ -409,7 +409,7 @@ object SoundprintFingerprintComparator {
 class SoundprintScanner(context: Context, private val library: MusicLibraryManager) {
     private val appContext = context.applicationContext
     private val engine = SoundprintFingerprintEngine(appContext)
-    private val preferences = appContext.getSharedPreferences("cadence_soundprint", Context.MODE_PRIVATE)
+    private val preferences = appContext.getSharedPreferences("soundprint_soundprint", Context.MODE_PRIVATE)
 
     suspend fun loadSavedResults(): SoundprintScanResult? = withContext(Dispatchers.IO) {
         val raw = preferences.getString("last_scan", null) ?: return@withContext null

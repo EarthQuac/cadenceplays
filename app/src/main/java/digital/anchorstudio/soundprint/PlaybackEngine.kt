@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import android.content.ComponentName
 import android.content.Context
@@ -29,19 +29,19 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-enum class CadenceRepeatMode { OFF, ALL, ONE }
+enum class SoundprintRepeatMode { OFF, ALL, ONE }
 
 data class PlaybackQueueSnapshot(
     val queueIds: List<String> = emptyList(),
     val currentIndex: Int = -1,
     val positionMs: Long = 0L,
     val shuffleEnabled: Boolean = false,
-    val repeatMode: CadenceRepeatMode = CadenceRepeatMode.OFF
+    val repeatMode: SoundprintRepeatMode = SoundprintRepeatMode.OFF
 )
 
 /** Persists queue occurrences (including duplicate songs), the selected item and resume position. */
 class PlaybackQueueStore(context: Context) {
-    private val preferences = context.applicationContext.getSharedPreferences("cadence_playback_queue", Context.MODE_PRIVATE)
+    private val preferences = context.applicationContext.getSharedPreferences("soundprint_playback_queue", Context.MODE_PRIVATE)
 
     fun read(): PlaybackQueueSnapshot {
         val raw = preferences.getString(KEY_SNAPSHOT, null) ?: return PlaybackQueueSnapshot()
@@ -53,7 +53,7 @@ class PlaybackQueueStore(context: Context) {
                 currentIndex = json.optInt("currentIndex", -1),
                 positionMs = json.optLong("positionMs", 0L).coerceAtLeast(0L),
                 shuffleEnabled = json.optBoolean("shuffleEnabled", false),
-                repeatMode = runCatching { CadenceRepeatMode.valueOf(json.optString("repeatMode", "OFF")) }.getOrDefault(CadenceRepeatMode.OFF)
+                repeatMode = runCatching { SoundprintRepeatMode.valueOf(json.optString("repeatMode", "OFF")) }.getOrDefault(SoundprintRepeatMode.OFF)
             )
         }.getOrDefault(PlaybackQueueSnapshot())
     }
@@ -76,12 +76,12 @@ class PlaybackQueueStore(context: Context) {
     private companion object { const val KEY_SNAPSHOT = "snapshot_v1" }
 }
 
-fun MusicTrack.toCadenceMediaItem(): MediaItem {
+fun MusicTrack.toSoundprintMediaItem(): MediaItem {
     val artwork = artworkUri?.let { raw -> if (raw.startsWith("/")) Uri.fromFile(File(raw)) else Uri.parse(raw) }
     val metadata = MediaMetadata.Builder()
         .setTitle(title.ifBlank { "Unknown title" })
         .setArtist(artist.ifBlank { "Unknown artist" })
-        .setAlbumTitle(album.ifBlank { "Cadence" })
+        .setAlbumTitle(album.ifBlank { "Soundprint" })
         .apply { if (artwork != null) setArtworkUri(artwork) }
         .build()
     return MediaItem.Builder()
@@ -96,7 +96,7 @@ fun MusicTrack.toCadenceMediaItem(): MediaItem {
  * Media3 handles audio focus, noisy-route changes, media notifications and lock-screen actions.
  */
 @UnstableApi
-class CadencePlaybackService : MediaSessionService() {
+class SoundprintPlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private lateinit var mediaSession: MediaSession
     private lateinit var queueStore: PlaybackQueueStore
@@ -232,7 +232,7 @@ class CadencePlaybackService : MediaSessionService() {
             ?: resolved.lastIndex
         player.shuffleModeEnabled = saved.shuffleEnabled
         player.repeatMode = saved.repeatMode.toPlayerRepeatMode()
-        player.setMediaItems(resolved.map { it.second.toCadenceMediaItem() }, restoredIndex, saved.positionMs)
+        player.setMediaItems(resolved.map { it.second.toSoundprintMediaItem() }, restoredIndex, saved.positionMs)
         player.prepare()
         activeTrackId = player.currentMediaItem?.mediaId
         activeMediaIndex = restoredIndex
@@ -252,7 +252,7 @@ class CadencePlaybackService : MediaSessionService() {
                 currentIndex = player.currentMediaItemIndex,
                 positionMs = player.currentPosition.coerceAtLeast(0L),
                 shuffleEnabled = player.shuffleModeEnabled,
-                repeatMode = player.repeatMode.toCadenceRepeatMode()
+                repeatMode = player.repeatMode.toSoundprintRepeatMode()
             )
         )
         lastPersistElapsedMs = SystemClock.elapsedRealtime()
@@ -296,16 +296,16 @@ class CadencePlaybackService : MediaSessionService() {
         pendingListeningMs = 0L
     }
 
-    private fun CadenceRepeatMode.toPlayerRepeatMode() = when (this) {
-        CadenceRepeatMode.ALL -> Player.REPEAT_MODE_ALL
-        CadenceRepeatMode.ONE -> Player.REPEAT_MODE_ONE
-        CadenceRepeatMode.OFF -> Player.REPEAT_MODE_OFF
+    private fun SoundprintRepeatMode.toPlayerRepeatMode() = when (this) {
+        SoundprintRepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        SoundprintRepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        SoundprintRepeatMode.OFF -> Player.REPEAT_MODE_OFF
     }
 
-    private fun Int.toCadenceRepeatMode() = when (this) {
-        Player.REPEAT_MODE_ALL -> CadenceRepeatMode.ALL
-        Player.REPEAT_MODE_ONE -> CadenceRepeatMode.ONE
-        else -> CadenceRepeatMode.OFF
+    private fun Int.toSoundprintRepeatMode() = when (this) {
+        Player.REPEAT_MODE_ALL -> SoundprintRepeatMode.ALL
+        Player.REPEAT_MODE_ONE -> SoundprintRepeatMode.ONE
+        else -> SoundprintRepeatMode.OFF
     }
 
     private companion object {
@@ -316,7 +316,7 @@ class CadencePlaybackService : MediaSessionService() {
 }
 
 /** Activity-side connection to the service. Screens can share one connection and observe its Player. */
-class CadencePlaybackConnection(
+class SoundprintPlaybackConnection(
     context: Context,
     private val onConnected: (MediaController) -> Unit = {}
 ) {
@@ -327,7 +327,7 @@ class CadencePlaybackConnection(
     @Volatile private var closed = false
     private val future = MediaController.Builder(
         context.applicationContext,
-        SessionToken(context.applicationContext, ComponentName(context, CadencePlaybackService::class.java))
+        SessionToken(context.applicationContext, ComponentName(context, SoundprintPlaybackService::class.java))
     ).buildAsync()
 
     init {
@@ -344,7 +344,7 @@ class CadencePlaybackConnection(
         if (tracks.isEmpty()) return
         val player = controller ?: return
         player.shuffleModeEnabled = shuffle
-        player.setMediaItems(tracks.map(MusicTrack::toCadenceMediaItem), startIndex.coerceIn(tracks.indices), 0L)
+        player.setMediaItems(tracks.map(MusicTrack::toSoundprintMediaItem), startIndex.coerceIn(tracks.indices), 0L)
         player.prepare()
         player.play()
     }
@@ -379,7 +379,7 @@ class CadencePlaybackConnection(
             return
         }
         val insertionIndex = if (next) (player.currentMediaItemIndex + 1).coerceAtLeast(0) else player.mediaItemCount
-        player.addMediaItems(insertionIndex, tracks.map(MusicTrack::toCadenceMediaItem))
+        player.addMediaItems(insertionIndex, tracks.map(MusicTrack::toSoundprintMediaItem))
     }
 
     fun removeFromQueue(index: Int) {
