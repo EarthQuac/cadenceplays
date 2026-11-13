@@ -233,7 +233,7 @@ private fun CadenceApp(
                     0 -> HomeScreen(onSettings = { settingsOpen = true })
                     1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote) { selectedTab = 0 }
                     2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album) { selectedTab = 0 }
-                    3 -> LibraryScreen("Playlists", "Your playlists, made around your music.", Icons.Filled.QueueMusic)
+                    3 -> PlaylistsScreen { selectedTab = 0 }
                     else -> DiscoverScreen { selectedTab = 0 }
                 }
                 NavigationBar(
@@ -451,7 +451,7 @@ private fun AlbumsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun PlaylistsScreen() {
+private fun PlaylistsScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var createOpen by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
