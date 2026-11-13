@@ -203,6 +203,13 @@ class MusicLibraryManager(context:Context) {
 
     fun allSongs(query:String="",sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=repository.tracks(query,sort,ascending)
     fun song(id:String)=repository.track(id)
+    fun saveClapMoodProfile(track:MusicTrack,scores:Map<String,Float>) =
+        repository.saveClapMoodProfile(track,CLAP_MODEL_VERSION,scores)
+    fun clapMoodProfile(track:MusicTrack):ClapMoodProfile? =
+        repository.clapMoodProfile(track,CLAP_MODEL_VERSION)
+    fun clearClapMoodProfile(trackId:String) = repository.clearClapMoodProfile(trackId)
+    fun clapMoodProfiles():Map<String,ClapMoodProfile> =
+        repository.tracks().mapNotNull { track -> repository.clapMoodProfile(track,CLAP_MODEL_VERSION)?.let { track.id to it } }.toMap()
     fun updateSongMetadata(id:String,title:String,artist:String,album:String,genre:String) {
         val current=repository.track(id) ?: throw IllegalArgumentException("Song not found.")
         repository.updateTrack(current.copy(title=title.trim().ifBlank { current.title },artist=artist.trim().ifBlank { current.artist },album=album.trim().ifBlank { current.album },genre=genre.trim()))

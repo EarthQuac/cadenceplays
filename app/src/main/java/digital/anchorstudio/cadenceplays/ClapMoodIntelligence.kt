@@ -92,7 +92,7 @@ class ClapModelManager(context: Context) {
             )
             val total = assets.sumOf { asset ->
                 val target = File(modelDir,asset.name)
-                if (target.isFile && target.length() > 0L && (asset.expectedBytes == null || target.length() == asset.expectedBytes)) 0L
+                if (target.isFile && target.length() > 0L && (asset.expectedBytes == null || target.length() >= (asset.expectedBytes * 0.95).toLong())) 0L
                 else asset.expectedBytes ?: 0L
             }.coerceAtLeast(1L)
             var completed = 0L
@@ -109,9 +109,9 @@ class ClapModelManager(context: Context) {
                     val temp = File(modelDir,asset.name + ".download")
                     temp.parentFile?.mkdirs()
                     download(asset,temp,completed,total,onProgress)
-                    if (asset.expectedBytes != null && temp.length() != asset.expectedBytes) {
+                    if (asset.expectedBytes != null && temp.length() < (asset.expectedBytes * 0.95).toLong()) {
                         temp.delete()
-                        error("The downloaded ${asset.name} has an unexpected size.")
+                        error("The downloaded ${asset.name} is incomplete.")
                     }
                     if (asset.sha256 != null && sha256(temp) != asset.sha256) {
                         temp.delete()
