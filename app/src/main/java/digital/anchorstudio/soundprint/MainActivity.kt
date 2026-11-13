@@ -361,7 +361,7 @@ private fun SoundprintApp(
         }
     }
     LaunchedEffect(enteredLibrary, libraryTrackCount) {
-        if (enteredLibrary && clapScanner.autoScanEnabled()) clapScanner.startScan()
+        if (enteredLibrary && libraryTrackCount > 0) clapScanner.startScan()
     }
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
@@ -639,8 +639,8 @@ private fun HomeScreen(
                     )
                     Spacer(Modifier.height(24.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary).clickable(onClick = onImportMusic).padding(horizontal = 18.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary).clickable(onClick = onImportMusic).padding(horizontal = 18.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null, modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
