@@ -73,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -192,14 +193,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class TabItem(val label: String, val icon: ImageVector)
+private data class TabItem(val label: String, val icon: Int)
 
 private val tabs = listOf(
-    TabItem("Home", Icons.Filled.Home),
-    TabItem("Songs", Icons.Filled.MusicNote),
-    TabItem("Albums", Icons.Filled.Album),
-    TabItem("Playlists", Icons.Filled.QueueMusic),
-    TabItem("Discover", Icons.Filled.GraphicEq)
+    TabItem("Home", R.drawable.lucide_home),
+    TabItem("Songs", R.drawable.lucide_music),
+    TabItem("Albums", R.drawable.lucide_disc_3),
+    TabItem("Playlists", R.drawable.lucide_list_music),
+    TabItem("Discover", R.drawable.lucide_audio_lines)
 )
 
 @Composable
@@ -248,7 +249,7 @@ private fun CadenceApp(
                                         .background(if (selectedTab == index) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else Color.Transparent)
                                         .padding(horizontal = 17.dp, vertical = 5.dp)
                                 ) {
-                                    Icon(item.icon, contentDescription = item.label, modifier = Modifier.size(21.dp))
+                                    Image(painterResource(item.icon), contentDescription = item.label, modifier = Modifier.size(21.dp), colorFilter = ColorFilter.tint(if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant))
                                 }
                             },
                             label = { Text(item.label, fontSize = 11.sp, maxLines = 1) },
@@ -294,11 +295,11 @@ private fun HomeScreen(onSettings: () -> Unit) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                HeaderAction(Icons.Filled.Person, "Account", onClick = {})
-                HeaderAction(Icons.Filled.BarChart, "Listening stats", onClick = {})
-                HeaderAction(Icons.Filled.WorkspacePremium, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
-                HeaderAction(Icons.Filled.Search, "Search", onClick = {})
-                HeaderAction(Icons.Filled.Settings, "Settings", onClick = onSettings)
+                HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
+                HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = {})
+                HeaderAction(R.drawable.lucide_crown, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
+                HeaderAction(R.drawable.lucide_search, "Search", onClick = {})
+                HeaderAction(R.drawable.lucide_settings, "Settings", onClick = onSettings)
             }
         }
 
@@ -357,12 +358,12 @@ private fun HomeScreen(onSettings: () -> Unit) {
 }
 
 @Composable
-private fun HeaderAction(icon: ImageVector, description: String, tint: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit = {}) {
+private fun HeaderAction(icon: Int, description: String, tint: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(19.dp))
+        Image(painterResource(icon), contentDescription = description, modifier = Modifier.size(19.dp), colorFilter = ColorFilter.tint(tint))
     }
 }
 
