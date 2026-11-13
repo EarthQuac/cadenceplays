@@ -427,8 +427,8 @@ private fun SoundprintApp(
                             onOpenPro = { proOpen = true }
                         )
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
-                        2 -> CadenceAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
-                        3 -> CadencePlaylistsScreen(libraryManager, playbackConnection, clapScanner)
+                        2 -> SoundprintAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
+                        3 -> SoundprintPlaylistsScreen(libraryManager, playbackConnection, clapScanner)
                         else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
                     }
                 }
