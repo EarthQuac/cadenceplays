@@ -55,6 +55,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -527,45 +529,184 @@ private fun SongsScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("Title") }
     var descending by remember { mutableStateOf(false) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
     var soundprintOpen by remember { mutableStateOf(false) }
+    var recycleBinOpen by remember { mutableStateOf(false) }
+
+    val sortOptions = listOf("Title", "Artist", "Album", "Date added", "Duration")
+    val songCount = 0
+    val filteredCount = 0
+
     Column(modifier = Modifier.fillMaxSize()) {
-        PageTitle("Songs", "0 songs", onBack)
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(
+                start = 12.dp, end = 12.dp,
+                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
+                bottom = 12.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            SearchBox(query, { query = it }, "Filter songs, artists, albums…")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                UtilityButton(Icons.Filled.FilterList, "Sort: $sort", Modifier.weight(1f)) {
-                    sort = when (sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Date added"; "Date added" -> "Duration"; else -> "Title" }
-                }
-                UtilityButton(Icons.Filled.Sort, if (descending) "Descending" else "Ascending", Modifier.weight(1f)) {
-                    descending = !descending
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack).padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(painterResource(R.drawable.lucide_arrow_left), null, Modifier.size(20.dp),
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Songs", fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onBackground)
+                Text("$songCount songs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Box(
+                Modifier.height(36.dp).clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
+                    .clickable { }.padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Image(painterResource(R.drawable.lucide_folder_plus), null, Modifier.size(15.dp),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
+                    Text("Add music", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                UtilityButton(Icons.Filled.GraphicEq, "Soundprint", Modifier.weight(1f)) { soundprintOpen = !soundprintOpen }
-                UtilityButton(Icons.Filled.LibraryMusic, "Recycle Bin", Modifier.weight(1f)) { }
+        }
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SearchBox(query, { query = it }, "Filter songs, artists, albums…")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        UtilityButton(Icons.Filled.FilterList, "Sort: $sort", Modifier.fillMaxWidth()) {
+                            sortMenuOpen = true
+                        }
+                        DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                            sortOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(option, modifier = Modifier.weight(1f), fontSize = 13.sp)
+                                            if (sort == option) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    onClick = { sort = option; sortMenuOpen = false }
+                                )
+                            }
+                        }
+                    }
+                    UtilityButton(Icons.Filled.Sort, if (descending) "Descending" else "Ascending", Modifier.weight(1f)) {
+                        descending = !descending
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    UtilityButton(Icons.Filled.GraphicEq, "Soundprint", Modifier.weight(1f)) {
+                        soundprintOpen = !soundprintOpen
+                        if (soundprintOpen) recycleBinOpen = false
+                    }
+                    UtilityButton(Icons.Filled.LibraryMusic, "Recycle Bin", Modifier.weight(1f)) {
+                        recycleBinOpen = !recycleBinOpen
+                        if (recycleBinOpen) soundprintOpen = false
+                    }
+                }
+                if (query.isNotBlank()) {
+                    Text("$filteredCount matches", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
+
+            if (recycleBinOpen) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.Filled.LibraryMusic, null, tint = MaterialTheme.colorScheme.primary) }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Soundprint Trash (0)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Removed tracks stay here for 30 days.", modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Text(
+                        "Your trash is empty. The native music library and restore system have not been connected yet.",
+                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp)
+                            .clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.background).padding(12.dp),
+                        fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             if (soundprintOpen) {
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(16.dp))
-                        .padding(15.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
-                    Text("Soundprint", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Find duplicate tracks in your library.", modifier = Modifier.padding(top = 3.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    CadenceActionButton("Basic scan", Modifier.padding(top = 12.dp)) {}
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Soundprint", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Find duplicate tracks in your library", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.padding(top = 14.dp).fillMaxWidth()
+                                .height(38.dp).clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                .padding(horizontal = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Filled.Shield, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(7.dp))
+                            Text("Basic scan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(
+                            "Not yet, We have to complete this first",
+                            modifier = Modifier.padding(top = 12.dp),
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "The native app does not have its local audio library, persistent file access, or Soundprint fingerprint storage yet. The scan is intentionally unavailable rather than showing fake progress or duplicate results.",
+                            modifier = Modifier.padding(top = 4.dp),
+                            fontSize = 11.sp, lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 }
             }
-            if (query.isNotBlank()) {
-                Text("0 matches", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+
             EmptyLibraryState(
                 icon = Icons.Filled.MusicNote,
-                title = "No music found",
-                description = "Add music to your device and scan your library to see your songs here."
+                title = if (query.isBlank()) "No music found" else "No matches",
+                description = if (query.isBlank())
+                    "Add music to your device and scan your library to see your songs here."
+                else
+                    "No songs match your search. Try another title, artist or album."
             )
         }
     }
