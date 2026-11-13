@@ -9,13 +9,13 @@ import java.util.zip.DeflaterOutputStream
 import kotlin.math.PI
 import kotlin.math.sin
 
-class SoundprintFingerprintTest {
-    private fun fingerprint(id: String, features: ByteArray, durationMs: Long = 30_000L): SoundprintFingerprint {
+class TwinSenseFingerprintTest {
+    private fun fingerprint(id: String, features: ByteArray, durationMs: Long = 30_000L): TwinSenseFingerprint {
         val compressed = ByteArrayOutputStream().use { output ->
             DeflaterOutputStream(output).use { it.write(features) }
             output.toByteArray()
         }
-        return SoundprintFingerprint(id, 1000L, 1L, durationMs, 22_050, features.size / 24, 24, compressed)
+        return TwinSenseFingerprint(id, 1000L, 1L, durationMs, 22_050, features.size / 24, 24, compressed)
     }
 
     private fun musicFeatures(seed: Int, frames: Int = 40): ByteArray =
@@ -27,9 +27,9 @@ class SoundprintFingerprintTest {
         }
 
     @Test fun normalizesMetadataWithoutDiscardingArtistOrTrackWords() {
-        assertEquals("artist song", SoundprintText.normalize("Artist - Song (Official Audio).mp3"))
-        assertTrue(SoundprintText.hasVersionLabel("Song (Live Version)"))
-        assertFalse(SoundprintText.hasVersionLabel("Song (Copy)"))
+        assertEquals("artist song", TwinSenseText.normalize("Artist - Song (Official Audio).mp3"))
+        assertTrue(TwinSenseText.hasVersionLabel("Song (Live Version)"))
+        assertFalse(TwinSenseText.hasVersionLabel("Song (Copy)"))
     }
 
     @Test fun detectsSameAudioFingerprintWithSmallFrameOffset() {
@@ -38,7 +38,7 @@ class SoundprintFingerprintTest {
         System.arraycopy(original, 24, shifted, 0, original.size - 24)
         System.arraycopy(original, original.size - 24, shifted, original.size - 24, 24)
 
-        val score = SoundprintFingerprintComparator.compare(
+        val score = TwinSenseFingerprintComparator.compare(
             fingerprint("first", original), fingerprint("second", shifted)
         )
 
@@ -49,7 +49,7 @@ class SoundprintFingerprintTest {
         val first = musicFeatures(2)
         val second = musicFeatures(11)
 
-        val score = SoundprintFingerprintComparator.compare(
+        val score = TwinSenseFingerprintComparator.compare(
             fingerprint("first", first), fingerprint("second", second)
         )
 
@@ -59,13 +59,13 @@ class SoundprintFingerprintTest {
     @Test fun smartCleanupOnlySelectsVerifiedExactAudioCopies() {
         val preferred = track("preferred", title = "Song", artist = "Artist", bitrate = 320_000)
         val copy = track("copy", title = "Song copy", artist = "Artist", bitrate = 128_000)
-        val exact = SoundprintMatch(preferred, copy, SoundprintMatchKind.EXACT_AUDIO, 100, listOf("Same SHA-256"), false)
-        val result = SoundprintScanResult(
-            listOf(SoundprintDuplicateGroup("group", listOf(preferred, copy), listOf(exact), true)),
+        val exact = TwinSenseMatch(preferred, copy, TwinSenseMatchKind.EXACT_AUDIO, 100, listOf("Same SHA-256"), false)
+        val result = TwinSenseScanResult(
+            listOf(TwinSenseDuplicateGroup("group", listOf(preferred, copy), listOf(exact), true)),
             2, 0, 0
         )
 
-        val removals = SoundprintCleanupPlanner.tracksToRemove(result)
+        val removals = TwinSenseCleanupPlanner.tracksToRemove(result)
 
         assertEquals(listOf("copy"), removals.map { it.id })
     }
@@ -73,13 +73,13 @@ class SoundprintFingerprintTest {
     @Test fun smartCleanupNeverAutoRemovesAcousticOrVersionWarnings() {
         val first = track("first")
         val second = track("second")
-        val acoustic = SoundprintMatch(first, second, SoundprintMatchKind.ACOUSTIC, 96, emptyList(), false)
-        val alternate = SoundprintMatch(first, second, SoundprintMatchKind.EXACT_AUDIO, 99, emptyList(), true)
-        val acousticResult = SoundprintScanResult(listOf(SoundprintDuplicateGroup("a", listOf(first, second), listOf(acoustic), true)), 2, 0, 0)
-        val alternateResult = SoundprintScanResult(listOf(SoundprintDuplicateGroup("b", listOf(first, second), listOf(alternate), true)), 2, 0, 0)
+        val acoustic = TwinSenseMatch(first, second, TwinSenseMatchKind.ACOUSTIC, 96, emptyList(), false)
+        val alternate = TwinSenseMatch(first, second, TwinSenseMatchKind.EXACT_AUDIO, 99, emptyList(), true)
+        val acousticResult = TwinSenseScanResult(listOf(TwinSenseDuplicateGroup("a", listOf(first, second), listOf(acoustic), true)), 2, 0, 0)
+        val alternateResult = TwinSenseScanResult(listOf(TwinSenseDuplicateGroup("b", listOf(first, second), listOf(alternate), true)), 2, 0, 0)
 
-        assertTrue(SoundprintCleanupPlanner.tracksToRemove(acousticResult).isEmpty())
-        assertTrue(SoundprintCleanupPlanner.tracksToRemove(alternateResult).isEmpty())
+        assertTrue(TwinSenseCleanupPlanner.tracksToRemove(acousticResult).isEmpty())
+        assertTrue(TwinSenseCleanupPlanner.tracksToRemove(alternateResult).isEmpty())
     }
 
     private fun track(id: String, title: String = "Track", artist: String = "Artist", bitrate: Int = 0) = MusicTrack(
