@@ -204,6 +204,10 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
         val updated = moodCorrections().toMutableMap()
         updated[trackId] = moodId
         preferences.edit().putString("mood_corrections", JSONObject(updated as Map<*, *>).toString()).apply()
+        val failures = readFailures().toMutableMap()
+        failures.remove(trackId)
+        writeFailures(failures)
+        mutableState.value = mutableState.value.copy(failed = failures.size, failureMessages = failures)
     }
 
     fun removeMoodCorrection(trackId: String) {
