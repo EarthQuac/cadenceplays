@@ -63,7 +63,7 @@ fun ListeningStatsScreen(libraryManager:MusicLibraryManager,onBack:()->Unit) {
                     Text("Music statistics",fontSize=27.sp,lineHeight=32.sp,fontWeight=FontWeight.Bold,letterSpacing=(-0.8).sp,color=MaterialTheme.colorScheme.onBackground)
                     Text("Your music, your story.",fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).border(1.dp,MaterialTheme.colorScheme.outline,CircleShape).clickable { resetDialog=true },contentAlignment=Alignment.Center) {
+                Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).border(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.45f),CircleShape).clickable { resetDialog=true },contentAlignment=Alignment.Center) {
                     androidx.compose.material3.Icon(Icons.Default.Refresh,contentDescription="Reset listening statistics",tint=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
