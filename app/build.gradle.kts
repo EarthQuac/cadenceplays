@@ -89,7 +89,7 @@ val prepareBundledClapAssets by tasks.registering {
         val root = clapAssetsDirectory.get().asFile
         val baseUrl = "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/56bcfdb/"
         val assets = listOf(
-            Triple("onnx/audio_model_quantized.onnx", "021dd4fb962b4ed20cc3a6730b09e0ccf9c49931047032118a3b64828513a6", 78_155_433L),
+            Triple("onnx/audio_model_quantized.onnx", "021dd4fb962b4ed20cc3a6730b09e0ccf9f9c49931047032118a3b64828513a6", 78_155_433L),
             Triple("onnx/text_model_quantized.onnx", "8f9f29c5f6adee917553d4b3a70729c731c0d18b88efca0ae67c1a1fc278f3b6", 126_000_000L),
             Triple("vocab.json", "", 1L),
             Triple("merges.txt", "", 1L)
