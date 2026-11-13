@@ -366,13 +366,16 @@ private fun SoundprintApp(
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
+    var proOpen by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (!enteredLibrary) {
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (statsOpen) {
+                if (proOpen) {
+                    ProScreen(onBack = { proOpen = false })
+                } else if (statsOpen) {
                     ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
                 } else if (settingsOpen) {
                     SettingsScreen(
@@ -381,6 +384,7 @@ private fun SoundprintApp(
                         selectedPalette = selectedPalette,
                         onPaletteChange = onPaletteChange,
                         onBack = { settingsOpen = false },
+                        onOpenPro = { settingsOpen = false; proOpen = true },
                         libraryTrackCount = libraryTrackCount,
                         librarySources = librarySources,
                         libraryStatus = libraryStatus,
@@ -395,7 +399,7 @@ private fun SoundprintApp(
                     )
                 } else {
                     when (selectedTab) {
-                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true })
+                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true }, onOpenPro = { proOpen = true })
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                         2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
                         3 -> PlaylistsScreen { selectedTab = 0 }
@@ -567,7 +571,8 @@ private fun HomeScreen(
     modifier: Modifier = Modifier,
     onSettings: () -> Unit,
     onImportMusic: () -> Unit,
-    onListeningStats: () -> Unit
+    onListeningStats: () -> Unit,
+    onOpenPro: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -596,7 +601,7 @@ private fun HomeScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
                 HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = onListeningStats)
-                HeaderAction(R.drawable.lucide_crown, "Soundprint Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
+                HeaderAction(R.drawable.lucide_crown, "Soundprint Pro", tint = MaterialTheme.colorScheme.primary, onClick = onOpenPro)
                 HeaderAction(R.drawable.lucide_search, "Search", onClick = {})
                 HeaderAction(R.drawable.lucide_settings, "Settings", onClick = onSettings)
             }
@@ -983,6 +988,7 @@ private fun SettingsScreen(
     selectedPalette: String,
     onPaletteChange: (String) -> Unit,
     onBack: () -> Unit,
+    onOpenPro: () -> Unit,
     libraryTrackCount: Int,
     librarySources: List<MusicLibrarySource>,
     libraryStatus: String,
@@ -1186,7 +1192,7 @@ private fun SettingsScreen(
             if (matches("about help info soundprint pro about legal version privacy terms")) {
                 SettingsSection("ABOUT") {
                     SettingsActionRow("Help & Info", "Learn how local playback, stats and backups work", "Open") { helpDialog = true }
-                    SettingsActionRow("Soundprint Pro", "Explore Pro features", "View Pro")
+                    SettingsActionRow("Soundprint Pro", "Explore Pro features", "View Pro", onClick = onOpenPro)
                     SettingsActionRow("About & Legal", "Privacy, Terms, Pro terms, refunds and copyright", "View policies")
                     SettingsActionRow("Version", "Soundprint 1.0 · offline-first player", "1.0.0")
                 }
