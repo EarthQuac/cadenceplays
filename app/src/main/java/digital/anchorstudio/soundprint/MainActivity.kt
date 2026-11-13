@@ -206,6 +206,16 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+            val singleFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                if (uri != null) scope.launch {
+                    val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(listOf(uri)) } }
+                    refreshLibraryState()
+                    libraryStatus = result.fold(
+                        { "File import complete: ${it.imported} added, ${it.updated} updated, ${it.errors.size} errors." },
+                        { "File import failed: ${it.message ?: "Unknown error"}" }
+                    )
+                }
+            }
             val filesPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                 if (uris.isNotEmpty()) scope.launch {
                     val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) } }
@@ -297,6 +307,7 @@ class MainActivity : ComponentActivity() {
                     libraryStatus = libraryStatus,
                     onImportMusic = { folderPicker.launch(null) },
                     onImportFiles = { filesPicker.launch(arrayOf("audio/*")) },
+                    onImportSingle = { singleFilePicker.launch(arrayOf("audio/*")) },
                     onRescan = {
                         scope.launch {
                             val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
@@ -352,6 +363,7 @@ private fun SoundprintApp(
     libraryStatus: String,
     onImportMusic: () -> Unit,
     onImportFiles: () -> Unit,
+    onImportSingle: () -> Unit,
     onRescan: () -> Unit,
     onRemoveSource: (String) -> Unit,
     onBackup: () -> Unit,
@@ -405,7 +417,15 @@ private fun SoundprintApp(
                                 )
                 } else {
                     when (selectedTab) {
-                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true }, onOpenPro = { proOpen = true })
+                        0 -> HomeScreen(
+                            onSettings = { settingsOpen = true },
+                            onImportAudio = onImportFiles,
+                            onImportSingle = onImportSingle,
+                            onImportFolder = onImportMusic,
+                            onRescan = onRescan,
+                            onListeningStats = { statsOpen = true },
+                            onOpenPro = { proOpen = true }
+                        )
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                         2 -> CadenceAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
                         3 -> CadencePlaylistsScreen(libraryManager, playbackConnection, clapScanner)
@@ -576,7 +596,10 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
 private fun HomeScreen(
     modifier: Modifier = Modifier,
     onSettings: () -> Unit,
-    onImportMusic: () -> Unit,
+    onImportAudio: () -> Unit,
+    onImportSingle: () -> Unit,
+    onImportFolder: () -> Unit,
+    onRescan: () -> Unit,
     onListeningStats: () -> Unit,
     onOpenPro: () -> Unit
 ) {
@@ -644,15 +667,13 @@ private fun HomeScreen(
                         fontSize = 14.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(24.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary).clickable(onClick = onImportMusic).padding(horizontal = 18.dp),
-                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null, modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                    AddMusicMenuButton(
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        onAudioPicker = onImportAudio,
+                        onSinglePicker = onImportSingle,
+                        onFolderPicker = onImportFolder,
+                        onRescan = onRescan
+                    )
                     Spacer(Modifier.height(28.dp))
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
@@ -667,6 +688,57 @@ private fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AddMusicMenuButton(
+    modifier: Modifier = Modifier,
+    onAudioPicker: () -> Unit,
+    onSinglePicker: () -> Unit,
+    onFolderPicker: () -> Unit,
+    onRescan: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable { expanded = true }.padding(horizontal = 18.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null,
+                modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
+            Spacer(Modifier.width(8.dp))
+            Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Audio picker") },
+                leadingIcon = { Icon(Icons.Filled.AudioFile, null) },
+                onClick = { expanded = false; onAudioPicker() }
+            )
+            DropdownMenuItem(
+                text = { Text("Single picker") },
+                leadingIcon = { Icon(Icons.Filled.MusicNote, null) },
+                onClick = { expanded = false; onSinglePicker() }
+            )
+            DropdownMenuItem(
+                text = { Text("Folder picker") },
+                leadingIcon = { Icon(Icons.Filled.LibraryMusic, null) },
+                onClick = { expanded = false; onFolderPicker() }
+            )
+            androidx.compose.material3.HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+            )
+            DropdownMenuItem(
+                text = { Text("Rescan folders") },
+                leadingIcon = { Icon(Icons.Filled.GraphicEq, null) },
+                onClick = { expanded = false; onRescan() }
+            )
         }
     }
 }
