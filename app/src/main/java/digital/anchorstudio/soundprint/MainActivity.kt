@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -744,11 +745,32 @@ private fun HomeScreen(
 private fun HomeSearchScreen(library: MusicLibraryManager, playback: SoundprintPlaybackConnection, onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var songs by remember { mutableStateOf(emptyList<MusicTrack>()) }
+    var albums by remember { mutableStateOf(emptyList<LibraryAlbum>()) }
+    var artists by remember { mutableStateOf(emptyList<LibraryArtist>()) }
+    var playlists by remember { mutableStateOf(emptyList<ManagedPlaylist>()) }
     var loading by remember { mutableStateOf(false) }
     LaunchedEffect(query) {
-        loading = true
-        songs = withContext(Dispatchers.IO) { if (query.isBlank()) emptyList() else library.searchSongs(query) }
-        loading = false
+        val term = query.trim()
+        if (term.isBlank()) {
+            songs = emptyList(); albums = emptyList(); artists = emptyList(); playlists = emptyList()
+        } else {
+            loading = true
+            val result = withContext(Dispatchers.IO) {
+                Triple(
+                    library.searchSongs(term),
+                    library.albums().filter { "${it.name} ${it.artist}".contains(term, true) }.take(8),
+                    Pair(
+                        library.artists().filter { it.name.contains(term, true) }.take(8),
+                        library.playlists().filter { it.name.contains(term, true) }.take(8)
+                    )
+                )
+            }
+            songs = result.first
+            albums = result.second
+            artists = result.third.first
+            playlists = result.third.second
+            loading = false
+        }
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -756,22 +778,73 @@ private fun HomeSearchScreen(library: MusicLibraryManager, playback: SoundprintP
             Spacer(Modifier.width(8.dp))
             Text("Search your music", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
         }
-        SearchBox(query, { query = it }, "Songs, artists, albums or genres…")
+        SearchBox(query, { query = it }, "Songs, artists, albums or playlists…")
         when {
-            query.isBlank() -> Text("Search songs, artists, albums and genres in your library.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            query.isBlank() -> Text("Search songs, artists, albums and playlists in your library.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             loading -> Text("Searching…", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            songs.isEmpty() -> Text("No matches found.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else -> LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                items(songs.size) { index ->
-                    val track = songs[index]
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { playback.playTracks(songs, index) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        NativeArtwork(track.artworkUri, track.id, Modifier.size(42.dp), 9)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            songs.isEmpty() && albums.isEmpty() && artists.isEmpty() && playlists.isEmpty() ->
+                Text("No matches found.", Modifier.padding(20.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                if (songs.isNotEmpty()) {
+                    item { Text("SONGS · ${songs.size}", Modifier.padding(start = 4.dp, top = 8.dp), fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    items(songs, key = { it.id }) { track ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { playback.playTracks(songs, songs.indexOfFirst { it.id == track.id }) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            NativeArtwork(track.artworkUri, track.id, Modifier.size(42.dp), 9)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
                         }
-                        Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                if (albums.isNotEmpty()) {
+                    item { Text("ALBUMS", Modifier.padding(start = 4.dp, top = 12.dp), fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    items(albums, key = { it.id }) { album ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { playback.playTracks(album.tracks) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            NativeArtwork(album.artworkUri, album.id, Modifier.size(42.dp), 9)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(album.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${album.artist} · ${album.tracks.size} songs", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                if (artists.isNotEmpty()) {
+                    item { Text("ARTISTS", Modifier.padding(start = 4.dp, top = 12.dp), fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    items(artists, key = { it.name }) { artist ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                            val artistTracks = library.artistTracks(artist.name)
+                            playback.playTracks(artistTracks)
+                        }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(artist.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${artist.tracks.size} songs", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                if (playlists.isNotEmpty()) {
+                    item { Text("PLAYLISTS", Modifier.padding(start = 4.dp, top = 12.dp), fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    items(playlists, key = { it.id }) { playlist ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                            playback.playTracks(library.playlistTracks(playlist.id))
+                        }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(playlist.name, Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }
