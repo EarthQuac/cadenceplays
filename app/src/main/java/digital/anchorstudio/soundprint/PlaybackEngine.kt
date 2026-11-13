@@ -413,6 +413,13 @@ class SoundprintPlaybackConnection(
         if (index in 0 until player.mediaItemCount) player.removeMediaItem(index)
     }
 
+    fun removeTrackFromQueue(trackId: String) {
+        val player = controller ?: return
+        for (index in player.mediaItemCount - 1 downTo 0) {
+            if (player.getMediaItemAt(index).mediaId == trackId) player.removeMediaItem(index)
+        }
+    }
+
     fun moveInQueue(from: Int, to: Int) {
         val player = controller ?: return
         if (from in 0 until player.mediaItemCount && to in 0 until player.mediaItemCount && from != to) player.moveMediaItem(from, to)
