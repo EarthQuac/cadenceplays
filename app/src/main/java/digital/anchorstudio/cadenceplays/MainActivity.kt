@@ -355,96 +355,102 @@ private fun CadenceApp(
         if (!enteredLibrary) {
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
-            if (settingsOpen) {
-                SettingsScreen(
-                    themeMode = themeMode,
-                    onThemeModeChange = onThemeModeChange,
-                    selectedPalette = selectedPalette,
-                    onPaletteChange = onPaletteChange,
-                    onBack = { settingsOpen = false },
-                    libraryTrackCount = libraryTrackCount,
-                    librarySources = librarySources,
-                    libraryStatus = libraryStatus,
-                    onImportMusic = onImportMusic,
-                    onImportFiles = onImportFiles,
-                    onRescan = onRescan,
-                    onRemoveSource = onRemoveSource,
-                    onBackup = onBackup,
-                    onRestore = onRestore,
-                    onClearLibrary = onClearLibrary
-                )
-            } else {
-                when (selectedTab) {
-                    0 -> HomeScreen(modifier = Modifier.weight(1f), onSettings = { settingsOpen = true }, onImportMusic = onImportFiles)
-                    1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
-                    2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
-                    3 -> PlaylistsScreen { selectedTab = 0 }
-                    else -> DiscoverScreen { selectedTab = 0 }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (settingsOpen) {
+                    SettingsScreen(
+                        themeMode = themeMode,
+                        onThemeModeChange = onThemeModeChange,
+                        selectedPalette = selectedPalette,
+                        onPaletteChange = onPaletteChange,
+                        onBack = { settingsOpen = false },
+                        libraryTrackCount = libraryTrackCount,
+                        librarySources = librarySources,
+                        libraryStatus = libraryStatus,
+                        onImportMusic = onImportMusic,
+                        onImportFiles = onImportFiles,
+                        onRescan = onRescan,
+                        onRemoveSource = onRemoveSource,
+                        onBackup = onBackup,
+                        onRestore = onRestore,
+                        onClearLibrary = onClearLibrary
+                    )
+                } else {
+                    when (selectedTab) {
+                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles)
+                        1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
+                        2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
+                        3 -> PlaylistsScreen { selectedTab = 0 }
+                        else -> DiscoverScreen { selectedTab = 0 }
+                    }
                 }
-                Column(
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.98f))
+            ) {
+                androidx.compose.material3.HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
+                    thickness = 0.7.dp
+                )
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.95f))
+                        .widthIn(max = 672.dp)
+                        .align(Alignment.CenterHorizontally)
+                        .padding(
+                            start = 4.dp, end = 4.dp, top = 0.dp,
+                            bottom = maxOf(8.dp, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                        ),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    androidx.compose.material3.HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
-                        thickness = 0.7.dp
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .widthIn(max = 672.dp)
-                            .align(Alignment.CenterHorizontally)
-                            .padding(start = 4.dp, end = 4.dp, top = 0.dp, bottom = maxOf(
-                                8.dp,
-                                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                            )),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        tabs.forEachIndexed { index, item ->
-                            val selected = selectedTab == index
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { selectedTab = index }
-                                    .padding(vertical = 10.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .height(32.dp)
-                                        .widthIn(min = 56.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                            else Color.Transparent
-                                        )
-                                        .padding(horizontal = 16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        painter = painterResource(item.icon),
-                                        contentDescription = item.label,
-                                        modifier = Modifier.size(20.dp),
-                                        colorFilter = ColorFilter.tint(
-                                            if (selected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
+                    tabs.forEachIndexed { index, item ->
+                        val selected = selectedTab == index
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    settingsOpen = false
+                                    selectedTab = index
                                 }
-                                Text(
-                                    item.label,
-                                    fontSize = 11.sp,
-                                    lineHeight = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    color = if (selected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .height(32.dp)
+                                    .widthIn(min = 56.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (!settingsOpen && selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                        else Color.Transparent
+                                    )
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(item.icon),
+                                    contentDescription = item.label,
+                                    modifier = Modifier.size(20.dp),
+                                    colorFilter = ColorFilter.tint(
+                                        if (!settingsOpen && selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
                             }
+                            Text(
+                                item.label,
+                                fontSize = 11.sp,
+                                lineHeight = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false,
+                                color = if (!settingsOpen && selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
