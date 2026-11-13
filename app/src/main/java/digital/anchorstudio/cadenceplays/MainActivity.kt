@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
@@ -373,7 +375,7 @@ private fun CadenceApp(
                 )
             } else {
                 when (selectedTab) {
-                    0 -> HomeScreen(onSettings = { settingsOpen = true })
+                    0 -> HomeScreen(modifier = Modifier.weight(1f), onSettings = { settingsOpen = true }, onImportMusic = onImportFiles)
                     1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                     2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
                     3 -> PlaylistsScreen { selectedTab = 0 }
@@ -533,20 +535,26 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HomeScreen(onSettings: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
+private fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onSettings: () -> Unit,
+    onImportMusic: () -> Unit
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = 12.dp, end = 12.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
+                    start = 12.dp, end = 12.dp,
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
                     bottom = 16.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Image(
                     painter = painterResource(id = R.drawable.cadence_icon),
                     contentDescription = "Cadence",
@@ -558,7 +566,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     Text("Cadence", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
                 HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = {})
                 HeaderAction(R.drawable.lucide_crown, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
@@ -600,7 +608,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     Spacer(Modifier.height(24.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary).clickable { }.padding(horizontal = 18.dp, vertical = 12.dp),
+                            .background(MaterialTheme.colorScheme.primary).clickable(onClick = onImportMusic).padding(horizontal = 18.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null, modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
@@ -610,7 +618,11 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     Spacer(Modifier.height(28.dp))
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
                     Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         FeatureLabel(R.drawable.lucide_music, "Your own music")
                         FeatureLabel(R.drawable.lucide_list_music, "Playlists that fit")
                         FeatureLabel(R.drawable.lucide_headphones, "Listen offline")
