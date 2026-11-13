@@ -53,7 +53,7 @@ fun ListeningStatsScreen(libraryManager:MusicLibraryManager,onBack:()->Unit) {
     val snapshot=remember(range,tracks,events,refresh) { buildStatsSnapshot(range,tracks,events) }
     LazyColumn(
         modifier=Modifier.fillMaxSize(),
-        contentPadding=PaddingValues(start=18.dp,end=18.dp,top=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+14.dp,bottom=28.dp),
+        contentPadding=PaddingValues(start=18.dp,end=18.dp,top=14.dp,bottom=28.dp),
         verticalArrangement=Arrangement.spacedBy(18.dp)
     ) {
         item {
@@ -78,23 +78,16 @@ fun ListeningStatsScreen(libraryManager:MusicLibraryManager,onBack:()->Unit) {
             }
         }
         item {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primary).padding(20.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Default.Headphones,null,tint=MaterialTheme.colorScheme.onPrimary.copy(alpha=.85f))
-                    Spacer(Modifier.width(8.dp))
-                    Text("LISTENING TIME",fontSize=11.sp,letterSpacing=1.4.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onPrimary.copy(alpha=.82f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatMetricCard("Listening time", formatListeningTime(snapshot.totalMs), Icons.Default.Headphones, Modifier.weight(1f))
+                    StatMetricCard("Plays counted", snapshot.plays.toString(), Icons.Default.MusicNote, Modifier.weight(1f))
                 }
-                Text(formatListeningTime(snapshot.totalMs),modifier=Modifier.padding(top=10.dp),fontSize=34.sp,lineHeight=40.sp,fontWeight=FontWeight.Bold,letterSpacing=(-1.1).sp,color=MaterialTheme.colorScheme.onPrimary)
-                Text(if(range==StatsRange.ALL) "Across your listening history" else "Across the last ${range.days} days",modifier=Modifier.padding(top=4.dp),fontSize=12.sp,color=MaterialTheme.colorScheme.onPrimary.copy(alpha=.78f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatMetricCard("Current streak", "${snapshot.streak} ${if(snapshot.streak==1) "day" else "days"}", Icons.Default.Waves, Modifier.weight(1f))
+                    StatMetricCard("Songs in library", tracks.size.toString(), Icons.Default.Schedule, Modifier.weight(1f))
+                }
             }
-        }
-        item {
-            Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                StatMetricCard("Plays counted",snapshot.plays.toString(),Icons.Default.MusicNote,Modifier.weight(1f))
-                StatMetricCard("Current streak","${snapshot.streak} ${if(snapshot.streak==1) "day" else "days"}",Icons.Default.Waves,Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(10.dp))
-            StatMetricCard("Songs in library",tracks.size.toString(),Icons.Default.Schedule,Modifier.fillMaxWidth())
         }
         item {
             Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -182,7 +175,7 @@ private fun StatsRankSection(title:String,subtitle:String,rows:List<Triple<Int,S
                     }
                     Text(row.third.second,fontSize=11.sp,fontWeight=FontWeight.Medium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if(index!=rows.lastIndex) androidx.compose.material3.HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))
+                if(index!=rows.lastIndex) androidx.compose.material3.HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f))
             }
         }
     }
