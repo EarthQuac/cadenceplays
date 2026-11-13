@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -63,6 +64,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -172,7 +174,6 @@ class MainActivity : ComponentActivity() {
                 android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
 
             MaterialTheme(
-                typography = androidx.compose.material3.Typography(defaultFontFamily = CadenceFontFamily),
                 colorScheme = if (darkTheme) darkColorScheme(
                     primary = colors.primary, onPrimary = colors.onPrimary,
                     background = colors.background, onBackground = colors.foreground,
@@ -187,12 +188,14 @@ class MainActivity : ComponentActivity() {
                     outline = colors.border
                 )
             ) {
+                CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(fontFamily = CadenceFontFamily)) {
                 CadenceApp(
                     themeMode = themeMode,
                     onThemeModeChange = { mode -> themeMode = mode; preferences.edit().putString("theme", mode).apply() },
                     selectedPalette = selectedPalette,
                     onPaletteChange = { name -> selectedPalette = name; preferences.edit().putString("palette", name).apply() }
                 )
+                }
             }
         }
     }
