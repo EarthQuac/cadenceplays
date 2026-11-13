@@ -389,7 +389,7 @@ private fun LibraryScreen(title: String, subtitle: String, icon: ImageVector, on
     when (title) {
         "Songs" -> SongsScreen(onBack)
         "Albums" -> AlbumsScreen(onBack)
-        else -> PlaylistsScreen()
+        else -> PlaylistsScreen(onBack)
     }
 }
 
