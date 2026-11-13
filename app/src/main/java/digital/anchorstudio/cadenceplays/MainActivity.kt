@@ -284,7 +284,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(id = R.drawable.cadence_logo),
+                    painter = painterResource(id = R.drawable.cadence_icon),
                     contentDescription = "Cadence",
                     modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
                 )
@@ -312,17 +312,17 @@ private fun HomeScreen(onSettings: () -> Unit) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(22.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(22.dp))
                         .padding(20.dp)
                 ) {
                     Box(
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(18.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
+                        Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                     Spacer(Modifier.height(24.dp))
                     Text("A FRESH START", fontSize = 12.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
@@ -335,11 +335,11 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     )
                     Spacer(Modifier.height(24.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50))
+                        modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(50))
                             .background(MaterialTheme.colorScheme.primary).clickable { }.padding(horizontal = 18.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Filled.AudioFile, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
+                        Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null, modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
                         Spacer(Modifier.width(9.dp))
                         Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -360,10 +360,10 @@ private fun HomeScreen(onSettings: () -> Unit) {
 @Composable
 private fun HeaderAction(icon: Int, description: String, tint: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onClick),
+        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Image(painterResource(icon), contentDescription = description, modifier = Modifier.size(19.dp), colorFilter = ColorFilter.tint(tint))
+        Image(painterResource(icon), contentDescription = description, modifier = Modifier.size(20.dp), colorFilter = ColorFilter.tint(tint))
     }
 }
 
