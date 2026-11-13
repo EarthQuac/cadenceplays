@@ -76,6 +76,14 @@ private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(contex
         return result
     }
     fun clearHistory() { writableDatabase.delete("history_events",null,null) }
+    fun removeTrackReferences(trackId:String) {
+        val db=writableDatabase;db.beginTransaction()
+        try {
+            db.delete("history_events","track_id=?",arrayOf(trackId))
+            db.delete("managed_playlist_tracks","track_id=?",arrayOf(trackId))
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
 
     fun createPlaylist(name:String,ids:List<String>):String {
         require(name.isNotBlank()) { "Playlist name cannot be empty." }
@@ -267,10 +275,10 @@ class MusicLibraryManager(context:Context) {
         check(state.recycleBin().any { it.first==id }) { "Recycle Bin item not found." };repository.restoreFromSoundprintTrash(id);state.removeRecycleBinEntry(id)
     }
     /** Removes Cadence's record only. The original audio file in Android storage is untouched. */
-    fun permanentlyRemoveFromLibrary(id:String) { state.removeRecycleBinEntry(id);repository.removeTrackRecord(id) }
-    fun emptyRecycleBin() { state.recycleBin().map { it.first }.forEach { repository.removeTrackRecord(it);state.removeRecycleBinEntry(it) } }
+    fun permanentlyRemoveFromLibrary(id:String) { state.removeRecycleBinEntry(id);state.removeTrackReferences(id);repository.removeTrackRecord(id) }
+    fun emptyRecycleBin() { state.recycleBin().map { it.first }.forEach { state.removeTrackReferences(it);repository.removeTrackRecord(it);state.removeRecycleBinEntry(it) } }
     fun purgeExpiredRecycleBin(now:Long=System.currentTimeMillis()):Int {
-        val expired=state.purgeRecycleBin(now-RECYCLE_BIN_RETENTION_MS);expired.forEach { repository.removeTrackRecord(it) };return expired.size
+        val expired=state.purgeRecycleBin(now-RECYCLE_BIN_RETENTION_MS);expired.forEach { state.removeTrackReferences(it);repository.removeTrackRecord(it) };return expired.size
     }
     fun searchSongs(query:String,favoritesOnly:Boolean=false,sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=
         repository.tracks(query,sort,ascending).filter { !favoritesOnly||it.isFavorite }
