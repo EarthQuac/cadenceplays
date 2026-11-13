@@ -638,7 +638,7 @@ class MusicLibraryRepository(context:Context) {
             children.forEach { child ->
                 coroutineContext.ensureActive()
                 if(child.isDirectory) directories.add(child)
-                else if(child.isFile && isSupported(child)) audioFiles.add(child)
+                else if(child.isFile && runCatching { isSupported(child) }.getOrDefault(false)) audioFiles.add(child)
             }
         }
 
