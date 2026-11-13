@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.ListMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
@@ -279,7 +278,7 @@ fun CadencePlaylistsScreen(
                     ) {
                         Row(Modifier.weight(1f).clickable { selectedSmartId = rule.id }, verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-                                androidx.compose.material3.Icon(Icons.Filled.ListMusic, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                androidx.compose.material3.Icon(Icons.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             }
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                                 Text(rule.name, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
