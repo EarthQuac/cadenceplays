@@ -610,54 +610,81 @@ class MusicLibraryRepository(context:Context) {
         app.contentResolver.persistedUriPermissions.any { it.uri==uri && it.isReadPermission }
 
     private suspend fun scanRoot(root:DocumentFile,sourceUri:String,onProgress:(LibraryScanProgress)->Unit):LibraryScanResult {
-        val scanId=UUID.randomUUID().toString();val errors=mutableListOf<LibraryScanError>()
-        var visited=0;var imported=0;var updated=0;var skipped=0
+        val scanId=UUID.randomUUID().toString()
+        val errors=mutableListOf<LibraryScanError>()
+        var visited=0
+        var imported=0
+        var updated=0
+        var skipped=0
         var traversalFailed=false
-        val stack=ArrayDeque<DocumentFile>();stack.add(root)
-        while(stack.isNotEmpty()) {
+
+        // Discover the audio files first so folder imports can show an accurate
+        // total and remaining count instead of an indefinite progress spinner.
+        val audioFiles=mutableListOf<DocumentFile>()
+        val directories=ArrayDeque<DocumentFile>()
+        directories.add(root)
+        while(directories.isNotEmpty()) {
             coroutineContext.ensureActive()
-            val dir=stack.removeLast()
-            val children=try { dir.listFiles().toList() }
+            val directory=directories.removeLast()
+            val children=try { directory.listFiles().toList() }
             catch(cancel:CancellationException) { throw cancel }
             catch(error:Exception) {
                 val message=error.message ?: "Cannot read this folder."
-                errors+=LibraryScanError(dir.uri.toString(),message);db.recordScanError(sourceUri,dir.uri.toString(),message)
+                errors+=LibraryScanError(directory.uri.toString(),message)
+                db.recordScanError(sourceUri,directory.uri.toString(),message)
                 traversalFailed=true
                 continue
             }
             children.forEach { child ->
                 coroutineContext.ensureActive()
-                if(child.isDirectory) stack.add(child)
-                else if(child.isFile) {
-                    visited++
-                    try {
-                        if(!isSupported(child)) skipped++
-                        else {
-                            val track=readMetadata(child,sourceUri)
-                            val canonical=track.contentHash?.let { db.findCanonicalByHash(it,track.uri) }
-                            if(db.upsert(track.copy(duplicateOf=canonical),scanId)) imported++ else updated++
-                        }
-                    } catch(cancel:CancellationException) { throw cancel }
-                    catch(error:Exception) {
-                        skipped++;val message=error.message ?: "Could not read audio metadata."
-                        errors+=LibraryScanError(child.uri.toString(),message);db.recordScanError(sourceUri,child.uri.toString(),message)
-                        db.findByUri(child.uri.toString())?.let { existing -> db.recordTrackSource(existing.id,sourceUri,existing.uri,scanId,true) }
-                    }
-                    onProgress(LibraryScanProgress(
-                        sourceName = root.name ?: "Music folder",
-                        visited = visited,
-                        imported = imported,
-                        skipped = skipped,
-                        errors = errors.size,
-                        updated = updated,
-                        currentTitle = child.name ?: "Audio file"
-                    ))
-                }
+                if(child.isDirectory) directories.add(child)
+                else if(child.isFile && isSupported(child)) audioFiles.add(child)
             }
         }
+
+        audioFiles.forEach { child ->
+            coroutineContext.ensureActive()
+            visited++
+            var currentTitle=child.name ?: "Audio file $visited"
+            onProgress(LibraryScanProgress(
+                sourceName = root.name ?: "Music folder",
+                visited = visited - 1,
+                imported = imported,
+                skipped = skipped,
+                errors = errors.size,
+                total = audioFiles.size,
+                updated = updated,
+                currentTitle = currentTitle
+            ))
+            try {
+                val track=readMetadata(child,sourceUri)
+                currentTitle=track.title
+                val canonical=track.contentHash?.let { db.findCanonicalByHash(it,track.uri) }
+                if(db.upsert(track.copy(duplicateOf=canonical),scanId)) imported++ else updated++
+            } catch(cancel:CancellationException) { throw cancel }
+            catch(error:Exception) {
+                skipped++
+                val message=error.message ?: "Could not read audio metadata."
+                errors+=LibraryScanError(child.uri.toString(),message)
+                db.recordScanError(sourceUri,child.uri.toString(),message)
+                db.findByUri(child.uri.toString())?.let { existing ->
+                    db.recordTrackSource(existing.id,sourceUri,existing.uri,scanId,true)
+                }
+            }
+            onProgress(LibraryScanProgress(
+                sourceName = root.name ?: "Music folder",
+                visited = visited,
+                imported = imported,
+                skipped = skipped,
+                errors = errors.size,
+                total = audioFiles.size,
+                updated = updated,
+                currentTitle = currentTitle
+            ))
+        }
+
         db.saveSource(sourceUri,root.name ?: "Music folder",scanId)
         val unavailable=db.completeSourceScan(sourceUri,scanId,!traversalFailed && errors.isEmpty())
-        onProgress(LibraryScanProgress(root.name ?: "Music folder",visited,imported,skipped,errors.size))
         return LibraryScanResult(visited,imported,updated,skipped,unavailable,errors)
     }
 
