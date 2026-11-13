@@ -839,44 +839,79 @@ private fun SettingsScreen(
     }
 }
 
+
+@Composable
+private fun SettingsToggleRow(label: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+@Composable
+private fun SettingsActionRow(label: String, description: String, action: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(action, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column {
-        Text(title, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(18.dp))) {
+        Text(title, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(22.dp))) {
             content()
         }
     }
 }
 
 @Composable
-private fun ThemeChoice(modifier: Modifier, label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surfaceVariant)
-            .border(if (selected) 1.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick).padding(vertical = 11.dp),
-        contentAlignment = Alignment.Center
+private fun ThemeChoice(modifier: Modifier, label: String, icon: Int?, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = modifier.height(76.dp).clip(RoundedCornerShape(22.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
+            .clickable(onClick = onClick).padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        if (icon != null) Image(painterResource(icon), null, Modifier.size(20.dp), colorFilter = ColorFilter.tint(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant))
+        Text(label, modifier = Modifier.padding(top = if (icon == null) 0.dp else 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
-private fun PaletteChoice(name: String, selected: Boolean, onClick: () -> Unit) {
-    val swatch = when (name) {
-        "Blue" -> Color(0xFF527FE2)
-        "Emerald" -> Color(0xFF5D9D7E)
-        "Mono" -> Color(0xFF777777)
-        else -> Color(0xFFE9AD68)
+private fun PaletteChoice(name: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = when (name) {
+        "Blue & white" -> listOf(Color(0xFFFFFFFF), Color(0xFF527FE2))
+        "Emerald" -> listOf(Color(0xFF10271F), Color(0xFF5ACA94))
+        "Mono" -> listOf(Color(0xFF141414), Color(0xFFE8E8E8))
+        else -> listOf(Color(0xFF24211E), Color(0xFFE6A15D))
     }
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 11.dp, horizontal = 2.dp),
+        modifier = modifier.height(76.dp).clip(RoundedCornerShape(22.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
+            .clickable(onClick = onClick).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(17.dp).clip(CircleShape).background(swatch))
-        Spacer(Modifier.width(11.dp))
-        Text(name, modifier = Modifier.weight(1f), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-        if (selected) Text("Selected", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+        Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
+            colors.forEach { color -> Box(Modifier.size(20.dp).clip(CircleShape).background(color).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)) }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (name == "Emerald" || name == "Mono") "Unlock with Pro" else if (name == "Amber") "Original warm dark theme" else "Cool blue on clean white", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
+
