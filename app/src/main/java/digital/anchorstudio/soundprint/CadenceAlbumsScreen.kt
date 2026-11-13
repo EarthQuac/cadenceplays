@@ -56,13 +56,14 @@ import kotlinx.coroutines.withContext
 fun CadenceAlbumsScreen(
     libraryManager: MusicLibraryManager,
     playback: SoundprintPlaybackConnection,
-    onImportFiles: () -> Unit
+    onImportFiles: () -> Unit,
+    libraryTrackCount: Int
 ) {
     var albums by remember { mutableStateOf(emptyList<LibraryAlbum>()) }
     var query by remember { mutableStateOf("") }
     var selectedAlbumId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(libraryTrackCount) {
         albums = withContext(Dispatchers.IO) { libraryManager.albums() }
     }
 
