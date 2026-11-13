@@ -456,29 +456,37 @@ private fun PlaylistsScreen(onBack: () -> Unit) {
     var createOpen by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                start = 18.dp, end = 16.dp,
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 18.dp,
-                bottom = 16.dp
-            ),
+            modifier = Modifier.fillMaxWidth()
+                .border(width = 0.dp, color = Color.Transparent)
+                .padding(
+                    start = 12.dp, end = 12.dp,
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
+                    bottom = 12.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onBack).padding(8.dp), contentAlignment = Alignment.Center) {
+                Image(painterResource(R.drawable.lucide_arrow_left), null, Modifier.size(20.dp),
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
+            }
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text("Playlists", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
+                Text("Playlists", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onBackground)
                 Text("0 playlists", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(
-                Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable { createOpen = !createOpen },
+                Modifier.size(36.dp).clip(CircleShape).clickable { createOpen = !createOpen },
                 contentAlignment = Alignment.Center
-            ) { Icon(Icons.Filled.Add, "New playlist", tint = MaterialTheme.colorScheme.onSurface) }
+            ) { Icon(Icons.Filled.Add, "New playlist", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
         }
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(19.dp)
         ) {
             SearchBox(query, { query = it }, "Search playlists…")
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SMART MIXES", fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("SMART MIXES", fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 PlaylistMix(Icons.Filled.Favorite, "Liked Songs", "0 songs")
                 PlaylistMix(Icons.Filled.AccessTime, "Recently Played", "0 songs")
                 PlaylistMix(Icons.Filled.QueueMusic, "Recently Added", "0 songs")
