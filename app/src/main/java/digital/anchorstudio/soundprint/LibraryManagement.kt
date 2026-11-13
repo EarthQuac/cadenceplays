@@ -348,13 +348,14 @@ fun evaluateNativeSmartPlaylist(playlist:NativeSmartPlaylist,context:SmartPlayli
             SmartField.YEAR -> track.year
             SmartField.DURATION -> track.durationMs/1000.0
             SmartField.FAVORITE -> track.isFavorite
-            SmartField.HAS_LYRICS -> profile?.hasLyrics ?: false
+            SmartField.HAS_LYRICS -> profile?.hasLyrics
             SmartField.MOOD_LABEL -> profile?.moodLabel.orEmpty()
             SmartField.ENERGY -> profile?.energy ?: 0.0
-            SmartField.TEMPO -> profile?.tempo ?: 0.0
+            SmartField.TEMPO -> profile?.tempo
         }
     }
-    fun matches(actual:Any,condition:SmartCondition):Boolean {
+    fun matches(actual:Any?,condition:SmartCondition):Boolean {
+        if (actual == null) return false
         val expected=condition.value.trim()
         val numeric=expected.toDoubleOrNull()
         return when(condition.operator) {
