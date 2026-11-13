@@ -77,11 +77,15 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
+
+private val CadenceFontFamily = FontFamily(Font(R.font.inter_tight_variable))
 
 private data class CadencePalette(
     val background: Color,
@@ -168,6 +172,7 @@ class MainActivity : ComponentActivity() {
                 android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
 
             MaterialTheme(
+                typography = androidx.compose.material3.Typography(defaultFontFamily = CadenceFontFamily),
                 colorScheme = if (darkTheme) darkColorScheme(
                     primary = colors.primary, onPrimary = colors.onPrimary,
                     background = colors.background, onBackground = colors.foreground,
