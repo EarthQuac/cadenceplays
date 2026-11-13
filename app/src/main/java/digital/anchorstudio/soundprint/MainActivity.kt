@@ -417,7 +417,7 @@ private fun SoundprintApp(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
             ) {
                 androidx.compose.material3.HorizontalDivider(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
