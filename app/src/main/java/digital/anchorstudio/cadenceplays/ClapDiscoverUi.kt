@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -87,7 +88,9 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelManager = ClapModelManager(app)
     private val preferences = app.getSharedPreferences("cadence_clap_scan", Context.MODE_PRIVATE)
-    private val mutableState = MutableStateFlow(ClapLibraryScanState())
+    private val mutableState = MutableStateFlow(ClapLibraryScanState(
+        failed = readFailures().size, failureMessages = readFailures()
+    ))
     val state: StateFlow<ClapLibraryScanState> = mutableState
     private var scanJob: Job? = null
 
@@ -353,7 +356,7 @@ fun ClapDiscoverScreen(
                             Text("···", modifier = Modifier.clickable { expanded = true }.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                                 DropdownMenuItem(text = { Text("Change mood") }, onClick = { expanded = false; editingTrack = track })
-                                if (corrections.containsKey(track.id)) DropdownMenuItem(text = { Text("Reset correction") }, onClick = { scanner.removeMoodCorrection(track.id); expanded = false })
+                                if (corrections.containsKey(track.id)) DropdownMenuItem(text = { Text("Reset correction") }, onClick = { scanner.removeMoodCorrection(track.id); corrections = scanner.moodCorrections(); expanded = false })
                             }
                         }
                     }

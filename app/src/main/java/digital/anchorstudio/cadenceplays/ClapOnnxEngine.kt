@@ -218,17 +218,18 @@ private class ClapRobertaTokenizer(vocabFile: File, mergesFile: File) {
     private fun bpe(token: String): List<String> {
         val parts = token.map { it.toString() }.toMutableList()
         while (parts.size > 1) {
-            var bestIndex = -1
+            var bestPair: String? = null
             var bestRank = Int.MAX_VALUE
             for (index in 0 until parts.lastIndex) {
-                val rank = ranks[parts[index] + " " + parts[index + 1]] ?: continue
-                if (rank < bestRank) { bestRank = rank; bestIndex = index }
+                val pair = parts[index] + " " + parts[index + 1]
+                val rank = ranks[pair] ?: continue
+                if (rank < bestRank) { bestRank = rank; bestPair = pair }
             }
-            if (bestIndex < 0) break
+            val selectedPair = bestPair ?: break
             val merged = mutableListOf<String>()
             var index = 0
             while (index < parts.size) {
-                if (index == bestIndex) {
+                if (index < parts.lastIndex && parts[index] + " " + parts[index + 1] == selectedPair) {
                     merged += parts[index] + parts[index + 1]
                     index += 2
                 } else {
@@ -282,8 +283,13 @@ private object ClapFeatureExtractor {
         for (frame in 0 until FRAMES) {
             val start = frame * HOP - FFT_SIZE / 2
             for (i in 0 until FFT_SIZE) {
-                val sampleIndex = start + i
-                real[i] = (if (sampleIndex in samples.indices) samples[sampleIndex].toDouble() else 0.0) * window[i]
+                val rawIndex = start + i
+                val sampleIndex = when {
+                    rawIndex < 0 -> (-rawIndex).coerceAtMost(samples.lastIndex)
+                    rawIndex >= samples.size -> (2 * samples.size - rawIndex - 2).coerceIn(0, samples.lastIndex)
+                    else -> rawIndex
+                }
+                real[i] = samples[sampleIndex].toDouble() * window[i]
                 imaginary[i] = 0.0
             }
             fft(real, imaginary)
@@ -394,7 +400,7 @@ private class ClapPcmDecoder(private val context: Context) {
                         buffer.clear()
                         val size = extractor.readSampleData(buffer, 0)
                         val time = extractor.sampleTime
-                        if (size < 0 || (time >= endUs && samples.size > 0)) {
+                        if (size < 0 || time >= endUs) {
                             decoder.queueInputBuffer(inputIndex, 0, 0, max(0L, time), MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputEnded = true
                         } else {
