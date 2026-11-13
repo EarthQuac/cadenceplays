@@ -42,7 +42,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Pencil
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
@@ -279,7 +279,7 @@ fun CadencePlaylistsScreen(
                             Text("Preset", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 5.dp))
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                androidx.compose.material3.Icon(Icons.Filled.Pencil, "Edit ${rule.name}", Modifier.size(17.dp).clip(CircleShape).clickable {
+                                androidx.compose.material3.Icon(Icons.Filled.Edit, "Edit ${rule.name}", Modifier.size(17.dp).clip(CircleShape).clickable {
                                     editingId = rule.id
                                     draft = rule.copy(groups = rule.groups.map { it.copy(conditions = it.conditions.toList()) })
                                     editorOpen = true
@@ -384,13 +384,16 @@ private fun PlaylistDetailNative(
         tracks = loaded.second
     }
     val selected = playlist
-    Column(Modifier.fillMaxSize()) {
-        PlaylistPageHeader(selected?.name ?: "Playlist", selected?.let { "${it.trackIds.size} songs" } ?: "", back = onBack)
-        if (selected == null) {
+    if (selected == null) {
+        Column(Modifier.fillMaxSize()) {
+            PlaylistPageHeader("Playlist", "", back = onBack)
             Text("Playlist not found", Modifier.padding(24.dp), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        PlaylistPageHeader(selected.name, "${selected.trackIds.size} songs", back = onBack)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
             Spacer(Modifier.height(18.dp))
             val cover = tracks.firstNotNullOfOrNull { it.artworkUri }
             NativeArtwork(cover, selected.id, Modifier.size(160.dp).align(Alignment.CenterHorizontally), 24)
@@ -406,7 +409,7 @@ private fun PlaylistDetailNative(
             }
             Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.Center) {
                 TextButton(onClick = { addOpen = true }) { androidx.compose.material3.Icon(Icons.Filled.Add, null); Text("Add songs") }
-                TextButton(onClick = { name = selected.name; renameOpen = true }) { androidx.compose.material3.Icon(Icons.Filled.Pencil, null); Text("Rename") }
+                TextButton(onClick = { name = selected.name; renameOpen = true }) { androidx.compose.material3.Icon(Icons.Filled.Edit, null); Text("Rename") }
                 TextButton(onClick = { libraryManager.deletePlaylist(selected.id); onBack(); onChanged() }) { androidx.compose.material3.Icon(Icons.Filled.Delete, null); Text("Delete") }
             }
             Spacer(Modifier.height(10.dp))
@@ -415,7 +418,7 @@ private fun PlaylistDetailNative(
             } else {
                 tracks.forEachIndexed { index, track ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        NativeTrackRow(track, onClick = { playback.playTracks(tracks, index) }, onRemove = { libraryManager.removeFromPlaylist(selected.id, track.id); refresh++; onChanged() })
+                        NativeTrackRow(track, onClick = { playback.playTracks(tracks, index) }, onRemove = { libraryManager.removeFromPlaylist(selected.id, track.id); refresh++; onChanged() }, modifier = Modifier.weight(1f))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             androidx.compose.material3.Icon(Icons.Filled.ArrowUpward, "Move up", Modifier.size(16.dp).clickable(enabled = index > 0) { libraryManager.reorderPlaylist(selected.id, index, index - 1); refresh++ }.padding(1.dp), tint = if (index > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline)
                             androidx.compose.material3.Icon(Icons.Filled.ArrowDownward, "Move down", Modifier.size(16.dp).clickable(enabled = index < tracks.lastIndex) { libraryManager.reorderPlaylist(selected.id, index, index + 1); refresh++ }.padding(1.dp), tint = if (index < tracks.lastIndex) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline)
@@ -650,8 +653,8 @@ private fun EmptyPlaylistState(onAdd: () -> Unit) {
 }
 
 @Composable
-private fun NativeTrackRow(track: MusicTrack, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
-    Row(Modifier.weightlessClickRow(onClick), verticalAlignment = Alignment.CenterVertically) {
+private fun NativeTrackRow(track: MusicTrack, onClick: () -> Unit, onRemove: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+    Row(modifier.weightlessClickRow(onClick), verticalAlignment = Alignment.CenterVertically) {
         NativeArtwork(track.artworkUri, track.id, Modifier.size(44.dp), 8)
         Column(Modifier.weight(1f).padding(start = 10.dp, end = 7.dp)) {
             Text(track.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
