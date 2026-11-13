@@ -143,7 +143,7 @@ internal fun SongsLibraryScreen(
                 Text("Add music", fontSize = 12.sp)
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -209,7 +209,7 @@ internal fun SongsLibraryScreen(
             if (soundprintOpen) {
                 item {
                     Column(Modifier.padding(horizontal = 16.dp)) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
                         Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
@@ -281,7 +281,7 @@ internal fun SongsLibraryScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                             shape = RoundedCornerShape(16.dp),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f))
                                         ) {
                                             Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
