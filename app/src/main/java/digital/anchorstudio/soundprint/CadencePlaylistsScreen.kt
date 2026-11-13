@@ -722,7 +722,7 @@ private fun PlaylistSearchBox(value: String, onValueChange: (String) -> Unit, pl
 }
 
 @Composable
-private fun NativeArtwork(uri: String?, seed: String, modifier: Modifier = Modifier, radius: Int = 12) {
+internal fun NativeArtwork(uri: String?, seed: String, modifier: Modifier = Modifier, radius: Int = 12) {
     val context = LocalContext.current
     val bitmap by produceState<ImageBitmap?>(null, uri, seed) {
         value = withContext(Dispatchers.IO) {
