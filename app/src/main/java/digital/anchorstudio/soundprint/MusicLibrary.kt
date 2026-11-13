@@ -514,6 +514,16 @@ class MusicLibraryRepository(context:Context) {
                 if(!hasPersistedReadPermission(uri)) throw SecurityException("Android did not grant persistent access to this audio file.")
                 val file=DocumentFile.fromSingleUri(app,uri)
                 currentTitle = file?.name ?: currentTitle
+                onProgress(LibraryScanProgress(
+                    sourceName = "Selected audio files",
+                    visited = visited - 1,
+                    imported = imported,
+                    skipped = skipped,
+                    errors = errors.size,
+                    total = selected.size,
+                    updated = updated,
+                    currentTitle = currentTitle
+                ))
                 if(file==null || !file.isFile || !isSupported(file)) skipped++
                 else {
                     val track=readMetadata(file,uri.toString())
