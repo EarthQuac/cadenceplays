@@ -332,7 +332,7 @@ fun evaluateNativeSmartPlaylist(playlist:NativeSmartPlaylist,context:SmartPlayli
     val usualHours=context.history.filter { it.type==HistoryEventType.PLAY }.groupBy { it.trackId }.mapValues { (_,events) ->
         events.groupingBy { java.util.Calendar.getInstance().apply { timeInMillis=it.timestamp }.get(java.util.Calendar.HOUR_OF_DAY) }.eachCount().maxByOrNull { it.value }?.key ?: -1
     }
-    fun value(track:MusicTrack,field:SmartField):Any {
+    fun value(track:MusicTrack,field:SmartField):Any? {
         val stats=context.stats[track.id];val profile=context.audioProfiles[track.id]
         return when(field) {
             SmartField.PLAY_COUNT -> stats?.plays ?: track.playCount
