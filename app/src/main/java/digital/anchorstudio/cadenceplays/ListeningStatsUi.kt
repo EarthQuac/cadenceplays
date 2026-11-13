@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
