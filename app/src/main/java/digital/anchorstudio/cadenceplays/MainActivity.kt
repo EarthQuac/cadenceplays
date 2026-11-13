@@ -72,6 +72,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -273,23 +275,22 @@ private fun HomeScreen(onSettings: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = 16.dp, end = 12.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
+                    start = 12.dp, end = 8.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
                     bottom = 16.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Filled.Waves, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.cadence_logo),
+                    contentDescription = "Cadence",
+                    modifier = Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
+                )
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("YOUR LIBRARY", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
-                    Text("Cadence", fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
+                    Text("Cadence", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = MaterialTheme.colorScheme.onBackground)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -303,16 +304,16 @@ private fun HomeScreen(onSettings: () -> Unit) {
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(22.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(22.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(16.dp))
                         .padding(20.dp)
                 ) {
                     Box(
@@ -323,7 +324,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                         Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
                     }
                     Spacer(Modifier.height(22.dp))
-                    Text("A FRESH START", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    Text("A FRESH START", fontSize = 12.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(7.dp))
                     Text("Your music goes here.", fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(10.dp))
@@ -346,7 +347,8 @@ private fun HomeScreen(onSettings: () -> Unit) {
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
                         FeatureLabel(Icons.Filled.MusicNote, "Your own music")
-                        FeatureLabel(Icons.Filled.PlayArrow, "Offline playback")
+                        FeatureLabel(Icons.Filled.QueueMusic, "Playlists that fit")
+                        FeatureLabel(Icons.Filled.PlayArrow, "Listen offline")
                     }
                 }
             }
