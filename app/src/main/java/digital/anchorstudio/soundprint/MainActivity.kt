@@ -402,7 +402,7 @@ private fun SoundprintApp(
                         0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true }, onOpenPro = { proOpen = true })
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                         2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
-                        3 -> PlaylistsScreen { selectedTab = 0 }
+                        3 -> CadencePlaylistsScreen(libraryManager, playbackConnection, clapScanner)
                         else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
                     }
                 }
