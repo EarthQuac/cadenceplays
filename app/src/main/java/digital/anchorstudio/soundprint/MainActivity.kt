@@ -56,7 +56,6 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
@@ -462,18 +461,15 @@ private fun SoundprintApp(
                                     .padding(horizontal = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val iconTint = if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                when (index) {
-                                    2 -> Icon(Icons.Filled.Album, contentDescription = item.label, modifier = Modifier.size(20.dp), tint = iconTint)
-                                    4 -> Icon(Icons.Filled.Explore, contentDescription = item.label, modifier = Modifier.size(20.dp), tint = iconTint)
-                                    else -> Image(
-                                        painter = painterResource(item.icon),
-                                        contentDescription = item.label,
-                                        modifier = Modifier.size(20.dp),
-                                        colorFilter = ColorFilter.tint(iconTint)
+                                Image(
+                                    painter = painterResource(item.icon),
+                                    contentDescription = item.label,
+                                    modifier = Modifier.size(20.dp),
+                                    colorFilter = ColorFilter.tint(
+                                        if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
+                                )
                             }
                             Text(
                                 item.label,
