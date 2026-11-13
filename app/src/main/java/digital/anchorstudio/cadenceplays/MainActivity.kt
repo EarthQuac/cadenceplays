@@ -94,16 +94,16 @@ private data class CadencePalette(
 )
 
 private val AmberLight = CadencePalette(
-    background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
-    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
-    primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
-    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF160D07)
+    background = Color(0xFFFAF9F6), foreground = Color(0xFF302D29),
+    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF1EFEB),
+    primary = Color(0xFFC77B43), muted = Color(0xFF77716A),
+    border = Color(0xFFE6E2DC), onPrimary = Color(0xFF21160F)
 )
 private val AmberDark = CadencePalette(
-    background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
-    surface = Color(0xFF161310), surface2 = Color(0xFF201C18),
-    primary = Color(0xFFFC9E47), muted = Color(0xFF9C9792),
-    border = Color(0x17FFFFFF), onPrimary = Color(0xFF160D07)
+    background = Color(0xFF171512), foreground = Color(0xFFF3F1ED),
+    surface = Color(0xFF24211E), surface2 = Color(0xFF302C27),
+    primary = Color(0xFFE6A15D), muted = Color(0xFFAAA39A),
+    border = Color(0x17FFFFFF), onPrimary = Color(0xFF21160F)
 )
 private val BlueLight = CadencePalette(
     background = Color(0xFFFAFCFE), foreground = Color(0xFF0C1723),
@@ -275,7 +275,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = 12.dp, end = 8.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
+                    start = 12.dp, end = 12.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
                     bottom = 16.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
@@ -317,32 +317,32 @@ private fun HomeScreen(onSettings: () -> Unit) {
                         .padding(20.dp)
                 ) {
                     Box(
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp))
+                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
                     }
-                    Spacer(Modifier.height(22.dp))
+                    Spacer(Modifier.height(24.dp))
                     Text("A FRESH START", fontSize = 12.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(7.dp))
-                    Text("Your music goes here.", fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Your music goes here.", fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "Add the songs already on your device. Your library stays yours, and you can organise it into albums, playlists and favourites as you go.",
-                        fontSize = 14.sp, lineHeight = 21.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 14.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(24.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary).clickable { }.padding(horizontal = 18.dp, vertical = 14.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary).clickable { }.padding(horizontal = 18.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Filled.AudioFile, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(9.dp))
                         Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(24.dp))
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
