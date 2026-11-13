@@ -533,7 +533,7 @@ private fun DiscoverScreen() {
             Column {
                 Text("YOUR LIBRARY, IN A DIFFERENT LIGHT", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 Text("Find your next mood.", modifier = Modifier.padding(top = 5.dp), fontSize = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, color = MaterialTheme.colorScheme.onBackground)
-                Text("Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.", modifier = Modifier.padding(top = 5.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Pick a feeling or a moment. Cadence finds the tracks in your own library that fit.", modifier = Modifier.padding(top = 4.dp), fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(
                 Modifier.fillMaxWidth().border(
@@ -628,10 +628,10 @@ private fun CadenceActionButton(label: String, modifier: Modifier = Modifier, on
 @Composable
 private fun EmptyLibraryState(icon: ImageVector, title: String, description: String) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 32.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 64.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.size(64.dp).clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
         }
         Text(title, modifier = Modifier.padding(top = 15.dp), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
@@ -675,13 +675,31 @@ private fun MoodChip(mood: String, selected: Boolean, modifier: Modifier = Modif
 
 @Composable
 private fun PageTitle(title: String, subtitle: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .padding(start = 18.dp, end = 18.dp, top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 18.dp, bottom = 16.dp)
-    ) {
-        Text(title, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(Modifier.height(3.dp))
-        Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(
+                start = 12.dp, end = 12.dp,
+                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
+                bottom = 12.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).clickable { }
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(painterResource(R.drawable.lucide_arrow_left), null, Modifier.size(20.dp),
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onBackground)
+                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
     }
 }
 
