@@ -205,14 +205,14 @@ private fun AlbumPageHeader(title: String, subtitle: String, onBack: (() -> Unit
                 if (subtitle.isNotBlank()) Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
     }
 }
 
 @Composable
 private fun AlbumSearchBox(value: String, onValueChange: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(46.dp).clip(RoundedCornerShape(16.dp))
-        .background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp),
+        .background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.material3.Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(9.dp))
