@@ -135,14 +135,9 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
         }
     }
 
-    fun savedMoods(): Set<String> =
-        preferences.getStringSet("saved_moods", emptySet())?.toSet().orEmpty()
-
-    fun setMoodSaved(moodId: String, saved: Boolean) {
-        require(SoundprintMood.entries.any { it.id == moodId })
-        val updated = savedMoods().toMutableSet()
-        if (saved) updated.add(moodId) else updated.remove(moodId)
-        preferences.edit().putStringSet("saved_moods", updated).apply()
+    init {
+        // Remove the retired optional mood-bookmark setting; it is not part of Discover.
+        preferences.edit().remove("saved_moods").apply()
     }
 
     fun autoScanEnabled(): Boolean = preferences.getBoolean("background_scan_enabled", false)
@@ -366,6 +361,7 @@ fun ClapDiscoverScreen(
     androidx.compose.runtime.LaunchedEffect(Unit) { scanner.refreshSummary() }
     var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
     var profiles by remember { mutableStateOf(emptyMap<String,ClapMoodProfile>()) }
+    var libraryLoaded by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val loaded = withContext(Dispatchers.IO) {
             val allTracks = libraryManager.allSongs()
@@ -375,7 +371,9 @@ fun ClapDiscoverScreen(
             allTracks to allProfiles
         }
         tracks = loaded.first
-        profiles = loaded.second
+        // Merge instead of replacing: a scan may finish while the initial read is in flight.
+        profiles = profiles + loaded.second
+        libraryLoaded = true
     }
     androidx.compose.runtime.LaunchedEffect(scan.lastCompletedTrackId) {
         val id = scan.lastCompletedTrackId ?: return@LaunchedEffect
@@ -384,14 +382,14 @@ fun ClapDiscoverScreen(
         }
         if (profile != null) profiles = profiles + (id to profile)
     }
-    androidx.compose.runtime.LaunchedEffect(tracks.size, profiles.size) {
-        // Fill missing mood matches quietly while the library is available.
-        if (tracks.isNotEmpty() && profiles.size < tracks.size && !scan.running) {
+    androidx.compose.runtime.LaunchedEffect(libraryLoaded, tracks.size, scan.running, scan.pending, scan.stage) {
+        // Resume only genuinely pending work. Failed tracks stay available for manual
+        // correction or an explicit retry instead of causing an automatic retry loop.
+        if (libraryLoaded && tracks.isNotEmpty() && scan.pending > 0 && !scan.running && scan.stage != "Error") {
             scanner.startScan()
         }
     }
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
-    var savedMoods by remember { mutableStateOf(scanner.savedMoods()) }
     var selectedMood by remember { mutableStateOf<SoundprintMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
     var insightTrackId by remember { mutableStateOf<String?>(null) }
@@ -453,23 +451,6 @@ fun ClapDiscoverScreen(
                 }
             }
         }
-        if (savedMoods.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Text("SAVED MOODS", fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                SoundprintMood.entries.filter { it.id in savedMoods }.forEach { mood ->
-                    Text(
-                        mood.title,
-                        modifier = Modifier.clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { selectedMood = mood }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-
         if (selectedMood != null) {
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -477,18 +458,35 @@ fun ClapDiscoverScreen(
                     Text("PICKED FOR THIS MOOD", fontSize = 10.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text(selectedMood!!.title, modifier = Modifier.padding(top = 3.dp), fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 }
-                TextButton(onClick = {
-                    val moodId = selectedMood!!.id
-                    scanner.setMoodSaved(moodId, moodId !in savedMoods)
-                    savedMoods = scanner.savedMoods()
-                }) { Text(if (selectedMood!!.id in savedMoods) "Saved" else "Save mood") }
                 if (recommendations.isNotEmpty()) {
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }) }) { androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null); Text("Play all") }
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }, shuffle = true) }) { androidx.compose.material3.Icon(Icons.Filled.Shuffle, null) }
                 }
             }
             if (recommendations.isEmpty()) {
-                Text("No matches yet.", modifier = Modifier.padding(vertical = 16.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    when {
+                        scan.running || (scan.pending > 0 && scan.stage != "Error") -> {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Text("Finding your matches…", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Text(
+                                "Your songs appear here as the library analysis finishes. You can leave Discover; completed results are saved.",
+                                modifier = Modifier.padding(top = 7.dp),
+                                fontSize = 11.sp, lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        scan.stage == "Error" -> {
+                            Text("Couldn't finish analysing your library.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text(scan.message, modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = { scanner.startScan() }) { Text("Try again") }
+                        }
+                        tracks.isEmpty() -> Text("Add music to your library to discover songs by mood.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else -> Text("No strong matches for this mood yet. Try another mood.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             } else {
                 recommendations.forEachIndexed { index, (track, score) ->
                     Row(Modifier.fillMaxWidth().clickable { playback.playTracks(recommendations.map { it.first }, startIndex = index) }.padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
