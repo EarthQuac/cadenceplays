@@ -1,6 +1,9 @@
 package digital.anchorstudio.soundprint
 
 import android.os.Bundle
+import androidx.core.view.WindowCompat
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.systemBars
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +56,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
@@ -177,6 +181,7 @@ private fun palette(name: String, dark: Boolean): SoundprintPalette = when (name
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val preferences = remember { getSharedPreferences("soundprint_native_preferences", MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
@@ -255,8 +260,11 @@ class MainActivity : ComponentActivity() {
             val colors = palette(selectedPalette, darkTheme)
             window.statusBarColor = colors.background.toArgb()
             window.navigationBarColor = colors.background.toArgb()
-            window.decorView.systemUiVisibility = if (darkTheme) 0 else
-                android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            window.decorView.setBackgroundColor(colors.background.toArgb())
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
 
             MaterialTheme(
                 colorScheme = if (darkTheme) darkColorScheme(
@@ -368,7 +376,7 @@ private fun SoundprintApp(
     var statsOpen by remember { mutableStateOf(false) }
     var proOpen by remember { mutableStateOf(false) }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Surface(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars), color = MaterialTheme.colorScheme.background) {
         if (!enteredLibrary) {
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
@@ -410,10 +418,10 @@ private fun SoundprintApp(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.98f))
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 androidx.compose.material3.HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
                     thickness = 0.7.dp
                 )
                 Row(
@@ -423,7 +431,7 @@ private fun SoundprintApp(
                         .align(Alignment.CenterHorizontally)
                         .padding(
                             start = 4.dp, end = 4.dp, top = 0.dp,
-                            bottom = maxOf(8.dp, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                            bottom = 6.dp
                         ),
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
@@ -454,15 +462,18 @@ private fun SoundprintApp(
                                     .padding(horizontal = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Image(
-                                    painter = painterResource(item.icon),
-                                    contentDescription = item.label,
-                                    modifier = Modifier.size(20.dp),
-                                    colorFilter = ColorFilter.tint(
-                                        if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                val iconTint = if (!settingsOpen && !statsOpen && selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                when (index) {
+                                    2 -> Icon(Icons.Filled.Album, contentDescription = item.label, modifier = Modifier.size(20.dp), tint = iconTint)
+                                    4 -> Icon(Icons.Filled.Explore, contentDescription = item.label, modifier = Modifier.size(20.dp), tint = iconTint)
+                                    else -> Image(
+                                        painter = painterResource(item.icon),
+                                        contentDescription = item.label,
+                                        modifier = Modifier.size(20.dp),
+                                        colorFilter = ColorFilter.tint(iconTint)
                                     )
-                                )
+                                }
                             }
                             Text(
                                 item.label,
@@ -493,7 +504,7 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+                    top = 24.dp,
                     start = 20.dp,
                     end = 20.dp
                 ),
@@ -521,7 +532,7 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(
-                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 32.dp
+                    bottom = 32.dp
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -579,7 +590,7 @@ private fun HomeScreen(
                 .fillMaxWidth()
                 .padding(
                     start = 12.dp, end = 12.dp,
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
+                    top = 20.dp,
                     bottom = 16.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
@@ -647,7 +658,7 @@ private fun HomeScreen(
                         Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(28.dp))
-                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -729,7 +740,7 @@ private fun PlaylistsScreen(onBack: () -> Unit) {
                 .border(width = 0.dp, color = Color.Transparent)
                 .padding(
                     start = 12.dp, end = 12.dp,
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
+                    top = 12.dp,
                     bottom = 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
@@ -748,7 +759,7 @@ private fun PlaylistsScreen(onBack: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Add, "New playlist", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
         }
-        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(19.dp)
@@ -861,7 +872,7 @@ private fun SearchBox(value: String, onValueChange: (String) -> Unit, placeholde
     Row(
         modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -940,8 +951,8 @@ private fun PlaylistMix(icon: ImageVector, title: String, subtitle: String) {
 private fun MoodChip(mood: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
         modifier = modifier.height(37.dp).clip(RoundedCornerShape(50))
-            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), RoundedCornerShape(50))
             .clickable(onClick = onClick).padding(horizontal = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -1252,7 +1263,7 @@ private fun SettingsValueRow(label: String, description: String, control: @Compo
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Text(title, fontSize = 11.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.9f), RoundedCornerShape(18.dp))) { content() }
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f), RoundedCornerShape(18.dp))) { content() }
     }
 }
 
