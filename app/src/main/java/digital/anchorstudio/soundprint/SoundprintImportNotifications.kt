@@ -42,7 +42,8 @@ class SoundprintImportNotifications(context: Context) {
         val completed = (progress.imported + progress.updated).coerceAtLeast(0)
         val left = (total - progress.visited).coerceAtLeast(0)
         val title = progress.currentTitle.ifBlank { progress.sourceName.ifBlank { "Your music" } }
-        val sub = "✓ $completed done · $left left" + if (progress.skipped > 0) " · ${progress.skipped} skipped" else ""
+        val progressLabel = if (total > 0) "✓ $completed done · $left left" else "✓ $completed done · scanning…"
+        val sub = progressLabel + if (progress.skipped > 0) " · ${progress.skipped} skipped" else ""
         post(NotificationCompat.Builder(app, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setColor(Color.rgb(252, 158, 71))
