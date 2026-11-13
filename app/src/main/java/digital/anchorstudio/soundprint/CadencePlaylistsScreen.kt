@@ -251,23 +251,6 @@ fun CadencePlaylistsScreen(
                         Text("New smart playlist", fontSize = 11.sp, maxLines = 1)
                     }
                 }
-                if (scan.total > 0) {
-                    Text("CLAP mood profiles · ${scan.completed}/${scan.total} analysed", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text("Mood and energy rules use on-device CLAP analysis.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (scan.running) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Analysing your music on this device…", Modifier.weight(1f), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = clapScanner::pause) { Text("Pause") }
-                    }
-                } else if (current?.tracks?.isNotEmpty() == true && (scan.pending > 0 || !clapScanner.modelInstalled())) {
-                    OutlinedButton(onClick = { clapScanner.startScan() }, shape = CircleShape, modifier = Modifier.fillMaxWidth()) {
-                        androidx.compose.material3.Icon(Icons.Filled.Tune, null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text(if (clapScanner.modelInstalled()) "Analyse missing tracks" else "Set up CLAP · one-time model download", fontSize = 11.sp)
-                    }
-                }
                 current?.smartPlaylists.orEmpty().forEach { rule ->
                     val count = current?.smartResults?.get(rule.id)?.size ?: 0
                     Row(
@@ -495,7 +478,6 @@ private fun SmartPlaylistDetailNative(
             NativeArtwork(tracks.firstNotNullOfOrNull { it.artworkUri }, smartId, Modifier.size(160.dp).align(Alignment.CenterHorizontally), 24)
             Text(title, Modifier.fillMaxWidth().padding(top = 13.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Text("${tracks.size} songs${if (isRule) " · Updates automatically" else ""}", Modifier.fillMaxWidth().padding(top = 3.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (isRule && scan.total > 0) Text("CLAP profiles · ${scan.completed}/${scan.total}", Modifier.fillMaxWidth().padding(top = 4.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Button(onClick = { playback.playTracks(tracks) }, enabled = tracks.isNotEmpty(), modifier = Modifier.weight(1f), shape = CircleShape) {
                     androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(5.dp)); Text("Play")
@@ -507,7 +489,7 @@ private fun SmartPlaylistDetailNative(
             Spacer(Modifier.height(12.dp))
             if (tracks.isEmpty()) {
                 Text("No matching songs yet", Modifier.fillMaxWidth().padding(top = 32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                Text("This smart playlist will fill automatically as your library matches its rules. CLAP mood and energy rules update as on-device analysis completes.", Modifier.fillMaxWidth().padding(top = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("This playlist updates automatically when songs in your library match its rules.", Modifier.fillMaxWidth().padding(top = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else tracks.forEachIndexed { index, track ->
                 NativeTrackRow(track, onClick = { playback.playTracks(tracks, index) })
             }
@@ -593,7 +575,7 @@ private fun SmartPlaylistEditorDialog(
                     limitText = it.filter(Char::isDigit).take(4)
                     onDraftChange(draft.copy(limit = limitText.toIntOrNull()?.coerceIn(1, 1000)))
                 }, singleLine = true, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Limit (optional)") })
-                Text("Mood label and energy rules use saved on-device CLAP profiles. CLAP does not estimate BPM or read lyrics, so Tempo and Has lyrics conditions will not match until those data sources are added.", fontSize = 10.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Mood and energy rules use saved music matches. Tempo and lyrics filters need those details to be available in your library.", fontSize = 10.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
