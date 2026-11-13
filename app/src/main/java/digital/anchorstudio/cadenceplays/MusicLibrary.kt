@@ -770,7 +770,7 @@ class MusicLibraryRepository(context:Context) {
         db.saveAnalysis("clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.mimeType}:$modelVersion",payload.toString(),track.sizeBytes,track.mimeType)
     }
     fun clapMoodProfile(track:MusicTrack,modelVersion:String):ClapMoodProfile? {
-        val key="clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:$modelVersion"
+        val key="clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.mimeType}:$modelVersion"
         val raw=db.analysis(key) ?: return null
         return runCatching {
             val root=JSONObject(raw);val scores=root.getJSONObject("scores")
