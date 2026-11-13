@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -90,23 +91,31 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     val state: StateFlow<ClapLibraryScanState> = mutableState
     private var scanJob: Job? = null
 
+    fun autoScanEnabled(): Boolean = preferences.getBoolean("background_scan_enabled", false)
+
+    fun setAutoScanEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean("background_scan_enabled", enabled).apply()
+        if (enabled) startScan() else pause()
+    }
+
     fun startScan(retryFailedOnly: Boolean = false) {
         if (scanJob?.isActive == true) return
         val allTracks = library.allSongs()
-        val failureMap = readFailures()
-        val tracks = if (retryFailedOnly) allTracks.filter { failureMap.containsKey(it.id) } else allTracks
+        val allIds = allTracks.map { it.id }.toSet()
+        val failureMap = readFailures().filterKeys { it in allIds }
+        val requested = if (retryFailedOnly) allTracks.filter { failureMap.containsKey(it.id) } else allTracks
+        val tracks = requested.filter { library.clapMoodProfile(it) == null }
         if (tracks.isEmpty()) {
             mutableState.value = mutableState.value.copy(
-                running = false, downloadingModel = false, completed = allTracks.size,
-                total = allTracks.size, failed = failureMap.size,
-                failureMessages = failureMap, message = if (retryFailedOnly) "There are no failed tracks to retry." else "Your library has no tracks to analyse."
+                running = false, downloadingModel = false, completed = requested.size,
+                total = requested.size, failed = failureMap.size,
+                failureMessages = failureMap, message = if (requested.isEmpty()) "Your library has no tracks to analyse." else if (retryFailedOnly) "There are no failed tracks to retry." else "All available tracks already have saved CLAP profiles."
             )
             return
         }
         scanJob = scope.launch {
             var done = 0
-            var failed = 0
-            val errors = readFailures().toMutableMap()
+            val errors = readFailures().filterKeys { id -> allIds.contains(id) }.toMutableMap()
             mutableState.value = ClapLibraryScanState(
                 running = true, completed = 0, total = tracks.size,
                 failed = errors.size, failureMessages = errors, message = "Preparing offline music intelligence…"
@@ -141,7 +150,6 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                             throw cancel
                         } catch (error: Exception) {
                             errors[track.id] = error.message ?: "CLAP could not analyse this audio."
-                            failed++
                         }
                         writeFailures(errors)
                     }
@@ -151,6 +159,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                         failureMessages = errors.toMap(), currentTitle = track.title
                     )
                 }
+                writeFailures(errors)
                 mutableState.value = mutableState.value.copy(
                     running = false, downloadingModel = false, completed = done,
                     failed = errors.size, failureMessages = errors.toMap(),
@@ -216,6 +225,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ClapDiscoverScreen(
     libraryManager: MusicLibraryManager,
@@ -228,7 +238,7 @@ fun ClapDiscoverScreen(
     val profiles = remember(tracks, scan.completed, scan.failed, scan.running) {
         tracks.mapNotNull { track -> libraryManager.clapMoodProfile(track)?.let { track.id to it } }.toMap()
     }
-    val corrections by remember { mutableStateOf(scanner.moodCorrections()) }
+    var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
     var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
     var showRetryInfo by remember { mutableStateOf(false) }
@@ -376,6 +386,7 @@ fun ClapDiscoverScreen(
                     CadenceMood.entries.forEach { mood ->
                         TextButton(onClick = {
                             scanner.saveMoodCorrection(editingTrack!!.id, mood.id)
+                            corrections = scanner.moodCorrections()
                             editingTrack = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(mood.title, modifier = Modifier.fillMaxWidth()) }
                     }

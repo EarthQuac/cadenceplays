@@ -79,6 +79,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -102,6 +104,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 
 private val CadenceFontFamily = FontFamily(Font(R.font.inter_tight_variable))
 
@@ -348,6 +351,18 @@ private fun CadenceApp(
     onRestore: () -> Unit,
     onClearLibrary: () -> Unit
 ) {
+    val appContext = LocalContext.current
+    val clapScanner = remember { ClapLibraryScanner(appContext, libraryManager) }
+    val playbackConnection = remember { CadencePlaybackConnection(appContext) }
+    DisposableEffect(clapScanner, playbackConnection) {
+        onDispose {
+            clapScanner.close()
+            playbackConnection.close()
+        }
+    }
+    LaunchedEffect(enteredLibrary) {
+        if (enteredLibrary && clapScanner.autoScanEnabled()) clapScanner.startScan()
+    }
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
@@ -375,7 +390,8 @@ private fun CadenceApp(
                         onRemoveSource = onRemoveSource,
                         onBackup = onBackup,
                         onRestore = onRestore,
-                        onClearLibrary = onClearLibrary
+                        onClearLibrary = onClearLibrary,
+                        clapScanner = clapScanner
                     )
                 } else {
                     when (selectedTab) {
@@ -383,7 +399,7 @@ private fun CadenceApp(
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                         2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
                         3 -> PlaylistsScreen { selectedTab = 0 }
-                        else -> DiscoverScreen { selectedTab = 0 }
+                        else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
                     }
                 }
             }
@@ -976,8 +992,10 @@ private fun SettingsScreen(
     onRemoveSource: (String) -> Unit,
     onBackup: () -> Unit,
     onRestore: () -> Unit,
-    onClearLibrary: () -> Unit
+    onClearLibrary: () -> Unit,
+    clapScanner: ClapLibraryScanner
 ) {
+    val clapScanState by clapScanner.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var gapless by remember { mutableStateOf(true) }
     var fadeOnPause by remember { mutableStateOf(false) }
@@ -988,7 +1006,7 @@ private fun SettingsScreen(
     var seekSeconds by remember { mutableIntStateOf(10) }
     var replaceQueue by remember { mutableStateOf(false) }
     var autoAdd by remember { mutableStateOf(true) }
-    var backgroundScan by remember { mutableStateOf(false) }
+    var backgroundScan by remember { mutableStateOf(clapScanner.autoScanEnabled()) }
     var customArtwork by remember { mutableStateOf(true) }
     var ignoreShortTracks by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
@@ -1089,19 +1107,41 @@ private fun SettingsScreen(
             }
             if (matches("music intelligence background mood scan clap")) {
                 SettingsSection("MUSIC INTELLIGENCE") {
-                    SettingsToggleRow("Scan entire library in background · Pro", "Automatically build and save mood profiles for your songs while Cadence is open", backgroundScan) { backgroundScan = it }
+                    SettingsToggleRow("Scan entire library in background", "Build and save offline mood profiles for your music while Cadence is open", backgroundScan) {
+                        backgroundScan = it
+                        clapScanner.setAutoScanEnabled(it)
+                    }
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Text("CLAP scan status", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            Text(if (backgroundScan) "Ready" else "Off", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(when {
+                                clapScanState.running -> "Scanning"
+                                clapScanner.modelInstalled() -> "Model ready"
+                                else -> "Not installed"
+                            }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(10.dp))
-                        Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
-                        Text("0 of 0 songs have CLAP mood scores · 0%", modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (clapScanState.downloadingModel) {
+                            androidx.compose.material3.LinearProgressIndicator(progress = { clapScanState.modelPercent / 100f }, modifier = Modifier.fillMaxWidth())
+                        } else {
+                            androidx.compose.material3.LinearProgressIndicator(progress = { clapScanState.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                        }
+                        Text(
+                            if (clapScanState.downloadingModel) "Downloading model · ${clapScanState.modelPercent}%"
+                            else "${clapScanState.completed} of ${clapScanState.total} songs processed · ${clapScanState.percent}%",
+                            modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                            MoodCountCard("Successful", "0")
-                            MoodCountCard("Errors", "0")
-                            MoodCountCard("Pending", "0")
+                            MoodCountCard("Saved", clapScanState.completed.toString())
+                            MoodCountCard("Errors", clapScanState.failureMessages.size.toString())
+                            MoodCountCard("Pending", (clapScanState.total - clapScanState.completed).coerceAtLeast(0).toString())
+                        }
+                        if (clapScanState.message.isNotBlank()) Text(clapScanState.message, modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                            TextButton(onClick = { if (clapScanState.running) clapScanner.pause() else clapScanner.startScan() }) {
+                                Text(if (clapScanState.running) "Pause scan" else "Scan now")
+                            }
+                            if (clapScanState.failureMessages.isNotEmpty()) TextButton(onClick = clapScanner::retryFailed) { Text("Retry failed") }
                         }
                     }
                 }
