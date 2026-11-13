@@ -325,6 +325,8 @@ class SoundprintPlaybackConnection(
     @Volatile var controller: MediaController? = null
         private set
     @Volatile private var closed = false
+    private data class PendingPlay(val tracks: List<MusicTrack>, val startIndex: Int, val shuffle: Boolean)
+    @Volatile private var pendingPlay: PendingPlay? = null
     private val future = MediaController.Builder(
         context.applicationContext,
         SessionToken(context.applicationContext, ComponentName(context, SoundprintPlaybackService::class.java))
@@ -336,17 +338,41 @@ class SoundprintPlaybackConnection(
             if (closed) connected.release() else {
                 controller = connected
                 onConnected(connected)
+                val queued = synchronized(this) { pendingPlay.also { pendingPlay = null } }
+                if (queued != null && !closed) startPlayback(connected, queued)
             }
         }, executor)
     }
 
     fun playTracks(tracks: List<MusicTrack>, startIndex: Int = 0, shuffle: Boolean = false) {
-        if (tracks.isEmpty()) return
-        val player = controller ?: return
-        player.shuffleModeEnabled = shuffle
-        player.setMediaItems(tracks.map(MusicTrack::toSoundprintMediaItem), startIndex.coerceIn(tracks.indices), 0L)
-        player.prepare()
-        player.play()
+        if (tracks.isEmpty() || closed) return
+        val request = PendingPlay(tracks.toList(), startIndex.coerceIn(tracks.indices), shuffle)
+        val player = controller
+        if (player == null) {
+            synchronized(this) {
+                val connected = controller
+                if (connected == null) {
+                    // A tap made while MediaController is connecting must not be discarded.
+                    pendingPlay = request
+                    return
+                }
+                startPlayback(connected, request)
+            }
+        } else startPlayback(player, request)
+    }
+
+    private fun startPlayback(player: MediaController, request: PendingPlay) {
+        if (closed || request.tracks.isEmpty()) return
+        runCatching {
+            player.shuffleModeEnabled = request.shuffle
+            player.setMediaItems(
+                request.tracks.map(MusicTrack::toSoundprintMediaItem),
+                request.startIndex.coerceIn(request.tracks.indices),
+                0L
+            )
+            player.prepare()
+            player.play()
+        }
     }
 
     fun playAt(index: Int) {
