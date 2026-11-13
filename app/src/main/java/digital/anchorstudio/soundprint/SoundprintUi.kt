@@ -187,7 +187,7 @@ internal fun SongsLibraryScreen(
                         ) {
                             Icon(Icons.Filled.GraphicEq, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Soundprint", fontSize = 12.sp)
+                            Text("TwinSense", fontSize = 12.sp)
                         }
                         OutlinedButton(
                             onClick = {
@@ -215,7 +215,7 @@ internal fun SongsLibraryScreen(
                                 Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text("Soundprint", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("TwinSense", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                                     Text("Compare the actual audio stored on this device.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -235,7 +235,7 @@ internal fun SongsLibraryScreen(
                                                 } catch (cancel: CancellationException) {
                                                     scanError = "Scan cancelled. Completed fingerprints remain saved for the next scan."
                                                 } catch (error: Exception) {
-                                                    scanError = error.message ?: "Soundprint could not complete this scan."
+                                                    scanError = error.message ?: "TwinSense could not complete this scan."
                                                 } finally {
                                                     scanning = false
                                                     scanJob = null
@@ -316,7 +316,7 @@ internal fun SongsLibraryScreen(
                                 }
                             } else if (!scanning) {
                                 Text(
-                                    if (songs.size < 2) "Add at least two tracks before scanning." else "Soundprint decodes local audio and compares spectral fingerprints. Audio never leaves this device.",
+                                    if (songs.size < 2) "Add at least two tracks before scanning." else "TwinSense compares local audio fingerprints to find duplicate and alternate tracks. Audio never leaves this device.",
                                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -418,7 +418,7 @@ internal fun SongsLibraryScreen(
                 TextButton(onClick = {
                     pendingRemoval = null
                     scope.launch {
-                        runCatching { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "Soundprint duplicate review") } }
+                        runCatching { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "TwinSense duplicate review") } }
                         scanResult?.let { previous ->
                             val updated = scanner.withoutTracks(previous, setOf(track.id))
                             scanResult = updated
@@ -444,7 +444,7 @@ internal fun SongsLibraryScreen(
                         val moved = mutableSetOf<String>()
                         withContext(Dispatchers.IO) {
                             cleanupTracks.forEach { track ->
-                                runCatching { library.moveToRecycleBin(track.id, "Soundprint Smart Cleanup") }
+                                runCatching { library.moveToRecycleBin(track.id, "TwinSense Smart Cleanup") }
                                     .onSuccess { moved += track.id }
                             }
                         }
