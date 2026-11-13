@@ -429,7 +429,7 @@ class MusicLibraryDatabase(context: Context) :
         val db=writableDatabase;var restored=0;db.beginTransaction()
         try {
             if(replaceExisting) backupTables.asReversed().forEach { db.delete(it,null,null) }
-            val order=listOf("tracks","library_sources","library_file_sources","track_sources","playlists","playlist_tracks","soundprint_trash","audio_analysis_cache","library_scan_errors")
+            val order=listOf("tracks","library_sources","library_file_sources","track_sources","playlists","playlist_tracks","soundprint_trash","soundprint_fingerprints","audio_analysis_cache","library_scan_errors")
             order.forEach { table ->
                 val rows=tables.optJSONArray(table) ?: JSONArray()
                 for(index in 0 until rows.length()) {
@@ -442,7 +442,9 @@ class MusicLibraryDatabase(context: Context) :
                             is Int -> values.put(key,value)
                             is Long -> values.put(key,value)
                             is Double -> values.put(key,value)
-                            is String -> values.put(key,value)
+                            is String -> if(table=="soundprint_fingerprints" && key=="compressed_features") {
+                                values.put(key,android.util.Base64.decode(value,android.util.Base64.DEFAULT))
+                            } else values.put(key,value)
                             else -> values.put(key,value.toString())
                         }
                     }
