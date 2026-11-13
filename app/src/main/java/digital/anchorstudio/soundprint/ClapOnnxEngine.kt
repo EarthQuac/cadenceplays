@@ -54,7 +54,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
         audioSession = environment.createSession(files.audioModel.absolutePath, options)
     }
 
-    suspend fun analyse(track: MusicTrack): Map<String, Float> {
+    suspend fun analyse(track: MusicTrack, onInferenceStart: () -> Unit = {}): Map<String, Float> {
         check(audioSession != null && textEmbeddings.size == SoundprintMood.entries.size) {
             "The CLAP model has not been prepared."
         }

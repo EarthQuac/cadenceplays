@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
@@ -72,6 +73,7 @@ data class ClapLibraryScanState(
     val completed: Int = 0,
     val total: Int = 0,
     val failed: Int = 0,
+    val pending: Int = 0,
     val currentTitle: String = "",
     val currentTrackId: String? = null,
     val lastCompletedTrackId: String? = null,
@@ -96,17 +98,21 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     ))
     val state: StateFlow<ClapLibraryScanState> = mutableState
     private var scanJob: Job? = null
+    private var pendingScanMode: Boolean? = null
 
     fun refreshSummary() {
         if (mutableState.value.running) return
         scope.launch {
             val tracks = library.allSongs()
             val ids = tracks.map { it.id }.toSet()
-            val corrected = moodCorrections().keys
-            val failures = readFailures().filterKeys { it in ids && it !in corrected }
-            val completed = tracks.count { it.id in corrected || library.clapMoodProfile(it) != null }
+            val corrected = moodCorrections().keys.intersect(ids)
+            val cached = tracks.filter { library.clapMoodProfile(it) != null }.map { it.id }.toSet()
+            val completedIds = cached + corrected
+            val failures = readFailures().filterKeys { it in ids && it !in corrected && it !in cached }
+            val completed = completedIds.size
             mutableState.value = mutableState.value.copy(
                 completed = completed, total = tracks.size, failed = failures.size,
+                pending = (tracks.size - completed - failures.size).coerceAtLeast(0),
                 failureMessages = failures
             )
         }
@@ -129,45 +135,53 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
         if (enabled) startScan() else pause()
     }
 
+    @Synchronized
     fun startScan(retryFailedOnly: Boolean = false) {
-        if (scanJob?.isCompleted == false) return
-        mutableState.value = mutableState.value.copy(
-            running = true, downloadingModel = false, stage = "Preparing",
-            message = "Preparing offline music intelligence…"
-        )
-        scanJob = scope.launch {
+        if (scanJob?.isCompleted == false) {
+            pendingScanMode = pendingScanMode?.let { it && retryFailedOnly } ?: retryFailedOnly
+            return
+        }
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             var engine: ClapOnnxEngine? = null
             try {
                 val allTracks = library.allSongs()
                 val allIds = allTracks.map { it.id }.toSet()
-                val errors = readFailures().filterKeys { it in allIds }.toMutableMap()
-                val correctedIds = moodCorrections().keys
+                val correctedIds = moodCorrections().keys.intersect(allIds)
+                val cachedIds = allTracks.filter { library.clapMoodProfile(it) != null }.map { it.id }.toSet()
+                val completedIds = cachedIds + correctedIds
+                val errors = readFailures().filterKeys {
+                    it in allIds && it !in correctedIds && it !in cachedIds
+                }.toMutableMap()
                 val requested = if (retryFailedOnly) {
-                    allTracks.filter { errors.containsKey(it.id) && it.id !in correctedIds }
+                    allTracks.filter { errors.containsKey(it.id) }
                 } else {
-                    allTracks.filter { it.id !in correctedIds }
+                    allTracks.filter { it.id !in completedIds && it.id !in errors }
                 }
-                val tracks = requested.filter { library.clapMoodProfile(it) == null }
-                if (tracks.isEmpty()) {
+                if (retryFailedOnly) requested.forEach { errors.remove(it.id) }
+                writeFailures(errors)
+
+                var done = completedIds.size
+                var pending = requested.size
+                val total = allTracks.size
+                if (requested.isEmpty()) {
                     mutableState.value = mutableState.value.copy(
-                        running = false, downloadingModel = false, completed = requested.size,
-                        total = requested.size, failed = errors.size, failureMessages = errors,
+                        running = false, downloadingModel = false,
+                        completed = done, total = total, failed = errors.size, pending = 0,
+                        failureMessages = errors.toMap(), currentTitle = "", currentTrackId = null,
                         message = when {
-                            requested.isEmpty() && allTracks.isEmpty() -> "Your library has no tracks to analyse."
-                            requested.isEmpty() && retryFailedOnly -> "There are no failed tracks to retry."
-                            requested.isEmpty() -> "All tracks have a saved manual mood assignment."
+                            allTracks.isEmpty() -> "Your library has no tracks to analyse."
                             retryFailedOnly -> "There are no failed tracks to retry."
-                            else -> "All available tracks already have saved CLAP profiles."
+                            errors.isNotEmpty() -> "No new tracks are pending. Retry the failed tracks to try them again."
+                            else -> "All tracks have saved CLAP profiles or manual mood assignments."
                         }
                     )
                     return@launch
                 }
 
-                var done = 0
                 mutableState.value = ClapLibraryScanState(
-                    running = true, completed = 0, total = tracks.size,
-                    failed = errors.size, failureMessages = errors,
-                    message = "Preparing offline music intelligence…"
+                    running = true, completed = done, total = total, failed = errors.size,
+                    pending = pending, failureMessages = errors.toMap(),
+                    stage = "Preparing", message = "Preparing offline music intelligence…"
                 )
                 val activeEngine = ClapOnnxEngine(app)
                 engine = activeEngine
@@ -175,61 +189,87 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                     mutableState.value = mutableState.value.copy(
                         downloadingModel = true, modelPercent = progress.percent,
                         stage = "Downloading CLAP model",
-                        message = "Installing the offline model · ${progress.currentAsset}"
+                        message = "Installing the offline model · " + progress.currentAsset
                     )
                 }
                 mutableState.value = mutableState.value.copy(
                     downloadingModel = false, stage = "Scanning your library",
                     message = "CLAP is analysing audio on this device."
                 )
-                tracks.forEach { track ->
+                requested.forEach { track ->
                     kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     mutableState.value = mutableState.value.copy(
                         currentTitle = track.title, currentTrackId = track.id,
-                        stage = "Decoding and scoring", message = "Analysing ${track.title}"
+                        stage = "Decoding audio", message = "Analysing " + track.title
                     )
                     try {
-                        val scores = activeEngine.analyse(track)
+                        val scores = activeEngine.analyse(track) {
+                            mutableState.value = mutableState.value.copy(
+                                stage = "Scoring with CLAP",
+                                message = "Scoring the audio mood for " + track.title
+                            )
+                        }
+                        mutableState.value = mutableState.value.copy(
+                            stage = "Saving mood profile",
+                            message = "Saving the mood profile for " + track.title
+                        )
                         library.saveClapMoodProfile(track, scores)
                         errors.remove(track.id)
+                        done++
                     } catch (cancel: CancellationException) {
                         throw cancel
                     } catch (error: Exception) {
                         errors[track.id] = error.message ?: "CLAP could not analyse this audio."
                     }
-                    done++
+                    pending = (pending - 1).coerceAtLeast(0)
                     writeFailures(errors)
                     mutableState.value = mutableState.value.copy(
-                        completed = done, total = tracks.size, failed = errors.size,
+                        completed = done, total = total, failed = errors.size, pending = pending,
                         failureMessages = errors.toMap(), currentTitle = track.title,
                         currentTrackId = null, lastCompletedTrackId = track.id,
-                        stage = "Decoding and scoring", message = "Analysing ${track.title}"
+                        stage = "Scanning your library",
+                        message = "Processed " + track.title
                     )
                 }
                 writeFailures(errors)
                 mutableState.value = mutableState.value.copy(
                     running = false, downloadingModel = false, completed = done,
-                    failed = errors.size, failureMessages = errors.toMap(),
+                    total = total, failed = errors.size, pending = 0,
+                    failureMessages = errors.toMap(), currentTitle = "", currentTrackId = null,
+                    stage = if (errors.isEmpty()) "Ready" else "Retry needed",
                     message = if (errors.isEmpty()) "Your library is ready for offline mood discovery." else "Scan finished. Some tracks need another attempt."
                 )
             } catch (cancel: CancellationException) {
                 mutableState.value = mutableState.value.copy(
-                    running = false, downloadingModel = false,
+                    running = false, downloadingModel = false, currentTitle = "", currentTrackId = null,
+                    stage = "Paused",
                     message = "Scan paused. Completed profiles are saved and will be reused next time."
                 )
                 throw cancel
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(
-                    running = false, downloadingModel = false,
+                    running = false, downloadingModel = false, currentTitle = "", currentTrackId = null,
+                    stage = "Error",
                     message = error.message ?: "CLAP could not be prepared on this device."
                 )
             } finally {
                 engine?.close()
+                val nextScan = synchronized(this@ClapLibraryScanner) {
+                    scanJob = null
+                    val queued = pendingScanMode
+                    pendingScanMode = null
+                    queued
+                }
+                if (nextScan != null) startScan(nextScan)
             }
         }
+        scanJob = job
+        job.start()
     }
 
+    @Synchronized
     fun pause() {
+        pendingScanMode = null
         scanJob?.cancel()
     }
 
@@ -365,11 +405,12 @@ fun ClapDiscoverScreen(
                     Text("${scan.completed} of ${scan.total} analysed", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${scan.percent}%", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 }
+                if (scan.stage.isNotBlank()) Text(scan.stage, modifier = Modifier.padding(top = 5.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (scan.currentTitle.isNotBlank()) Text("Now analysing · ${scan.currentTitle}", modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (scan.message.isNotBlank()) Text(scan.message, modifier = Modifier.padding(top = 10.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${profiles.size} ready", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${profiles.size} ready · ${scan.pending} queued", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${scan.failureMessages.size} need retry", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (scan.failureMessages.isNotEmpty() && !scan.running) {

@@ -360,7 +360,7 @@ private fun SoundprintApp(
             playbackConnection.close()
         }
     }
-    LaunchedEffect(enteredLibrary) {
+    LaunchedEffect(enteredLibrary, libraryTrackCount) {
         if (enteredLibrary && clapScanner.autoScanEnabled()) clapScanner.startScan()
     }
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -1134,8 +1134,10 @@ private fun SettingsScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
                             MoodCountCard("Saved", clapScanState.completed.toString())
                             MoodCountCard("Errors", clapScanState.failureMessages.size.toString())
-                            MoodCountCard("Pending", (clapScanState.total - clapScanState.completed).coerceAtLeast(0).toString())
+                            MoodCountCard("Pending", clapScanState.pending.toString())
                         }
+                        if (clapScanState.stage.isNotBlank()) Text(clapScanState.stage, modifier = Modifier.padding(top = 6.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (clapScanState.currentTitle.isNotBlank()) Text("Now analysing · " + clapScanState.currentTitle, modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (clapScanState.message.isNotBlank()) Text(clapScanState.message, modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             TextButton(onClick = { if (clapScanState.running) clapScanner.pause() else clapScanner.startScan() }) {
