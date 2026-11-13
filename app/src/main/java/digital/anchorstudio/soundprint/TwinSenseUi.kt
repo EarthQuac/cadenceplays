@@ -494,6 +494,7 @@ private fun NativeSongLibraryRow(
     var menuOpen by remember { mutableStateOf(false) }
     var editOpen by remember { mutableStateOf(false) }
     var playlistsOpen by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
     var title by remember(track.id) { mutableStateOf(track.title) }
     var artist by remember(track.id) { mutableStateOf(track.artist) }
     var album by remember(track.id) { mutableStateOf(track.album) }
@@ -574,8 +575,28 @@ private fun NativeSongLibraryRow(
                         }) { Text(playlist.name) }
                     }
                 }
+                OutlinedTextField(
+                    value = newPlaylistName,
+                    onValueChange = { newPlaylistName = it },
+                    label = { Text("New playlist name") },
+                    singleLine = true
+                )
             },
-            confirmButton = { TextButton(onClick = { playlistsOpen = false }) { Text("Close") } }
+            confirmButton = {
+                TextButton(
+                    enabled = newPlaylistName.isNotBlank(),
+                    onClick = {
+                        val name = newPlaylistName.trim()
+                        playlistsOpen = false
+                        newPlaylistName = ""
+                        scope.launch {
+                            withContext(Dispatchers.IO) { library.createPlaylist(name, listOf(track.id)) }
+                            onChanged()
+                        }
+                    }
+                ) { Text("Create playlist") }
+            },
+            dismissButton = { TextButton(onClick = { playlistsOpen = false }) { Text("Close") } }
         )
     }
 }
