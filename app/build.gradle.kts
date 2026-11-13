@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val clapAssetsDirectory = layout.buildDirectory.dir("generated/clapAssets")
+
 android {
     namespace = "digital.anchorstudio.soundprint"
     compileSdk = 36
@@ -31,6 +33,14 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+
+    androidResources {
+        noCompress += "onnx"
+    }
+
+    sourceSets {
+        getByName("main").assets.srcDir(clapAssetsDirectory)
     }
 
     packaging {
@@ -63,4 +73,75 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
+}
+
+
+// The complete quantized CLAP model is fetched during the build and packaged
+// into the APK. The installed app never downloads model weights.
+val prepareBundledClapAssets by tasks.registering {
+    outputs.dir(clapAssetsDirectory)
+
+    doLast {
+        val root = clapAssetsDirectory.get().asFile
+        val baseUrl = "https://huggingface.co/Xenova/larger_clap_music_and_speech/resolve/56bcfdb/"
+        val assets = listOf(
+            Triple("onnx/audio_model_quantized.onnx", "021dd4fb962b4ed20cc3a6730b09e0ccf9c49931047032118a3b64828513a6", 78_155_433L),
+            Triple("onnx/text_model_quantized.onnx", "8f9f29c5f6adee917553d4b3a70729c731c0d18b88efca0ae67c1a1fc278f3b6", 126_000_000L),
+            Triple("vocab.json", "", 1L),
+            Triple("merges.txt", "", 1L)
+        )
+
+        assets.forEach { (relativePath, expectedSha, minimumBytes) ->
+            val destination = java.io.File(root, "clap/$relativePath")
+            fun digest(file: java.io.File): String {
+                val sha = java.security.MessageDigest.getInstance("SHA-256")
+                file.inputStream().buffered(1024 * 1024).use { input ->
+                    val buffer = ByteArray(1024 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        sha.update(buffer, 0, count)
+                    }
+                }
+                return sha.digest().joinToString("") { "%02x".format(it) }
+            }
+            val valid = destination.isFile && destination.length() >= minimumBytes &&
+                (expectedSha.isEmpty() || digest(destination) == expectedSha)
+            if (!valid) {
+                destination.parentFile.mkdirs()
+                val temporary = java.io.File(destination.parentFile, destination.name + ".part")
+                temporary.delete()
+                println("Bundling CLAP asset: $relativePath")
+                val connection = java.net.URL(baseUrl + relativePath).openConnection().apply {
+                    connectTimeout = 20_000
+                    readTimeout = 180_000
+                    setRequestProperty("User-Agent", "Cadence-Android-Build")
+                }
+                connection.getInputStream().use { input ->
+                    temporary.outputStream().buffered(1024 * 1024).use { output ->
+                        val buffer = ByteArray(1024 * 1024)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                check(temporary.length() >= minimumBytes) { "Bundled CLAP asset is incomplete: $relativePath" }
+                if (expectedSha.isNotEmpty()) {
+                    check(digest(temporary) == expectedSha) { "CLAP asset SHA-256 mismatch: $relativePath" }
+                }
+                check(temporary.renameTo(destination)) { "Could not place CLAP asset: $relativePath" }
+            }
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(prepareBundledClapAssets)
+}
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) {
+        dependsOn(prepareBundledClapAssets)
+    }
 }
