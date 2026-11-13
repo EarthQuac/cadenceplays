@@ -107,7 +107,7 @@ val prepareBundledClapAssets by tasks.registering {
                         sha.update(buffer, 0, count)
                     }
                 }
-                return sha.digest().joinToString("") { "%02x".format(it) }
+                return sha.digest().joinToString("") { byte -> (byte.toInt() and 0xff).toString(16).padStart(2, '0') }
             }
             val valid = destination.isFile && destination.length() >= minimumBytes &&
                 (expectedSha.isEmpty() || digest(destination) == expectedSha)
@@ -133,7 +133,8 @@ val prepareBundledClapAssets by tasks.registering {
                 }
                 check(temporary.length() >= minimumBytes) { "Bundled CLAP asset is incomplete: $relativePath" }
                 if (expectedSha.isNotEmpty()) {
-                    check(digest(temporary) == expectedSha) { "CLAP asset SHA-256 mismatch: $relativePath" }
+                    val actualSha = digest(temporary)
+                    check(actualSha == expectedSha) { "CLAP asset SHA-256 mismatch: $relativePath (expected $expectedSha, got $actualSha)" }
                 }
                 check(temporary.renameTo(destination)) { "Could not place CLAP asset: $relativePath" }
             }
