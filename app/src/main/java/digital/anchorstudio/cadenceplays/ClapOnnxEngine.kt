@@ -7,6 +7,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
@@ -66,14 +67,30 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
                 ?: error("CLAP audio model has no input.")
             val inputInfo = session.inputInfo.getValue(inputName).info as TensorInfo
             val shape = audioShape(inputInfo.shape)
-            val tensor = OnnxTensor.createTensor(environment, FloatBuffer.wrap(features), shape)
+            val channelFirst = isChannelFirst(inputInfo.shape)
+            val oneCrop = if (channelFirst) toChannelFirst(features) else features
+            val cropCount = if (shape.size == 4) shape[1].toInt() else 1
+            val modelFeatures = if (cropCount <= 1) oneCrop else FloatArray(oneCrop.size * cropCount).also { target ->
+                repeat(cropCount) { crop -> System.arraycopy(oneCrop, 0, target, crop * oneCrop.size, oneCrop.size) }
+            }
+            val tensor = OnnxTensor.createTensor(environment, FloatBuffer.wrap(modelFeatures), shape)
             val inputs = linkedMapOf<String, OnnxTensor>(inputName to tensor)
             try {
                 session.inputInfo.keys.filter { it != inputName }.forEach { name ->
-                    if (name.contains("is_longer")) {
-                        inputs[name] = OnnxTensor.createTensor(environment, FloatBuffer.wrap(floatArrayOf(0f)), longArrayOf(1, 1))
-                    } else if (name.contains("attention_mask")) {
-                        inputs[name] = OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(1000) { 1L }), longArrayOf(1, 1000))
+                    val info = session.inputInfo.getValue(name).info as? TensorInfo
+                    val dimensions = info?.shape?.map { if (it <= 0L) 1L else it }?.toLongArray() ?: longArrayOf(1, 1)
+                    val elementCount = dimensions.fold(1L) { total, dimension -> total * dimension }.toInt()
+                    when {
+                        name.contains("is_longer") -> inputs[name] = when (info?.type) {
+                            OnnxJavaType.BOOL -> booleanTensor(dimensions, false)
+                            OnnxJavaType.INT64 -> OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(elementCount)), dimensions)
+                            else -> OnnxTensor.createTensor(environment, FloatBuffer.wrap(FloatArray(elementCount)), dimensions)
+                        }
+                        name.contains("attention_mask") -> inputs[name] = when (info?.type) {
+                            OnnxJavaType.BOOL -> booleanTensor(dimensions, true)
+                            OnnxJavaType.INT64 -> OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(elementCount) { 1L }), dimensions)
+                            else -> OnnxTensor.createTensor(environment, FloatBuffer.wrap(FloatArray(elementCount) { 1f }), dimensions)
+                        }
                     }
                 }
                 session.run(inputs).use { result ->
@@ -116,7 +133,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
                             name.contains("input_ids") -> inputs[name] = ids
                             name.contains("attention_mask") -> inputs[name] = mask
                             name.contains("token_type_ids") -> inputs[name] = OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(tokenIds.size)), longArrayOf(1, tokenIds.size.toLong()))
-                            name.contains("position_ids") -> inputs[name] = OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(tokenIds.size) { it.toLong() }), longArrayOf(1, tokenIds.size.toLong()))
+                            name.contains("position_ids") -> inputs[name] = OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(tokenIds.size) { it.toLong() + 2L }), longArrayOf(1, tokenIds.size.toLong()))
                             else -> error("Unsupported CLAP text input: $name")
                         }
                     }
@@ -158,9 +175,34 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
     }
 
     private fun audioShape(modelShape: LongArray): LongArray = when (modelShape.size) {
-        4 -> if (modelShape[2] == 64L) longArrayOf(1, 1, 64, 1000) else longArrayOf(1, 1, 1000, 64)
+        4 -> longArrayOf(
+            1,
+            modelShape[1].takeIf { it > 0L } ?: 1L,
+            if (modelShape[2] == 64L) 64L else 1000L,
+            if (modelShape[2] == 64L) 1000L else 64L
+        )
         3 -> if (modelShape[1] == 64L) longArrayOf(1, 64, 1000) else longArrayOf(1, 1000, 64)
-        else -> error("Unsupported CLAP audio input rank: ${modelShape.size}")
+        else -> error("Unsupported CLAP audio input rank: " + modelShape.size)
+    }
+
+    private fun isChannelFirst(modelShape: LongArray): Boolean =
+        (modelShape.size == 4 && modelShape[2] == 64L) ||
+            (modelShape.size == 3 && modelShape[1] == 64L)
+
+    private fun toChannelFirst(features: FloatArray): FloatArray {
+        val output = FloatArray(features.size)
+        for (frame in 0 until 1000) {
+            for (mel in 0 until 64) output[mel * 1000 + frame] = features[frame * 64 + mel]
+        }
+        return output
+    }
+
+    private fun booleanTensor(shape: LongArray, value: Boolean): OnnxTensor {
+        val count = shape.fold(1L) { total, dimension -> total * dimension }.toInt()
+        val buffer = ByteBuffer.allocateDirect(count).order(ByteOrder.nativeOrder())
+        repeat(count) { buffer.put(if (value) 1.toByte() else 0.toByte()) }
+        buffer.flip()
+        return OnnxTensor.createTensor(environment, buffer, shape, OnnxJavaType.BOOL)
     }
 
     private fun flatten(value: Any?): FloatArray = when (value) {
