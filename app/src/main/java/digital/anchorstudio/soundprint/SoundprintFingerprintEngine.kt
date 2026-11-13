@@ -30,11 +30,11 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-private const val SOUNDPRINT_VERSION = 1
+private const val TWINSENSE_VERSION = 1
 private const val FEATURE_BANDS = 24
 private const val FFT_SIZE = 4096
 
-data class SoundprintFingerprint(
+data class TwinSenseFingerprint(
     val trackId: String,
     val sourceSize: Long,
     val sourceModifiedAt: Long,
@@ -44,28 +44,28 @@ data class SoundprintFingerprint(
     val featureBands: Int,
     val compressedFeatures: ByteArray,
     val generatedAt: Long = System.currentTimeMillis(),
-    val version: Int = SOUNDPRINT_VERSION
+    val version: Int = TWINSENSE_VERSION
 )
 
-enum class SoundprintMatchKind { EXACT_AUDIO, ACOUSTIC, METADATA }
+enum class TwinSenseMatchKind { EXACT_AUDIO, ACOUSTIC, METADATA }
 
-data class SoundprintMatch(
+data class TwinSenseMatch(
     val first: MusicTrack,
     val second: MusicTrack,
-    val kind: SoundprintMatchKind,
+    val kind: TwinSenseMatchKind,
     val confidence: Int,
     val reasons: List<String>,
     val versionWarning: Boolean
 )
 
-data class SoundprintDuplicateGroup(
+data class TwinSenseDuplicateGroup(
     val id: String,
     val tracks: List<MusicTrack>,
-    val matches: List<SoundprintMatch>,
+    val matches: List<TwinSenseMatch>,
     val containsExactAudio: Boolean
 )
 
-data class SoundprintScanProgress(
+data class TwinSenseScanProgress(
     val completed: Int,
     val total: Int,
     val currentTitle: String,
@@ -75,8 +75,8 @@ data class SoundprintScanProgress(
     val percent: Int get() = if (total == 0) 100 else (completed * 100 / total).coerceIn(0, 100)
 }
 
-data class SoundprintScanResult(
-    val groups: List<SoundprintDuplicateGroup>,
+data class TwinSenseScanResult(
+    val groups: List<TwinSenseDuplicateGroup>,
     val tracksScanned: Int,
     val fingerprintsReused: Int,
     val failed: Int,
@@ -85,13 +85,13 @@ data class SoundprintScanResult(
     val matchCount: Int get() = groups.sumOf { it.matches.size }
 }
 
-fun formatSoundprintDuration(seconds: Double): String {
+fun formatTwinSenseDuration(seconds: Double): String {
     if (!seconds.isFinite() || seconds <= 0.0) return "Duration unknown"
     val whole = seconds.toInt()
     return "${whole / 60}:${(whole % 60).toString().padStart(2, '0')}"
 }
 
-object SoundprintText {
+object TwinSenseText {
     private val versionTerms = Regex("\\b(remix|live|acoustic|instrumental|extended|radio edit|edit|demo|remaster(?:ed)?|version)\\b", RegexOption.IGNORE_CASE)
     fun normalize(value: String?): String = (value ?: "")
         .normalizeCompat()
@@ -107,8 +107,8 @@ object SoundprintText {
 }
 
 /** Decodes local content URIs and fingerprints actual PCM audio, not filenames or sampled file bytes. */
-class SoundprintFingerprintEngine(private val context: Context) {
-    suspend fun create(track: MusicTrack, onProgress: (Int) -> Unit = {}): SoundprintFingerprint =
+class TwinSenseFingerprintEngine(private val context: Context) {
+    suspend fun create(track: MusicTrack, onProgress: (Int) -> Unit = {}): TwinSenseFingerprint =
         withContext(Dispatchers.IO) {
             val decoded = decodePcm(track, onProgress)
             val mono = resampleMono(decoded.samples, decoded.sampleRate, 22_050)
@@ -118,7 +118,7 @@ class SoundprintFingerprintEngine(private val context: Context) {
                 DeflaterOutputStream(output).use { it.write(features) }
                 output.toByteArray()
             }
-            SoundprintFingerprint(
+            TwinSenseFingerprint(
                 trackId = track.id,
                 sourceSize = track.sizeBytes,
                 sourceModifiedAt = track.modifiedAt,
@@ -354,9 +354,9 @@ class SoundprintFingerprintEngine(private val context: Context) {
 }
 
 /** Compares compressed spectral-frame sequences, tolerating small codec and encoder differences. */
-object SoundprintFingerprintComparator {
-    fun compare(first: SoundprintFingerprint, second: SoundprintFingerprint): Double? {
-        if (first.version != SOUNDPRINT_VERSION || second.version != SOUNDPRINT_VERSION) return null
+object TwinSenseFingerprintComparator {
+    fun compare(first: TwinSenseFingerprint, second: TwinSenseFingerprint): Double? {
+        if (first.version != TWINSENSE_VERSION || second.version != TWINSENSE_VERSION) return null
         if (first.featureBands != second.featureBands || first.frameCount < 8 || second.frameCount < 8) return null
         val durationRatio = min(first.durationMs, second.durationMs).toDouble() / max(first.durationMs, second.durationMs).coerceAtLeast(1L)
         if (durationRatio < 0.94) return null
@@ -401,17 +401,17 @@ object SoundprintFingerprintComparator {
         return (dot / sqrt(normA * normB)).coerceIn(-1.0, 1.0)
     }
 
-    private fun decompress(fingerprint: SoundprintFingerprint): ByteArray =
+    private fun decompress(fingerprint: TwinSenseFingerprint): ByteArray =
         InflaterInputStream(ByteArrayInputStream(fingerprint.compressedFeatures)).use { it.readBytes() }
 }
 
 /** Generates/reuses fingerprints, builds candidate pairs, and groups duplicate matches locally. */
-class SoundprintScanner(context: Context, private val library: MusicLibraryManager) {
+class TwinSenseScanner(context: Context, private val library: MusicLibraryManager) {
     private val appContext = context.applicationContext
-    private val engine = SoundprintFingerprintEngine(appContext)
+    private val engine = TwinSenseFingerprintEngine(appContext)
     private val preferences = appContext.getSharedPreferences("soundprint_soundprint", Context.MODE_PRIVATE)
 
-    suspend fun loadSavedResults(): SoundprintScanResult? = withContext(Dispatchers.IO) {
+    suspend fun loadSavedResults(): TwinSenseScanResult? = withContext(Dispatchers.IO) {
         val raw = preferences.getString("last_scan", null) ?: return@withContext null
         runCatching {
             val root = JSONObject(raw)
@@ -422,15 +422,15 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
                 val second = library.song(item.getString("secondId")) ?: return@mapNotNull null
                 val reasonsArray = item.optJSONArray("reasons") ?: JSONArray()
                 val reasons = (0 until reasonsArray.length()).map { reasonsArray.getString(it) }
-                SoundprintMatch(first, second, SoundprintMatchKind.valueOf(item.getString("kind")),
+                TwinSenseMatch(first, second, TwinSenseMatchKind.valueOf(item.getString("kind")),
                     item.optInt("confidence"), reasons, item.optBoolean("versionWarning"))
             }
-            SoundprintScanResult(buildGroups(matches), root.optInt("tracksScanned"),
+            TwinSenseScanResult(buildGroups(matches), root.optInt("tracksScanned"),
                 root.optInt("fingerprintsReused"), root.optInt("failed"), root.optLong("completedAt"))
         }.getOrNull()
     }
 
-    fun saveResult(result: SoundprintScanResult) {
+    fun saveResult(result: TwinSenseScanResult) {
         val matches = result.groups.flatMap { it.matches }
         val root = JSONObject().put("tracksScanned", result.tracksScanned)
             .put("fingerprintsReused", result.fingerprintsReused).put("failed", result.failed)
@@ -446,15 +446,15 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
         preferences.edit().putString("last_scan", root.toString()).apply()
     }
 
-    fun withoutTracks(result: SoundprintScanResult, removedIds: Set<String>): SoundprintScanResult {
+    fun withoutTracks(result: TwinSenseScanResult, removedIds: Set<String>): TwinSenseScanResult {
         val remaining = result.groups.flatMap { it.matches }
             .filterNot { it.first.id in removedIds || it.second.id in removedIds }
         return result.copy(groups = buildGroups(remaining))
     }
 
-    suspend fun scan(onProgress: (SoundprintScanProgress) -> Unit = {}): SoundprintScanResult {
+    suspend fun scan(onProgress: (TwinSenseScanProgress) -> Unit = {}): TwinSenseScanResult {
         val tracks = withContext(Dispatchers.IO) { library.allSongs() }
-        val fingerprints = linkedMapOf<String, SoundprintFingerprint>()
+        val fingerprints = linkedMapOf<String, TwinSenseFingerprint>()
         var reused = 0
         var failed = 0
         var completed = 0
@@ -462,11 +462,11 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
             coroutineContext.ensureActive()
             try {
                 val cached = withContext(Dispatchers.IO) {
-                    library.soundprintFingerprint(track.id, track.sizeBytes, track.modifiedAt)
+                    library.twinSenseFingerprint(track.id, track.sizeBytes, track.modifiedAt)
                 }
                 val fingerprint = cached ?: engine.create(track)
                 if (cached != null) reused++ else withContext(Dispatchers.IO) {
-                    library.saveSoundprintFingerprint(fingerprint)
+                    library.saveTwinSenseFingerprint(fingerprint)
                 }
                 fingerprints[track.id] = fingerprint
             } catch (cancel: CancellationException) {
@@ -475,7 +475,7 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
                 failed++
             } finally {
                 completed++
-                onProgress(SoundprintScanProgress(completed, tracks.size, track.title, reused, failed))
+                onProgress(TwinSenseScanProgress(completed, tracks.size, track.title, reused, failed))
             }
         }
 
@@ -485,7 +485,7 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
             val pair = if (first.id < second.id) first to second else second to first
             candidates["${pair.first.id}:${pair.second.id}"] = pair
         }
-        val titleGroups = tracks.groupBy { SoundprintText.normalize(it.title) }.filterKeys { it.isNotBlank() }
+        val titleGroups = tracks.groupBy { TwinSenseText.normalize(it.title) }.filterKeys { it.isNotBlank() }
         titleGroups.values.forEach { group -> for (i in group.indices) for (j in i + 1 until group.size) add(group[i], group[j]) }
 
         val byDuration = tracks.filter { it.durationMs > 0 }.sortedBy { it.durationMs }
@@ -501,50 +501,50 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
         val hashGroups = tracks.filter { !it.contentHash.isNullOrBlank() }.groupBy { it.contentHash }
         hashGroups.values.forEach { group -> for (i in group.indices) for (j in i + 1 until group.size) add(group[i], group[j]) }
 
-        val matches = mutableListOf<SoundprintMatch>()
+        val matches = mutableListOf<TwinSenseMatch>()
         for ((first, second) in candidates.values) {
             coroutineContext.ensureActive()
-            val versionWarning = SoundprintText.hasVersionLabel(first.title) || SoundprintText.hasVersionLabel(second.title)
+            val versionWarning = TwinSenseText.hasVersionLabel(first.title) || TwinSenseText.hasVersionLabel(second.title)
             if (!first.contentHash.isNullOrBlank() && first.contentHash == second.contentHash) {
-                matches += SoundprintMatch(first, second, SoundprintMatchKind.EXACT_AUDIO, 100,
+                matches += TwinSenseMatch(first, second, TwinSenseMatchKind.EXACT_AUDIO, 100,
                     listOf("Identical SHA-256 hash of the complete audio file"), versionWarning)
                 continue
             }
             val firstFingerprint = fingerprints[first.id]
             val secondFingerprint = fingerprints[second.id]
             if (firstFingerprint != null && secondFingerprint != null) {
-                val similarity = SoundprintFingerprintComparator.compare(firstFingerprint, secondFingerprint)
+                val similarity = TwinSenseFingerprintComparator.compare(firstFingerprint, secondFingerprint)
                 if (similarity != null && similarity >= 0.86) {
                     val confidence = (similarity * 100).toInt().coerceIn(86, 99)
                     val exactDuration = abs(first.durationMs - second.durationMs) <= 1_500L
-                    val kind = if (similarity >= 0.94 && exactDuration && !versionWarning) SoundprintMatchKind.EXACT_AUDIO else SoundprintMatchKind.ACOUSTIC
-                    matches += SoundprintMatch(first, second, kind, confidence,
+                    val kind = if (similarity >= 0.94 && exactDuration && !versionWarning) TwinSenseMatchKind.EXACT_AUDIO else TwinSenseMatchKind.ACOUSTIC
+                    matches += TwinSenseMatch(first, second, kind, confidence,
                         listOf("Local PCM spectral fingerprint similarity: ${confidence}%", "Compared ${min(firstFingerprint.frameCount, secondFingerprint.frameCount)} audio sections"),
                         versionWarning || abs(first.durationMs - second.durationMs) > 3_000L)
                     continue
                 }
             }
-            val titleA = SoundprintText.normalize(first.title)
-            val titleB = SoundprintText.normalize(second.title)
+            val titleA = TwinSenseText.normalize(first.title)
+            val titleB = TwinSenseText.normalize(second.title)
             if (titleA.isNotBlank() && titleA == titleB) {
-                val artistA = SoundprintText.normalize(first.artist)
-                val artistB = SoundprintText.normalize(second.artist)
+                val artistA = TwinSenseText.normalize(first.artist)
+                val artistB = TwinSenseText.normalize(second.artist)
                 val durationDifference = abs(first.durationMs - second.durationMs)
                 if (artistA.isNotBlank() && artistA == artistB && durationDifference <= 3_000L) {
-                    matches += SoundprintMatch(first, second, SoundprintMatchKind.METADATA, 72,
+                    matches += TwinSenseMatch(first, second, TwinSenseMatchKind.METADATA, 72,
                         listOf("Matching normalized title", "Matching artist", "Similar duration; audio could not confirm a match"),
                         versionWarning || durationDifference > 1_500L)
                 }
             }
         }
-        matches.sortWith(compareByDescending<SoundprintMatch> { it.kind == SoundprintMatchKind.EXACT_AUDIO }
+        matches.sortWith(compareByDescending<TwinSenseMatch> { it.kind == TwinSenseMatchKind.EXACT_AUDIO }
             .thenByDescending { it.confidence })
-        val result = SoundprintScanResult(buildGroups(matches), tracks.size - failed, reused, failed)
+        val result = TwinSenseScanResult(buildGroups(matches), tracks.size - failed, reused, failed)
         saveResult(result)
         return result
     }
 
-    private fun buildGroups(matches: List<SoundprintMatch>): List<SoundprintDuplicateGroup> {
+    private fun buildGroups(matches: List<TwinSenseMatch>): List<TwinSenseDuplicateGroup> {
         val adjacency = linkedMapOf<String, MutableSet<String>>()
         val trackById = linkedMapOf<String, MusicTrack>()
         matches.forEach { match ->
@@ -554,7 +554,7 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
             adjacency.getOrPut(match.second.id) { linkedSetOf() }.add(match.first.id)
         }
         val visited = mutableSetOf<String>()
-        val groups = mutableListOf<SoundprintDuplicateGroup>()
+        val groups = mutableListOf<TwinSenseDuplicateGroup>()
         adjacency.keys.forEach { start ->
             if (!visited.add(start)) return@forEach
             val stack = ArrayDeque<String>()
@@ -567,26 +567,26 @@ class SoundprintScanner(context: Context, private val library: MusicLibraryManag
             }
             val memberSet = members.toSet()
             val groupMatches = matches.filter { it.first.id in memberSet && it.second.id in memberSet }
-            groups += SoundprintDuplicateGroup(
+            groups += TwinSenseDuplicateGroup(
                 id = members.sorted().joinToString(":"),
                 tracks = members.mapNotNull { trackById[it] }.sortedBy { it.title.lowercase(Locale.ROOT) },
                 matches = groupMatches,
-                containsExactAudio = groupMatches.any { it.kind == SoundprintMatchKind.EXACT_AUDIO }
+                containsExactAudio = groupMatches.any { it.kind == TwinSenseMatchKind.EXACT_AUDIO }
             )
         }
-        return groups.sortedWith(compareByDescending<SoundprintDuplicateGroup> { it.containsExactAudio }
-            .thenByDescending { it.matches.maxOfOrNull(SoundprintMatch::confidence) ?: 0 })
+        return groups.sortedWith(compareByDescending<TwinSenseDuplicateGroup> { it.containsExactAudio }
+            .thenByDescending { it.matches.maxOfOrNull(TwinSenseMatch::confidence) ?: 0 })
     }
 }
 
 
-object SoundprintCleanupPlanner {
+object TwinSenseCleanupPlanner {
     /** Only fully verified identical-audio groups are eligible; alternate versions and fuzzy matches stay for manual review. */
-    fun tracksToRemove(result: SoundprintScanResult): List<MusicTrack> {
+    fun tracksToRemove(result: TwinSenseScanResult): List<MusicTrack> {
         val removals = mutableListOf<MusicTrack>()
         result.groups.filter { group ->
             group.matches.isNotEmpty() && group.matches.all {
-                it.kind == SoundprintMatchKind.EXACT_AUDIO && !it.versionWarning
+                it.kind == TwinSenseMatchKind.EXACT_AUDIO && !it.versionWarning
             }
         }.forEach { group ->
             val ranked = group.tracks.sortedWith(
