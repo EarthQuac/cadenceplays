@@ -764,13 +764,14 @@ class MusicLibraryRepository(context:Context) {
     fun cachedAnalysis(fingerprint:String)=db.analysis(fingerprint)
     fun saveClapMoodProfile(track:MusicTrack,modelVersion:String,scores:Map<String,Float>) {
         require(scores.isNotEmpty() && scores.values.all { it.isFinite() && it in 0f..1f }) { "CLAP returned invalid mood scores." }
+        val contentHash=track.contentHash.orEmpty()
         val payload=JSONObject().put("trackId",track.id).put("sourceSize",track.sizeBytes)
-            .put("sourceModifiedAt",track.modifiedAt).put("modelVersion",modelVersion)
+            .put("sourceModifiedAt",track.modifiedAt).put("contentHash",contentHash).put("modelVersion",modelVersion)
             .put("analyzedAt",System.currentTimeMillis()).put("scores",JSONObject().apply { scores.forEach { (key,value) -> put(key,value.toDouble()) } })
-        db.saveAnalysis("clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.mimeType}:$modelVersion",payload.toString(),track.sizeBytes,track.mimeType)
+        db.saveAnalysis("clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:$contentHash:${track.mimeType}:$modelVersion",payload.toString(),track.sizeBytes,track.mimeType)
     }
     fun clapMoodProfile(track:MusicTrack,modelVersion:String):ClapMoodProfile? {
-        val key="clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.mimeType}:$modelVersion"
+        val key="clap:${track.id}:${track.sizeBytes}:${track.modifiedAt}:${track.contentHash.orEmpty()}:${track.mimeType}:$modelVersion"
         val raw=db.analysis(key) ?: return null
         return runCatching {
             val root=JSONObject(raw);val scores=root.getJSONObject("scores")
