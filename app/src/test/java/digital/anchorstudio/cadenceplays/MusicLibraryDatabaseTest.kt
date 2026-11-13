@@ -114,6 +114,57 @@ class MusicLibraryDatabaseTest {
         db.close()
     }
 
+    @Test fun repositoryFacadeReadsAndMutatesThePersistentLibrary() {
+        val repository = MusicLibraryRepository(context)
+        val database = MusicLibraryDatabase(context)
+        val item = track("content://music/repository", "folder-repository")
+        database.upsert(item, "scan-repository")
+        database.saveSource("folder-repository", "Music", "scan-repository")
+
+        assertEquals(1, repository.count())
+        assertEquals(item.id, repository.tracks().single().id)
+        assertTrue(repository.toggleFavorite(item.id))
+        assertEquals(1, repository.favorites().size)
+        assertEquals("Music", repository.sources().single().displayName)
+
+        val backup = ByteArrayOutputStream()
+        repository.writeBackup(backup)
+        repository.clearLibrary()
+        assertEquals(0, repository.count())
+        repository.restoreBackup(ByteArrayInputStream(backup.toByteArray()), true)
+        assertEquals(item.id, repository.track(item.id)!!.id)
+        database.close()
+    }
+
+    @Test fun versionOneDatabaseMigratesThroughEverySchemaVersion() {
+        val raw = context.openOrCreateDatabase("cadence_music_library.db", Context.MODE_PRIVATE, null)
+        raw.execSQL("""CREATE TABLE tracks(
+            id TEXT PRIMARY KEY, uri TEXT NOT NULL UNIQUE, title TEXT NOT NULL, artist TEXT NOT NULL,
+            album TEXT NOT NULL, album_artist TEXT NOT NULL, genre TEXT NOT NULL, duration_ms INTEGER NOT NULL,
+            track_number INTEGER NOT NULL, year INTEGER NOT NULL, mime_type TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+            modified_at INTEGER NOT NULL, folder TEXT NOT NULL, artwork_uri TEXT, added_at INTEGER NOT NULL,
+            is_favorite INTEGER NOT NULL DEFAULT 0, play_count INTEGER NOT NULL DEFAULT 0, last_played_at INTEGER)""")
+        raw.execSQL("CREATE TABLE library_sources(uri TEXT PRIMARY KEY,display_name TEXT NOT NULL,last_scanned_at INTEGER NOT NULL)")
+        raw.execSQL("CREATE TABLE playlist_tracks(playlist_id TEXT NOT NULL,track_id TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(playlist_id,track_id))")
+        raw.execSQL("CREATE TABLE playlists(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)")
+        raw.execSQL("CREATE TABLE soundprint_trash(track_id TEXT PRIMARY KEY,removed_at INTEGER NOT NULL,reason TEXT NOT NULL)")
+        raw.execSQL("CREATE TABLE audio_analysis_cache(fingerprint TEXT PRIMARY KEY,profile_json TEXT NOT NULL,source_size INTEGER NOT NULL,source_mime TEXT NOT NULL,created_at INTEGER NOT NULL)")
+        raw.execSQL("""INSERT INTO tracks(id,uri,title,artist,album,album_artist,genre,duration_ms,track_number,year,mime_type,size_bytes,modified_at,folder,added_at)
+            VALUES('v1','content://legacy/v1','Version one track','Artist','Album','Artist','','1000',1,2020,'audio/mpeg',100,1,'Music',1)""")
+        raw.version = 1
+        raw.close()
+
+        val migrated = MusicLibraryDatabase(context)
+        assertEquals("Version one track", migrated.findById("v1")!!.title)
+        assertEquals(4, migrated.readableDatabase.version)
+        val sourceColumns = mutableSetOf<String>()
+        migrated.readableDatabase.rawQuery("PRAGMA table_info(library_sources)", null).use { cursor ->
+            while (cursor.moveToNext()) sourceColumns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+        }
+        assertTrue(sourceColumns.contains("last_scan_id"))
+        migrated.close()
+    }
+
     @Test fun versionTwoDatabaseMigratesWithoutDroppingExistingTracks() {
         val raw = context.openOrCreateDatabase("cadence_music_library.db", Context.MODE_PRIVATE, null)
         raw.execSQL("""CREATE TABLE tracks(
