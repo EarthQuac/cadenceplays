@@ -8,7 +8,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-enum class HistoryEventType { PLAY, SKIP }
+enum class HistoryEventType { PLAY, SKIP, LISTEN }
 data class LibraryHistoryEvent(val id:Long,val trackId:String,val type:HistoryEventType,val timestamp:Long,val positionMs:Long,val durationMs:Long)
 data class LibraryListeningStats(val trackId:String,val plays:Int,val skips:Int,val lastPlayedAt:Long?,val totalListenedMs:Long)
 data class ManagedPlaylist(val id:String,val name:String,val trackIds:List<String>,val createdAt:Long,val updatedAt:Long)
@@ -71,7 +71,7 @@ private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(contex
         readableDatabase.rawQuery("""SELECT track_id,SUM(CASE WHEN event_type='PLAY' THEN 1 ELSE 0 END),
             SUM(CASE WHEN event_type='SKIP' THEN 1 ELSE 0 END),
             MAX(CASE WHEN event_type='PLAY' THEN timestamp ELSE NULL END),
-            SUM(CASE WHEN event_type='PLAY' THEN MIN(position_ms,duration_ms) ELSE 0 END)
+            SUM(CASE WHEN event_type='LISTEN' THEN MIN(position_ms,duration_ms) ELSE 0 END)
             FROM history_events GROUP BY track_id""",null).use { c ->
             while(c.moveToNext()) { val id=c.getString(0);result[id]=LibraryListeningStats(id,c.getInt(1),c.getInt(2),if(c.isNull(3)) null else c.getLong(3),c.getLong(4)) }
         }
@@ -235,6 +235,11 @@ class MusicLibraryManager(context:Context) {
     }
     fun recordSkip(id:String,positionMs:Long,durationMs:Long) {
         require(repository.track(id)!=null) { "Song not found." };state.addHistory(id,HistoryEventType.SKIP,positionMs,durationMs)
+    }
+    fun recordListeningTime(id:String,listenedMs:Long,durationMs:Long) {
+        if(listenedMs<=0L) return
+        require(repository.track(id)!=null) { "Song not found." }
+        state.addHistory(id,HistoryEventType.LISTEN,listenedMs.coerceAtMost(durationMs.takeIf { it>0L } ?: listenedMs),durationMs)
     }
     fun listeningHistory(limit:Int=100):List<Pair<LibraryHistoryEvent,MusicTrack?>> = state.history(limit).map { it to repository.track(it.trackId) }.filter { it.second!=null }
     fun trackHistory(id:String,limit:Int=100)=state.history(limit,id)
