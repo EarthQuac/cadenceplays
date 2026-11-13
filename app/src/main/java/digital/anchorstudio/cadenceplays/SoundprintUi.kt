@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShieldCheck
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -212,7 +212,7 @@ internal fun SongsLibraryScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.ShieldCheck, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text("Soundprint", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
