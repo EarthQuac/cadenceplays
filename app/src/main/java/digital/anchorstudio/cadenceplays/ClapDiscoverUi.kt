@@ -106,7 +106,12 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
         val allTracks = library.allSongs()
         val allIds = allTracks.map { it.id }.toSet()
         val failureMap = readFailures().filterKeys { it in allIds }
-        val requested = if (retryFailedOnly) allTracks.filter { failureMap.containsKey(it.id) } else allTracks
+        val correctedIds = moodCorrections().keys
+        val requested = if (retryFailedOnly) {
+            allTracks.filter { failureMap.containsKey(it.id) && it.id !in correctedIds }
+        } else {
+            allTracks.filter { it.id !in correctedIds }
+        }
         val tracks = requested.filter { library.clapMoodProfile(it) == null }
         if (tracks.isEmpty()) {
             mutableState.value = mutableState.value.copy(

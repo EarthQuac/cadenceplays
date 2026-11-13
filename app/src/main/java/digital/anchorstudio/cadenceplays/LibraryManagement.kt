@@ -289,7 +289,7 @@ class MusicLibraryManager(context:Context) {
     fun deleteSmartPlaylist(id:String)=state.deleteSmartPlaylist(id)
     fun evaluateSmartPlaylist(id:String,profiles:Map<String,AudioRuleProfile> = emptyMap()):List<MusicTrack> {
         val playlist=smartPlaylists().firstOrNull { it.id==id } ?: return emptyList()
-        val resolvedProfiles=if(profiles.isEmpty()) clapAudioRuleProfiles() else profiles
+        val resolvedProfiles=clapAudioRuleProfiles()+profiles
         return evaluateNativeSmartPlaylist(playlist,SmartPlaylistContext(repository.tracks(),listeningStats(),state.history(10000),resolvedProfiles))
     }
 
