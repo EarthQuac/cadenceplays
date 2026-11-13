@@ -351,7 +351,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -360,7 +360,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(22.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(22.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
                         .padding(20.dp)
                 ) {
                     Box(
@@ -368,7 +368,7 @@ private fun HomeScreen(onSettings: () -> Unit) {
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Image(painterResource(R.drawable.lucide_music), null, modifier = Modifier.size(20.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
                     }
                     Spacer(Modifier.height(24.dp))
                     Text("A FRESH START", fontSize = 12.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
@@ -386,13 +386,13 @@ private fun HomeScreen(onSettings: () -> Unit) {
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Image(painterResource(R.drawable.lucide_folder_plus), contentDescription = null, modifier = Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary))
-                        Spacer(Modifier.width(9.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("Add music", color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(28.dp))
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         FeatureLabel(R.drawable.lucide_music, "Your own music")
                         FeatureLabel(R.drawable.lucide_list_music, "Playlists that fit")
                         FeatureLabel(R.drawable.lucide_headphones, "Listen offline")
@@ -415,7 +415,7 @@ private fun HeaderAction(icon: Int, description: String, tint: Color = MaterialT
 
 @Composable
 private fun FeatureLabel(icon: Int, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Image(painterResource(icon), contentDescription = null, modifier = Modifier.size(14.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary))
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     }
