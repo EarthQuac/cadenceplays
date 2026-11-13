@@ -288,10 +288,10 @@ class CadencePlaybackService : MediaSessionService() {
         pendingListeningMs = 0L
     }
 
-    private fun Int.toPlayerRepeatMode() = when (this) {
-        Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ALL
-        Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ONE
-        else -> Player.REPEAT_MODE_OFF
+    private fun CadenceRepeatMode.toPlayerRepeatMode() = when (this) {
+        CadenceRepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        CadenceRepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        CadenceRepeatMode.OFF -> Player.REPEAT_MODE_OFF
     }
 
     private fun Int.toCadenceRepeatMode() = when (this) {

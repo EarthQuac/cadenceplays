@@ -71,7 +71,7 @@ private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(contex
         readableDatabase.rawQuery("""SELECT track_id,SUM(CASE WHEN event_type='PLAY' THEN 1 ELSE 0 END),
             SUM(CASE WHEN event_type='SKIP' THEN 1 ELSE 0 END),
             MAX(CASE WHEN event_type='PLAY' THEN timestamp ELSE NULL END),
-            SUM(CASE WHEN event_type='LISTEN' THEN MIN(position_ms,duration_ms) ELSE 0 END)
+            SUM(CASE WHEN event_type='LISTEN' THEN position_ms ELSE 0 END)
             FROM history_events GROUP BY track_id""",null).use { c ->
             while(c.moveToNext()) { val id=c.getString(0);result[id]=LibraryListeningStats(id,c.getInt(1),c.getInt(2),if(c.isNull(3)) null else c.getLong(3),c.getLong(4)) }
         }
