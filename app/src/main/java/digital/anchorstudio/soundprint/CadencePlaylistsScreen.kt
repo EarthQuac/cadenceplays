@@ -257,6 +257,18 @@ fun CadencePlaylistsScreen(
                 } else {
                     Text("Mood and energy rules use on-device CLAP analysis.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (scan.running) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Analysing your music on this device…", Modifier.weight(1f), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = clapScanner::pause) { Text("Pause") }
+                    }
+                } else if (current?.tracks?.isNotEmpty() == true && (scan.pending > 0 || !clapScanner.modelInstalled())) {
+                    OutlinedButton(onClick = { clapScanner.startScan() }, shape = CircleShape, modifier = Modifier.fillMaxWidth()) {
+                        androidx.compose.material3.Icon(Icons.Filled.Tune, null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(if (clapScanner.modelInstalled()) "Analyse missing tracks" else "Set up CLAP · one-time model download", fontSize = 11.sp)
+                    }
+                }
                 current?.smartPlaylists.orEmpty().forEach { rule ->
                     val count = current?.smartResults?.get(rule.id)?.size ?: 0
                     Row(
@@ -374,20 +386,24 @@ private fun PlaylistDetailNative(
     var name by remember { mutableStateOf("") }
     var candidateQuery by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
+    var libraryTracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
+    var detailLoaded by remember { mutableStateOf(false) }
     var playlist by remember { mutableStateOf<ManagedPlaylist?>(null) }
     LaunchedEffect(playlistId, refresh) {
         val loaded = withContext(Dispatchers.IO) {
             val item = libraryManager.playlists().firstOrNull { it.id == playlistId }
-            item to libraryManager.playlistTracks(playlistId)
+            Triple(item, libraryManager.playlistTracks(playlistId), libraryManager.allSongs())
         }
         playlist = loaded.first
         tracks = loaded.second
+        libraryTracks = loaded.third
+        detailLoaded = true
     }
     val selected = playlist
     if (selected == null) {
         Column(Modifier.fillMaxSize()) {
             PlaylistPageHeader("Playlist", "", back = onBack)
-            Text("Playlist not found", Modifier.padding(24.dp), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (detailLoaded) "Playlist not found" else "Loading playlist…", Modifier.padding(24.dp), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -435,7 +451,7 @@ private fun PlaylistDetailNative(
         dismissButton = { TextButton(onClick = { renameOpen = false }) { Text("Cancel") } }
     )
     if (addOpen) AddSongsDialog(
-        allTracks = libraryManager.allSongs(),
+        allTracks = libraryTracks,
         existingIds = selected?.trackIds.orEmpty(),
         query = candidateQuery,
         onQuery = { candidateQuery = it },
