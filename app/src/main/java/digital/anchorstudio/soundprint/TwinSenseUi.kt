@@ -28,6 +28,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -42,6 +48,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +76,7 @@ import kotlin.math.max
 @Composable
 internal fun SongsLibraryScreen(
     library: MusicLibraryManager,
+    playback: SoundprintPlaybackConnection,
     onImportFiles: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -387,21 +395,13 @@ internal fun SongsLibraryScreen(
                 }
             } else {
                 items(filteredSongs, key = { it.id }) { track ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surface).padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(track.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text(formatTwinSenseDuration(track.durationMs / 1000.0), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    NativeSongLibraryRow(
+                        track = track,
+                        library = library,
+                        playback = playback,
+                        onPlay = { playback.playTracks(filteredSongs, filteredSongs.indexOfFirst { it.id == track.id }.coerceAtLeast(0)) },
+                        onChanged = { scope.launch { refreshLibrary() } }
+                    )
                 }
             }
             item { Spacer(Modifier.height(18.dp)) }
@@ -477,6 +477,105 @@ internal fun SongsLibraryScreen(
                 }) { Text("Empty bin", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmEmptyBin = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+
+@Composable
+private fun NativeSongLibraryRow(
+    track: MusicTrack,
+    library: MusicLibraryManager,
+    playback: SoundprintPlaybackConnection,
+    onPlay: () -> Unit,
+    onChanged: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var menuOpen by remember { mutableStateOf(false) }
+    var editOpen by remember { mutableStateOf(false) }
+    var playlistsOpen by remember { mutableStateOf(false) }
+    var title by remember(track.id) { mutableStateOf(track.title) }
+    var artist by remember(track.id) { mutableStateOf(track.artist) }
+    var album by remember(track.id) { mutableStateOf(track.album) }
+    var genre by remember(track.id) { mutableStateOf(track.genre) }
+    val playlists = remember(playlistsOpen) { if (playlistsOpen) library.playlists() else emptyList() }
+
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface).clickable(onClick = onPlay).padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(track.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(formatTwinSenseDuration(track.durationMs / 1000.0), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            androidx.compose.material3.IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Song options", modifier = Modifier.size(19.dp))
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(text = { Text("Play next") }, leadingIcon = { Icon(Icons.Filled.PlayArrow, null) }, onClick = { menuOpen = false; playback.enqueue(listOf(track), next = true) })
+                DropdownMenuItem(text = { Text("Add to queue") }, leadingIcon = { Icon(Icons.Filled.QueueMusic, null) }, onClick = { menuOpen = false; playback.enqueue(listOf(track)) })
+                DropdownMenuItem(text = { Text(if (track.isFavorite) "Remove from favourites" else "Add to favourites") }, leadingIcon = { Icon(Icons.Filled.Favorite, null) }, onClick = {
+                    menuOpen = false
+                    scope.launch { withContext(Dispatchers.IO) { library.toggleFavorite(track.id) }; onChanged() }
+                })
+                DropdownMenuItem(text = { Text("Add to playlist") }, leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) }, onClick = { menuOpen = false; playlistsOpen = true })
+                DropdownMenuItem(text = { Text("Edit song info") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; editOpen = true })
+                DropdownMenuItem(text = { Text("Move to Recycle Bin") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = {
+                    menuOpen = false
+                    scope.launch { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "Removed from song menu") }; onChanged() }
+                })
+            }
+        }
+    }
+
+    if (editOpen) {
+        AlertDialog(
+            onDismissRequest = { editOpen = false },
+            title = { Text("Edit song info") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, singleLine = true)
+                    OutlinedTextField(value = artist, onValueChange = { artist = it }, label = { Text("Artist") }, singleLine = true)
+                    OutlinedTextField(value = album, onValueChange = { album = it }, label = { Text("Album") }, singleLine = true)
+                    OutlinedTextField(value = genre, onValueChange = { genre = it }, label = { Text("Genre") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    editOpen = false
+                    scope.launch {
+                        withContext(Dispatchers.IO) { library.updateSongMetadata(track.id, title, artist, album, genre) }
+                        onChanged()
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (playlistsOpen) {
+        AlertDialog(
+            onDismissRequest = { playlistsOpen = false },
+            title = { Text("Add to playlist") },
+            text = {
+                if (playlists.isEmpty()) Text("You haven't created a playlist yet.")
+                else Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    playlists.forEach { playlist ->
+                        TextButton(onClick = {
+                            playlistsOpen = false
+                            scope.launch { withContext(Dispatchers.IO) { library.addToPlaylist(playlist.id, listOf(track.id)) }; onChanged() }
+                        }) { Text(playlist.name) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { playlistsOpen = false }) { Text("Close") } }
         )
     }
 }
