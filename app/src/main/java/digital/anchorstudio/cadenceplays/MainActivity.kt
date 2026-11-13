@@ -708,7 +708,7 @@ private fun PageTitle(title: String, subtitle: String, onBack: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.3).sp, color = MaterialTheme.colorScheme.onBackground)
-                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (subtitle.isNotBlank()) Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
