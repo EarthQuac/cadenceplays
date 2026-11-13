@@ -301,21 +301,31 @@ private class ClapRobertaTokenizer(vocabFile: File, mergesFile: File) {
     }
 }
 
-private object ClapFeatureExtractor {
+internal object ClapFeatureExtractor {
     private const val SAMPLE_RATE = 48_000
     private const val FFT_SIZE = 1024
     private const val HOP = 480
     private const val MEL_BANDS = 64
     private const val FRAMES = 1000
 
+    internal fun repeatPad(input: FloatArray, targetSamples: Int): FloatArray {
+        require(input.isNotEmpty()) { "The selected track has no decodable audio." }
+        require(targetSamples > 0) { "The CLAP input window must be positive." }
+        val repeats = (targetSamples / input.size).coerceAtLeast(1)
+        val repeatedLength = (input.size.toLong() * repeats).coerceAtMost(targetSamples.toLong()).toInt()
+        return FloatArray(targetSamples).also { output ->
+            for (index in 0 until repeatedLength) output[index] = input[index % input.size]
+        }
+    }
+
     fun extract(input: FloatArray): FloatArray {
         require(input.isNotEmpty()) { "The selected track has no decodable audio." }
-        val samples = FloatArray(SAMPLE_RATE * 10)
-        if (input.size >= samples.size) {
-            val start = ((input.size - samples.size) / 2).coerceAtLeast(0)
-            input.copyInto(samples, 0, start, start + samples.size)
+        val targetSamples = SAMPLE_RATE * 10
+        val samples = if (input.size >= targetSamples) {
+            val start = ((input.size - targetSamples) / 2).coerceAtLeast(0)
+            FloatArray(targetSamples).also { input.copyInto(it, 0, start, start + targetSamples) }
         } else {
-            for (index in samples.indices) samples[index] = input[index % input.size]
+            repeatPad(input, targetSamples)
         }
         val filters = melFilters()
         val window = DoubleArray(FFT_SIZE) { 0.5 - 0.5 * cos(2.0 * PI * it / FFT_SIZE) }
