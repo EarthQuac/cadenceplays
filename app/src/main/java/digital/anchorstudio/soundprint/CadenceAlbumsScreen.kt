@@ -115,10 +115,7 @@ fun CadenceAlbumsScreen(
                         Column(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { selectedAlbumId = album.id }
                         ) {
-                            NativeArtwork(album.artworkUri, album.id, Modifier.fillMaxWidth().height(0.dp).then(Modifier), 15)
-                            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(MaterialTheme.colorScheme.surfaceVariant).aspectSquareCompat(), contentAlignment = Alignment.Center) {
-                                NativeArtwork(album.artworkUri, album.id, Modifier.fillMaxSize(), 15)
-                            }
+                            NativeArtwork(album.artworkUri, album.id, Modifier.fillMaxWidth().aspectRatio(1f), 15)
                             Text(album.name, Modifier.padding(top = 8.dp), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${album.artist} · ${album.tracks.size} ${if (album.tracks.size == 1) "song" else "songs"}",
                                 Modifier.padding(top = 2.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
