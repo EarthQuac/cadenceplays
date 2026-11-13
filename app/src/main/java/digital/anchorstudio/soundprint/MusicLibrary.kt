@@ -643,7 +643,15 @@ class MusicLibraryRepository(context:Context) {
                         errors+=LibraryScanError(child.uri.toString(),message);db.recordScanError(sourceUri,child.uri.toString(),message)
                         db.findByUri(child.uri.toString())?.let { existing -> db.recordTrackSource(existing.id,sourceUri,existing.uri,scanId,true) }
                     }
-                    if(visited%20==0) onProgress(LibraryScanProgress(root.name ?: "Music folder",visited,imported,skipped,errors.size))
+                    onProgress(LibraryScanProgress(
+                        sourceName = root.name ?: "Music folder",
+                        visited = visited,
+                        imported = imported,
+                        skipped = skipped,
+                        errors = errors.size,
+                        updated = updated,
+                        currentTitle = child.name ?: "Audio file"
+                    ))
                 }
             }
         }
