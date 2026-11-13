@@ -102,16 +102,16 @@ private data class CadencePalette(
 )
 
 private val AmberLight = CadencePalette(
-    background = Color(0xFFFAF9F6), foreground = Color(0xFF302D29),
-    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF1EFEB),
-    primary = Color(0xFFC77B43), muted = Color(0xFF77716A),
-    border = Color(0xFFE6E2DC), onPrimary = Color(0xFF21160F)
+    background = Color(0xFFFBFAF7), foreground = Color(0xFF17130F),
+    surface = Color(0xFFFFFFFF), surface2 = Color(0xFFF2F0EC),
+    primary = Color(0xFFDF7A32), muted = Color(0xFF6B655F),
+    border = Color(0xFFE0DEDA), onPrimary = Color(0xFF160D07)
 )
 private val AmberDark = CadencePalette(
-    background = Color(0xFF171512), foreground = Color(0xFFF3F1ED),
-    surface = Color(0xFF24211E), surface2 = Color(0xFF302C27),
-    primary = Color(0xFFE6A15D), muted = Color(0xFFAAA39A),
-    border = Color(0x17FFFFFF), onPrimary = Color(0xFF21160F)
+    background = Color(0xFF0C0A07), foreground = Color(0xFFF3F1EF),
+    surface = Color(0xFF161310), surface2 = Color(0xFF201C18),
+    primary = Color(0xFFFC9E47), muted = Color(0xFF9C9792),
+    border = Color(0x17FFFFFF), onPrimary = Color(0xFF160D07)
 )
 private val BlueLight = CadencePalette(
     background = Color(0xFFFAFCFE), foreground = Color(0xFF0C1723),
@@ -141,7 +141,7 @@ private val MonoLight = CadencePalette(
     background = Color(0xFFF8F8F8), foreground = Color(0xFF121212),
     surface = Color.White, surface2 = Color(0xFFF0F0F0),
     primary = Color(0xFF1F1F1F), muted = Color(0xFF696969),
-    border = Color(0xFFDEDEDE), onPrimary = Color.White
+    border = Color(0xFFDBDBDB), onPrimary = Color.White
 )
 private val MonoDark = CadencePalette(
     background = Color(0xFF090909), foreground = Color(0xFFF5F5F5),
