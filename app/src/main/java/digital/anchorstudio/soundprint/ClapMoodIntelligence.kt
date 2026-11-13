@@ -66,9 +66,8 @@ data class ClapModelFiles(
 )
 
 /**
- * Downloads the pinned, quantized CLAP encoders into app-private storage.
- * Once installed, inference can run without a network connection. Model files
- * are deliberately not packed into the APK so the APK remains installable.
+ * Installs the model weights that are already bundled inside the APK.
+ * No network connection or in-app model download is required.
  */
 class ClapModelManager(context: Context) {
     private val app = context.applicationContext
@@ -85,53 +84,74 @@ class ClapModelManager(context: Context) {
         withContext(Dispatchers.IO) {
             modelDir.mkdirs()
             val assets = listOf(
-                Asset("onnx/audio_model_quantized.onnx","audio_model_quantized.onnx",78_200_000L,CLAP_AUDIO_MODEL_SHA256),
-                Asset("onnx/text_model_quantized.onnx","text_model_quantized.onnx",127_000_000L,CLAP_TEXT_MODEL_SHA256),
-                Asset("vocab.json","vocab.json",null,null),
-                Asset("merges.txt","merges.txt",null,null)
+                BundledAsset("clap/onnx/audio_model_quantized.onnx", "audio_model_quantized.onnx", 78_155_433L, CLAP_AUDIO_MODEL_SHA256),
+                BundledAsset("clap/onnx/text_model_quantized.onnx", "text_model_quantized.onnx", 126_000_000L, CLAP_TEXT_MODEL_SHA256),
+                BundledAsset("clap/vocab.json", "vocab.json", 0L, null),
+                BundledAsset("clap/merges.txt", "merges.txt", 0L, null)
             )
-            val total = assets.sumOf { asset ->
-                val target = File(modelDir,asset.name)
-                if (target.isFile && target.length() > 0L && (asset.expectedBytes == null || target.length() >= (asset.expectedBytes * 0.95).toLong())) 0L
-                else asset.expectedBytes ?: 0L
-            }.coerceAtLeast(1L)
+            val total = assets.sumOf { it.expectedBytes }.coerceAtLeast(1L)
             var completed = 0L
+
             assets.forEach { asset ->
                 coroutineContext.ensureActive()
-                val target = File(modelDir,asset.name)
-                val alreadyValid = target.isFile && target.length() > 0L &&
-                    (asset.expectedBytes == null || target.length() >= (asset.expectedBytes * 0.95).toLong()) &&
+                val target = File(modelDir, asset.name)
+                val valid = target.isFile &&
+                    (asset.expectedBytes == 0L || target.length() >= asset.expectedBytes) &&
                     (asset.sha256 == null || sha256(target) == asset.sha256)
-                if (alreadyValid) {
-                    completed += asset.expectedBytes ?: target.length()
-                } else {
+
+                if (!valid) {
                     target.delete()
-                    val temp = File(modelDir,asset.name + ".download")
-                    temp.parentFile?.mkdirs()
-                    val partialIsComplete = temp.isFile && asset.expectedBytes != null &&
-                        temp.length() >= (asset.expectedBytes * 0.95).toLong() &&
-                        (asset.sha256 == null || sha256(temp) == asset.sha256)
-                    if (!partialIsComplete) download(asset,temp,completed,total,onProgress)
-                    if (asset.expectedBytes != null && temp.length() < (asset.expectedBytes * 0.95).toLong()) {
-                        temp.delete()
-                        error("The downloaded ${asset.name} is incomplete.")
+                    val temporary = File(modelDir, asset.name + ".copy")
+                    temporary.delete()
+                    temporary.parentFile?.mkdirs()
+                    app.assets.open(asset.assetPath).use { input ->
+                        FileOutputStream(temporary).use { output ->
+                            val buffer = ByteArray(1024 * 1024)
+                            var copied = 0L
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                copied += count
+                                val overall = completed + copied
+                                onProgress(ClapModelInstallProgress(
+                                    asset.name, overall, total,
+                                    ((overall * 100L) / total).toInt().coerceIn(0, 99)
+                                ))
+                            }
+                            output.fd.sync()
+                        }
                     }
-                    if (asset.sha256 != null && sha256(temp) != asset.sha256) {
-                        temp.delete()
-                        error("The downloaded CLAP model failed its SHA-256 integrity check.")
+                    check(temporary.isFile && temporary.length() > 0L) {
+                        "A bundled music feature file is missing: ${asset.name}"
                     }
-                    check(temp.renameTo(target)) { "Could not save ${asset.name} to app storage." }
-                    completed += asset.expectedBytes ?: target.length()
+                    if (asset.expectedBytes > 0L) {
+                        check(temporary.length() >= asset.expectedBytes) {
+                            "A bundled music feature file is incomplete: ${asset.name}"
+                        }
+                    }
+                    if (asset.sha256 != null) {
+                        check(sha256(temporary) == asset.sha256) {
+                            "A bundled music feature file failed its integrity check."
+                        }
+                    }
+                    check(temporary.renameTo(target)) { "Could not prepare ${asset.name}." }
                 }
-                onProgress(ClapModelInstallProgress(asset.name,completed,total,
-                    ((completed * 100L) / total).toInt().coerceIn(0,100)))
+
+                completed += if (asset.expectedBytes > 0L) asset.expectedBytes else target.length()
+                onProgress(ClapModelInstallProgress(
+                    asset.name, completed, total,
+                    ((completed * 100L) / total).toInt().coerceIn(0, 100)
+                ))
             }
-            File(modelDir,"MODEL-NOTICE.txt").writeText(
-                "Soundprint includes Xenova/larger_clap_music_and_speech (LAION larger CLAP) quantized ONNX weights. " +
-                "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
-                "Pinned revision: 56bcfdb. Inference is performed locally on this device."
+
+            File(modelDir, "MODEL-NOTICE.txt").writeText(
+                "Cadence includes Xenova/larger_clap_music_and_speech quantized ONNX weights. " +
+                    "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
+                    "Pinned revision: 56bcfdb. Inference is performed locally on this device."
             )
-            File(modelDir,".verified").writeText(CLAP_MODEL_VERSION)
+            File(modelDir, ".verified").writeText(CLAP_MODEL_VERSION)
             files()
         }
 
@@ -139,62 +159,33 @@ class ClapModelManager(context: Context) {
         modelDir.deleteRecursively()
     }
 
-    private data class Asset(val remotePath:String,val name:String,val expectedBytes:Long?,val sha256:String?)
-    private fun filesExist() = listOf("audio_model_quantized.onnx","text_model_quantized.onnx","vocab.json","merges.txt")
-        .all { File(modelDir,it).isFile && File(modelDir,it).length() > 0L }
-    private fun files() = ClapModelFiles(
-        File(modelDir,"audio_model_quantized.onnx"),File(modelDir,"text_model_quantized.onnx"),
-        File(modelDir,"vocab.json"),File(modelDir,"merges.txt")
+    private data class BundledAsset(
+        val assetPath: String,
+        val name: String,
+        val expectedBytes: Long,
+        val sha256: String?
     )
 
-    private suspend fun download(
-        asset:Asset,target:File,completedBefore:Long,total:Long,
-        onProgress:(ClapModelInstallProgress)->Unit
-    ) {
-        val connection = (URL(CLAP_MODEL_BASE + asset.remotePath).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent","Soundprint-Android")
-        }
-        try {
-            val existingBytes = target.takeIf { it.isFile }?.length() ?: 0L
-            if (existingBytes > 0L) connection.setRequestProperty("Range","bytes=${existingBytes}-")
-            connection.connect()
-            val response = connection.responseCode
-            check(response == HttpURLConnection.HTTP_OK || response == HttpURLConnection.HTTP_PARTIAL) {
-                "CLAP download failed (HTTP $response)."
-            }
-            val append = existingBytes > 0L && response == HttpURLConnection.HTTP_PARTIAL
-            if (existingBytes > 0L && !append) target.delete()
-            val startingBytes = if (append) existingBytes else 0L
-            BufferedInputStream(connection.inputStream).use { stream ->
-                FileOutputStream(target,append).use { output ->
-                    val buffer = ByteArray(256 * 1024)
-                    var assetBytes = startingBytes
-                    while (true) {
-                        coroutineContext.ensureActive()
-                        val count = stream.read(buffer)
-                        if (count < 0) break
-                        output.write(buffer,0,count)
-                        assetBytes += count
-                        val overall = completedBefore + assetBytes
-                        onProgress(ClapModelInstallProgress(asset.name,overall,total,
-                            ((overall * 100L) / total).toInt().coerceIn(0,99)))
-                    }
-                    output.fd.sync()
-                }
-            }
-        } finally {
-            connection.disconnect()
-        }
-    }
+    private fun filesExist() = listOf(
+        "audio_model_quantized.onnx", "text_model_quantized.onnx", "vocab.json", "merges.txt"
+    ).all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }
 
-    private fun sha256(file:File):String {
-        val digest=MessageDigest.getInstance("SHA-256")
-        file.inputStream().buffered(1024*1024).use { input ->
-            val buffer=ByteArray(1024*1024)
-            while(true) { val count=input.read(buffer);if(count<0) break;digest.update(buffer,0,count) }
+    private fun files() = ClapModelFiles(
+        File(modelDir, "audio_model_quantized.onnx"),
+        File(modelDir, "text_model_quantized.onnx"),
+        File(modelDir, "vocab.json"),
+        File(modelDir, "merges.txt")
+    )
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered(1024 * 1024).use { input ->
+            val buffer = ByteArray(1024 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
