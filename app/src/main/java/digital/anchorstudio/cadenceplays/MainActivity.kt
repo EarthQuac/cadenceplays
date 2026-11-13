@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -727,159 +729,283 @@ private fun SettingsScreen(
     var gapless by remember { mutableStateOf(true) }
     var fadeOnPause by remember { mutableStateOf(false) }
     var loudness by remember { mutableStateOf(true) }
+    var crossfade by remember { mutableIntStateOf(0) }
     var resume by remember { mutableStateOf(true) }
     var rememberPosition by remember { mutableStateOf(true) }
+    var seekSeconds by remember { mutableIntStateOf(10) }
     var replaceQueue by remember { mutableStateOf(false) }
     var autoAdd by remember { mutableStateOf(true) }
+    var backgroundScan by remember { mutableStateOf(false) }
+    var customArtwork by remember { mutableStateOf(true) }
+    var ignoreShortTracks by remember { mutableStateOf(false) }
+    var clearDialog by remember { mutableStateOf(false) }
+    var historyDialog by remember { mutableStateOf(false) }
+    var helpDialog by remember { mutableStateOf(false) }
+    var backupDialog by remember { mutableStateOf(false) }
     val needle = query.trim().lowercase()
+    fun matches(vararg words: String): Boolean = needle.isEmpty() || words.any { it.lowercase().contains(needle) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         PageTitle("Settings", "", onBack)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            item { SearchBox(query, { query = it }, "Search settings…") }
-            if (needle.isEmpty() || "appearance theme colour palette amber blue emerald mono".contains(needle)) {
-                item {
-                    SettingsSection("APPEARANCE") {
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(Modifier.height(9.dp))
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            SettingsSearchBox(query, { query = it })
+            if (matches("appearance theme colour palette amber blue emerald mono")) {
+                SettingsSection("APPEARANCE") {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+                        Text("Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ThemeChoice(Modifier.weight(1f), "System", R.drawable.lucide_sun_moon, themeMode == "system") { onThemeModeChange("system") }
+                            ThemeChoice(Modifier.weight(1f), "Light", R.drawable.lucide_sun, themeMode == "light") { onThemeModeChange("light") }
+                            ThemeChoice(Modifier.weight(1f), "Dark", R.drawable.lucide_moon, themeMode == "dark") { onThemeModeChange("dark") }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(8.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ThemeChoice(Modifier.weight(1f), "System", R.drawable.lucide_sun_moon, themeMode == "system") { onThemeModeChange("system") }
-                                ThemeChoice(Modifier.weight(1f), "Light", R.drawable.lucide_sun, themeMode == "light") { onThemeModeChange("light") }
-                                ThemeChoice(Modifier.weight(1f), "Dark", R.drawable.lucide_moon, themeMode == "dark") { onThemeModeChange("dark") }
+                                PaletteChoice("Amber", selectedPalette == "Amber", Modifier.weight(1f)) { onPaletteChange("Amber") }
+                                PaletteChoice("Blue & white", selectedPalette == "Blue", Modifier.weight(1f)) { onPaletteChange("Blue") }
                             }
-                            Spacer(Modifier.height(18.dp))
-                            Text("Colour palette", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(Modifier.height(9.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    PaletteChoice("Amber", selectedPalette == "Amber", Modifier.weight(1f)) { onPaletteChange("Amber") }
-                                    PaletteChoice("Blue & white", selectedPalette == "Blue", Modifier.weight(1f)) { onPaletteChange("Blue") }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PaletteChoice("Emerald", selectedPalette == "Emerald", Modifier.weight(1f)) { onPaletteChange("Emerald") }
+                                PaletteChoice("Mono", selectedPalette == "Mono", Modifier.weight(1f)) { onPaletteChange("Mono") }
+                            }
+                        }
+                    }
+                }
+            }
+            if (matches("audio gapless playback fade pause loudness leveling equalizer crossfade")) {
+                SettingsSection("AUDIO") {
+                    SettingsToggleRow("Gapless playback", "Preloads the next track to reduce the gap", gapless) { gapless = it }
+                    SettingsToggleRow("Fade on pause", "Short fade instead of an abrupt stop", fadeOnPause) { fadeOnPause = it }
+                    SettingsToggleRow("Loudness leveling", "Smooths playback volume between tracks", loudness) { loudness = it }
+                    SettingsActionRow("Equalizer", "Adjust your sound with the free 10-band EQ; Pro adds advanced audio controls", "Open Equalizer")
+                    SettingsValueRow("Crossfade", if (crossfade == 0) "Off" else "$crossfade seconds") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            listOf(0, 2, 4, 6, 8).forEach { seconds ->
+                                TextButton(onClick = { crossfade = seconds }, enabled = false) {
+                                    Text(if (seconds == 0) "Off" else "$seconds s", color = if (crossfade == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+            if (matches("playback resume position double tap seek skip seconds")) {
+                SettingsSection("PLAYBACK") {
+                    SettingsToggleRow("Resume playback", "Restore the last song when Cadence opens", resume) { resume = it }
+                    SettingsToggleRow("Remember position", "Continue from where you stopped", rememberPosition) { rememberPosition = it }
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
+                        Text("Double-tap to seek", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Choose how far to skip when you double-tap the Now Playing artwork.", modifier = Modifier.padding(top = 3.dp), fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(10.dp))
+                        val seekOptions = listOf(5, 10, 15, 20, 30, 45, 60)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            seekOptions.chunked(4).forEach { rowOptions ->
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    PaletteChoice("Emerald", selectedPalette == "Emerald", Modifier.weight(1f)) { onPaletteChange("Emerald") }
-                                    PaletteChoice("Mono", selectedPalette == "Mono", Modifier.weight(1f)) { onPaletteChange("Mono") }
+                                    rowOptions.forEach { seconds ->
+                                        Box(
+                                            Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(12.dp))
+                                                .background(if (seekSeconds == seconds) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
+                                                .border(1.dp, if (seekSeconds == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                                .clickable { seekSeconds = seconds },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("$seconds s", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (seekSeconds == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                        }
+                                    }
+                                    repeat(4 - rowOptions.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         }
+                        Text("Current: $seekSeconds seconds", modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            if (needle.isEmpty() || "audio gapless playback fade pause loudness leveling equalizer crossfade".contains(needle)) {
-                item {
-                    SettingsSection("AUDIO") {
-                        SettingsToggleRow("Gapless playback", "Preloads the next track to reduce the gap", gapless) { gapless = it }
-                        SettingsToggleRow("Fade on pause", "Short fade instead of an abrupt stop", fadeOnPause) { fadeOnPause = it }
-                        SettingsToggleRow("Loudness leveling", "Smooths playback volume between tracks", loudness) { loudness = it }
-                        SettingsActionRow("Equalizer", "Adjust your sound with the 10-band EQ", "Open")
-                    }
+            if (matches("queue replace auto add newly discovered songs folder auto watch scan")) {
+                SettingsSection("QUEUE") {
+                    SettingsToggleRow("Replace queue on play", "Playing a list clears the previous queue", replaceQueue) { replaceQueue = it }
+                    SettingsToggleRow("Auto-add newly discovered songs", "New imports join your library automatically", autoAdd) { autoAdd = it }
+                    SettingsActionRow("Folder auto-watch", "Choose a folder to scan every 30 seconds while Cadence is open.", "Choose")
                 }
             }
-            if (needle.isEmpty() || "playback resume position double tap seek".contains(needle)) {
-                item {
-                    SettingsSection("PLAYBACK") {
-                        SettingsToggleRow("Resume playback", "Restore the last song when Cadence opens", resume) { resume = it }
-                        SettingsToggleRow("Remember position", "Continue from where you stopped", rememberPosition) { rememberPosition = it }
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Double-tap to seek", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Choose how far to skip on the Now Playing artwork.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 10.dp)) {
-                                listOf("5s", "10s", "15s", "20s").forEach { value -> ThemeChoice(Modifier.weight(1f), value, null, value == "10s") {} }
-                            }
+            if (matches("music intelligence background mood scan clap")) {
+                SettingsSection("MUSIC INTELLIGENCE") {
+                    SettingsToggleRow("Scan entire library in background · Pro", "Automatically build and save mood profiles for your songs while Cadence is open", backgroundScan) { backgroundScan = it }
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("CLAP scan status", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(if (backgroundScan) "Ready" else "Off", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
+                        Text("0 of 0 songs have CLAP mood scores · 0%", modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                            MoodCountCard("Successful", "0")
+                            MoodCountCard("Errors", "0")
+                            MoodCountCard("Pending", "0")
                         }
                     }
                 }
             }
-            if (needle.isEmpty() || "queue replace auto add discovered songs".contains(needle)) {
-                item {
-                    SettingsSection("QUEUE") {
-                        SettingsToggleRow("Replace queue on play", "Playing a list clears the previous queue", replaceQueue) { replaceQueue = it }
-                        SettingsToggleRow("Auto-add newly discovered songs", "New imports join your library automatically", autoAdd) { autoAdd = it }
-                    }
+            if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
+                SettingsSection("LIBRARY") {
+                    SettingsToggleRow("Custom artwork", "Show Cadence artwork only when a song has no embedded cover. Turn this off anytime to remove Cadence artwork from your library.", customArtwork) { customArtwork = it }
+                    SettingsActionRow("Your music", "0 songs stored on this device", "Add")
+                    SettingsActionRow("Rescan folders", "Check imported folders for new songs", "Rescan")
+                    SettingsActionRow("Audio tag editor", "Manually edit title, artist, album and genre — free for everyone", "Open")
+                    SettingsActionRow("Playback history", "Clear recently played songs, play counts, listening time and streaks", "Clear") { historyDialog = true }
+                    SettingsActionRow("Backup library", "Export songs, audio files, playlists, favourites, stats and preferences", "Backup") { backupDialog = true }
+                    SettingsActionRow("Restore backup", "Restore a Cadence backup file from your device", "Restore") { backupDialog = true }
+                    SettingsToggleRow("Ignore clips under 30s", "Skips ringtones and notification sounds", ignoreShortTracks) { ignoreShortTracks = it }
+                    SettingsActionRow("Clear library", "Removes all imported files from this device", "Clear", destructive = true) { clearDialog = true }
                 }
             }
-            if (needle.isEmpty() || "music intelligence mood scan clap background".contains(needle)) {
-                item {
-                    SettingsSection("MUSIC INTELLIGENCE") {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("CLAP scan status", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Your library mood profiles are saved on this device.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(12.dp))
-                            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
-                            Text("0 songs analysed · 0 pending", modifier = Modifier.padding(top = 8.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+            if (matches("tutorial replay tutorial")) {
+                SettingsSection("TUTORIAL") {
+                    SettingsActionRow("Replay tutorial", "Walk through the main Cadence controls again", "Replay tutorial")
                 }
             }
-            if (needle.isEmpty() || "library add music rescan artwork backup".contains(needle)) {
-                item {
-                    SettingsSection("LIBRARY") {
-                        SettingsActionRow("Your music", "0 songs stored on this device", "Add")
-                        SettingsActionRow("Rescan folders", "Check imported folders for new songs", "Rescan")
-                        SettingsActionRow("Audio tag editor", "Edit title, artist, album and genre", "Open")
-                        SettingsActionRow("Playback history", "Recently played songs and listening statistics", "View")
-                    }
-                }
-            }
-            if (needle.isEmpty() || "about cadence offline music player".contains(needle)) {
-                item {
-                    SettingsSection("ABOUT CADENCE") {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("Offline-first music player", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(Modifier.height(4.dp))
-                            Text("Your music library, organised around the music already on your device.", fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+            if (matches("about help info cadence pro about legal version privacy terms")) {
+                SettingsSection("ABOUT") {
+                    SettingsActionRow("Help & Info", "Learn how local playback, stats and backups work", "Open") { helpDialog = true }
+                    SettingsActionRow("Cadence Pro", "Explore Pro features", "View Pro")
+                    SettingsActionRow("About & Legal", "Privacy, Terms, Pro terms, refunds and copyright", "View policies")
+                    SettingsActionRow("Version", "Cadence 1.0 · offline-first player", "1.0.0")
                 }
             }
         }
     }
+    if (clearDialog) AlertDialog(
+        onDismissRequest = { clearDialog = false },
+        title = { Text("Clear your library?") },
+        text = { Text("This will remove all songs from this device, stop any music currently playing, and clear your playlists, favourites, and recently played history. Your music files will not be deleted from your device's normal storage.") },
+        confirmButton = { TextButton(onClick = { clearDialog = false }) { Text("Clear everything", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { clearDialog = false }) { Text("Cancel") } }
+    )
+    if (historyDialog) AlertDialog(
+        onDismissRequest = { historyDialog = false },
+        title = { Text("Clear playback history?") },
+        text = { Text("This clears recently played songs, play counts, listening time and streaks on this device. Your audio files, library, playlists and favourites will remain.") },
+        confirmButton = { TextButton(onClick = { historyDialog = false }) { Text("Clear history", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { historyDialog = false }) { Text("Cancel") } }
+    )
+    if (backupDialog) AlertDialog(
+        onDismissRequest = { backupDialog = false },
+        title = { Text("Backup & Restore") },
+        text = { Text("Backup and restore actions will be connected to the native library in the next implementation phase.") },
+        confirmButton = { TextButton(onClick = { backupDialog = false }) { Text("Got it") } }
+    )
+    if (helpDialog) AlertDialog(
+        onDismissRequest = { helpDialog = false },
+        title = { Text("Help & Info") },
+        text = { Text("Cadence plays music stored on your device. Add audio files from Settings → Library → Your music. Use Rescan folders to check folders you have already selected. Your local audio stays on your device during normal playback.") },
+        confirmButton = { TextButton(onClick = { helpDialog = false }) { Text("Got it") } }
+    )
 }
 
+@Composable
+private fun SettingsSearchBox(value: String, onValueChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
+            .heightIn(min = 48.dp).clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(painterResource(R.drawable.lucide_search), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant))
+        Spacer(Modifier.width(12.dp))
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) Text("Search settings…", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            BasicTextField(value, onValueChange, singleLine = true, textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.fillMaxWidth())
+        }
+        if (value.isNotEmpty()) {
+            Spacer(Modifier.width(8.dp))
+            Text("×", modifier = Modifier.clickable { onValueChange("") }, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 @Composable
 private fun SettingsToggleRow(label: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-            Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
+                Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        SettingsDivider()
     }
 }
+
 @Composable
-private fun SettingsActionRow(label: String, description: String, action: String) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-            Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SettingsActionRow(
+    label: String,
+    description: String,
+    action: String,
+    destructive: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
+                Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(action, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, maxLines = 1)
         }
-        Text(action, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        SettingsDivider()
+    }
+}
+
+@Composable
+private fun SettingsValueRow(label: String, description: String, control: @Composable () -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                Text(description, modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) { control() }
+        SettingsDivider()
     }
 }
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column {
-        Text(title, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f), RoundedCornerShape(22.dp))) {
-            content()
-        }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Text(title, fontSize = 11.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(16.dp))) { content() }
+    }
+}
+
+@Composable
+private fun SettingsDivider() {
+    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), thickness = 0.7.dp)
+}
+
+@Composable
+private fun MoodCountCard(label: String, value: String) {
+    Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 9.dp)) {
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(value, modifier = Modifier.padding(top = 3.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
 private fun ThemeChoice(modifier: Modifier, label: String, icon: Int?, selected: Boolean, onClick: () -> Unit) {
     Column(
-        modifier = modifier.height(76.dp).clip(RoundedCornerShape(22.dp))
+        modifier = modifier.height(76.dp).clip(RoundedCornerShape(16.dp))
             .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick).padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -898,9 +1024,9 @@ private fun PaletteChoice(name: String, selected: Boolean, modifier: Modifier = 
         else -> listOf(Color(0xFF24211E), Color(0xFFE6A15D))
     }
     Row(
-        modifier = modifier.height(76.dp).clip(RoundedCornerShape(22.dp))
+        modifier = modifier.height(76.dp).clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(22.dp))
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -914,4 +1040,3 @@ private fun PaletteChoice(name: String, selected: Boolean, modifier: Modifier = 
         }
     }
 }
-
