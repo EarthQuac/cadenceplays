@@ -350,13 +350,16 @@ private fun CadenceApp(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (!enteredLibrary) {
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (settingsOpen) {
+                if (statsOpen) {
+                    ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
+                } else if (settingsOpen) {
                     SettingsScreen(
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange,
@@ -376,7 +379,7 @@ private fun CadenceApp(
                     )
                 } else {
                     when (selectedTab) {
-                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles)
+                        0 -> HomeScreen(onSettings = { settingsOpen = true }, onImportMusic = onImportFiles, onListeningStats = { statsOpen = true })
                         1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, onImportFiles) { selectedTab = 0 }
                         2 -> LibraryScreen("Albums", "Browse your albums and artwork.", Icons.Filled.Album, libraryManager, onImportFiles) { selectedTab = 0 }
                         3 -> PlaylistsScreen { selectedTab = 0 }
@@ -413,6 +416,7 @@ private fun CadenceApp(
                                 .weight(1f)
                                 .clickable {
                                     settingsOpen = false
+                                    statsOpen = false
                                     selectedTab = index
                                 }
                                 .padding(vertical = 10.dp),
@@ -546,7 +550,8 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
 private fun HomeScreen(
     modifier: Modifier = Modifier,
     onSettings: () -> Unit,
-    onImportMusic: () -> Unit
+    onImportMusic: () -> Unit,
+    onListeningStats: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -574,7 +579,7 @@ private fun HomeScreen(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 HeaderAction(R.drawable.lucide_user_round, "Account", onClick = {})
-                HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = {})
+                HeaderAction(R.drawable.lucide_chart_no_axes_column_increasing, "Listening stats", onClick = onListeningStats)
                 HeaderAction(R.drawable.lucide_crown, "Cadence Pro", tint = MaterialTheme.colorScheme.primary, onClick = {})
                 HeaderAction(R.drawable.lucide_search, "Search", onClick = {})
                 HeaderAction(R.drawable.lucide_settings, "Settings", onClick = onSettings)

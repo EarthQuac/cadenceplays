@@ -244,6 +244,7 @@ class MusicLibraryManager(context:Context) {
     fun listeningHistory(limit:Int=100):List<Pair<LibraryHistoryEvent,MusicTrack?>> = state.history(limit).map { it to repository.track(it.trackId) }.filter { it.second!=null }
     fun trackHistory(id:String,limit:Int=100)=state.history(limit,id)
     fun listeningStats()=state.stats()
+    fun listeningEvents(limit:Int=10000)=state.history(limit.coerceIn(1,10000))
     fun clearListeningHistory() { state.clearHistory();repository.tracks().forEach { repository.resetPlayStats(it.id) } }
 
     fun createPlaylist(name:String,trackIds:List<String> = emptyList()):String {
