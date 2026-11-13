@@ -244,18 +244,16 @@ fun ClapDiscoverScreen(
     var corrections by remember { mutableStateOf(scanner.moodCorrections()) }
     var selectedMood by remember { mutableStateOf<CadenceMood?>(null) }
     var editingTrack by remember { mutableStateOf<MusicTrack?>(null) }
-    var showRetryInfo by remember { mutableStateOf(false) }
+    var insightTrackId by remember { mutableStateOf<String?>(null) }
 
     val recommendations = selectedMood?.let { mood ->
         tracks.mapNotNull { track ->
-            val profile = profiles[track.id] ?: return@mapNotNull null
             val corrected = corrections[track.id]
-            val score = when {
-                corrected == mood.id -> 1f
-                corrected != null -> 0f
-                else -> profile.score(mood)
-            }
-            if (score <= 0f) null else track to score
+            if (corrected == mood.id) return@mapNotNull track to 1f
+            if (corrected != null) return@mapNotNull null
+            val profile = profiles[track.id] ?: return@mapNotNull null
+            val score = profile.score(mood)
+            if (score < 0.72f) null else track to score
         }.sortedByDescending { it.second }.take(30)
     }.orEmpty()
 
@@ -349,14 +347,27 @@ fun ClapDiscoverScreen(
                             Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(track.artist, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("${(score * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        Text("${(score.coerceAtMost(1f) * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(6.dp))
                         var expanded by remember(track.id) { mutableStateOf(false) }
                         androidx.compose.foundation.layout.Box {
                             Text("···", modifier = Modifier.clickable { expanded = true }.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                DropdownMenuItem(text = { Text("Song insights") }, onClick = { expanded = false; insightTrackId = if (insightTrackId == track.id) null else track.id })
                                 DropdownMenuItem(text = { Text("Change mood") }, onClick = { expanded = false; editingTrack = track })
                                 if (corrections.containsKey(track.id)) DropdownMenuItem(text = { Text("Reset correction") }, onClick = { scanner.removeMoodCorrection(track.id); corrections = scanner.moodCorrections(); expanded = false })
+                            }
+                        }
+                    }
+                    if (insightTrackId == track.id) {
+                        val profile = profiles[track.id]
+                        Column(Modifier.fillMaxWidth().padding(start = 33.dp, end = 8.dp, bottom = 10.dp)) {
+                            Text("SONG INSIGHTS", fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            if (profile != null) {
+                                Text("Strongest CLAP mood · ${profile.primaryMood?.title ?: "Unclassified"}", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Other audio matches · " + profile.scores.entries.sortedByDescending { it.value }.drop(1).take(3).joinToString(" · ") { "${CadenceMood.entries.firstOrNull { mood -> mood.id == it.key }?.title ?: it.key} ${(it.value * 100).toInt()}%" }, modifier = Modifier.padding(top = 3.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                Text("This song was assigned a mood manually because its audio could not be analysed.", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -371,9 +382,13 @@ fun ClapDiscoverScreen(
             scan.failureMessages.forEach { (id, message) ->
                 val track = tracks.firstOrNull { it.id == id }
                 if (track != null) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Text(message, modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(track.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(track.artist, modifier = Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(message, modifier = Modifier.padding(top = 3.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                        TextButton(onClick = { editingTrack = track }) { Text("Assign mood") }
                     }
                 }
             }
