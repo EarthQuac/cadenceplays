@@ -36,7 +36,16 @@ data class MusicTrack(
 )
 data class MusicPlaylist(val id: String, val name: String, val trackIds: List<String>)
 data class MusicLibrarySource(val uri: String, val displayName: String, val lastScannedAt: Long)
-data class LibraryScanProgress(val sourceName: String, val visited: Int, val imported: Int, val skipped: Int, val errors: Int)
+data class LibraryScanProgress(
+    val sourceName: String,
+    val visited: Int,
+    val imported: Int,
+    val skipped: Int,
+    val errors: Int,
+    val total: Int = 0,
+    val updated: Int = 0,
+    val currentTitle: String = ""
+)
 data class LibraryScanResult(val visited: Int, val imported: Int, val updated: Int, val skipped: Int, val unavailable: Int, val errors: List<LibraryScanError>)
 data class LibraryScanError(val uri: String?, val message: String)
 data class MusicAlbum(val name: String, val artist: String, val trackCount: Int, val artworkUri: String?, val totalDurationMs: Long)
@@ -496,15 +505,19 @@ class MusicLibraryRepository(context:Context) {
 
     suspend fun importFiles(fileUris:List<Uri>,onProgress:(LibraryScanProgress)->Unit={}):LibraryScanResult = withContext(Dispatchers.IO) {
         val errors=mutableListOf<LibraryScanError>();var visited=0;var imported=0;var updated=0;var skipped=0
-        fileUris.distinctBy { it.toString() }.forEach { uri ->
+        val selected=fileUris.distinctBy { it.toString() }
+        selected.forEach { uri ->
             coroutineContext.ensureActive();visited++
+            var currentTitle = "Audio file $visited"
             try {
                 runCatching { app.contentResolver.takePersistableUriPermission(uri,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
                 if(!hasPersistedReadPermission(uri)) throw SecurityException("Android did not grant persistent access to this audio file.")
                 val file=DocumentFile.fromSingleUri(app,uri)
+                currentTitle = file?.name ?: currentTitle
                 if(file==null || !file.isFile || !isSupported(file)) skipped++
                 else {
                     val track=readMetadata(file,uri.toString())
+                    currentTitle = track.title
                     val canonical=track.contentHash?.let { db.findCanonicalByHash(it,track.uri) }
                     if(db.upsert(track.copy(duplicateOf=canonical))) imported++ else updated++
                     db.saveFileSource(uri.toString(),file.name ?: "Audio file")
@@ -514,7 +527,16 @@ class MusicLibraryRepository(context:Context) {
                 skipped++;val item=LibraryScanError(uri.toString(),error.message ?: "Could not import this file.")
                 errors+=item;db.recordScanError(null,item.uri,item.message)
             }
-            onProgress(LibraryScanProgress("Selected audio files",visited,imported,skipped,errors.size))
+            onProgress(LibraryScanProgress(
+                sourceName = "Selected audio files",
+                visited = visited,
+                imported = imported,
+                skipped = skipped,
+                errors = errors.size,
+                total = selected.size,
+                updated = updated,
+                currentTitle = currentTitle
+            ))
         }
         LibraryScanResult(visited,imported,updated,skipped,0,errors)
     }
