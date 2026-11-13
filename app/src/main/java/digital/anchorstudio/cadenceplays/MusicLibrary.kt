@@ -170,6 +170,16 @@ class MusicLibraryDatabase(context: Context) :
         return readableDatabase.rawQuery("SELECT COUNT(*) FROM tracks WHERE id NOT IN(SELECT track_id FROM soundprint_trash)$availability",null)
             .use { if(it.moveToFirst()) it.getInt(0) else 0 }
     }
+    fun updateTrack(track:MusicTrack) {
+        val values=trackValues(track).apply {
+            remove("id"); remove("uri"); remove("added_at"); remove("is_favorite")
+            remove("play_count"); remove("last_played_at")
+        }
+        writableDatabase.update("tracks",values,"id=?",arrayOf(track.id))
+    }
+    fun resetPlayStats(id:String) {
+        writableDatabase.execSQL("UPDATE tracks SET play_count=0,last_played_at=NULL WHERE id=?",arrayOf(id))
+    }
     fun toggleFavorite(id:String):Boolean {
         writableDatabase.execSQL("UPDATE tracks SET is_favorite=CASE is_favorite WHEN 1 THEN 0 ELSE 1 END WHERE id=?",arrayOf(id))
         return readableDatabase.rawQuery("SELECT is_favorite FROM tracks WHERE id=?",arrayOf(id)).use { it.moveToFirst() && it.getInt(0)==1 }
@@ -477,6 +487,8 @@ class MusicLibraryRepository(context:Context) {
     fun artists()=db.artists()
     fun recentlyPlayed(limit:Int=50)=db.recentlyPlayed(limit)
     fun track(id:String)=db.findById(id)
+    fun updateTrack(track:MusicTrack)=db.updateTrack(track)
+    fun resetPlayStats(id:String)=db.resetPlayStats(id)
     fun toggleFavorite(id:String)=db.toggleFavorite(id)
     fun setFavorite(id:String,favorite:Boolean)=db.setFavorite(id,favorite)
     fun markPlayed(id:String)=db.markPlayed(id)
