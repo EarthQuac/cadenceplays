@@ -100,7 +100,7 @@ class ClapModelManager(context: Context) {
                 coroutineContext.ensureActive()
                 val target = File(modelDir,asset.name)
                 val alreadyValid = target.isFile && target.length() > 0L &&
-                    (asset.expectedBytes == null || target.length() == asset.expectedBytes) &&
+                    (asset.expectedBytes == null || target.length() >= (asset.expectedBytes * 0.95).toLong()) &&
                     (asset.sha256 == null || sha256(target) == asset.sha256)
                 if (alreadyValid) {
                     completed += asset.expectedBytes ?: target.length()
