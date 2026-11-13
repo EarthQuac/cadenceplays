@@ -166,6 +166,7 @@ class MainActivity : ComponentActivity() {
             val preferences = remember { getSharedPreferences("cadence_native_preferences", MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
             var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
+            var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
             val darkTheme = when (themeMode) {
                 "light" -> false
                 "system" -> isSystemInDarkTheme()
@@ -197,7 +198,12 @@ class MainActivity : ComponentActivity() {
                     themeMode = themeMode,
                     onThemeModeChange = { mode -> themeMode = mode; preferences.edit().putString("theme", mode).apply() },
                     selectedPalette = selectedPalette,
-                    onPaletteChange = { name -> selectedPalette = name; preferences.edit().putString("palette", name).apply() }
+                    onPaletteChange = { name -> selectedPalette = name; preferences.edit().putString("palette", name).apply() },
+                    enteredLibrary = enteredLibrary,
+                    onEnterLibrary = {
+                        enteredLibrary = true
+                        preferences.edit().putBoolean("has_seen_launch_landing", true).apply()
+                    }
                 )
                 }
             }
@@ -220,13 +226,17 @@ private fun CadenceApp(
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
-    onPaletteChange: (String) -> Unit
+    onPaletteChange: (String) -> Unit,
+    enteredLibrary: Boolean,
+    onEnterLibrary: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        if (!enteredLibrary) {
+            PublicHomeScreen(onContinue = onEnterLibrary)
+        } else Column(modifier = Modifier.fillMaxSize()) {
             if (settingsOpen) {
                 SettingsScreen(
                     themeMode = themeMode,
@@ -310,6 +320,88 @@ private fun CadenceApp(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PublicHomeScreen(onContinue: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+                    start = 20.dp,
+                    end = 20.dp
+                ),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(R.drawable.cadence_icon),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "Cadence",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.6).sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(
+                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 32.dp
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                "Your music.",
+                fontSize = 38.sp,
+                lineHeight = 44.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-1.1).sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                "Your rhythm.",
+                fontSize = 38.sp,
+                lineHeight = 44.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-1.1).sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(28.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 320.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onContinue),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Continue to Cadence",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     }
