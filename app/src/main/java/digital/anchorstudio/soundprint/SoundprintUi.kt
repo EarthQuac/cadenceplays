@@ -74,7 +74,7 @@ internal fun SongsLibraryScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val scanner = remember(context, library) { SoundprintScanner(context.applicationContext, library) }
+    val scanner = remember(context, library) { TwinSenseScanner(context.applicationContext, library) }
     var songs by remember { mutableStateOf<List<MusicTrack>>(emptyList()) }
     var recycleItems by remember { mutableStateOf<List<RecycleBinEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -84,8 +84,8 @@ internal fun SongsLibraryScreen(
     var sortMenu by remember { mutableStateOf(false) }
     var soundprintOpen by remember { mutableStateOf(false) }
     var recycleOpen by remember { mutableStateOf(false) }
-    var scanResult by remember { mutableStateOf<SoundprintScanResult?>(null) }
-    var scanProgress by remember { mutableStateOf(SoundprintScanProgress(0, 0, "", 0, 0)) }
+    var scanResult by remember { mutableStateOf<TwinSenseScanResult?>(null) }
+    var scanProgress by remember { mutableStateOf(TwinSenseScanProgress(0, 0, "", 0, 0)) }
     var scanning by remember { mutableStateOf(false) }
     var scanError by remember { mutableStateOf("") }
     var scanJob by remember { mutableStateOf<Job?>(null) }
@@ -121,7 +121,7 @@ internal fun SongsLibraryScreen(
     }
 
     val cleanupTracks = remember(scanResult) {
-        scanResult?.let { SoundprintCleanupPlanner.tracksToRemove(it) }.orEmpty()
+        scanResult?.let { TwinSenseCleanupPlanner.tracksToRemove(it) }.orEmpty()
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -225,7 +225,7 @@ internal fun SongsLibraryScreen(
                                         if (!scanning) {
                                             scanError = ""
                                             scanning = true
-                                            scanProgress = SoundprintScanProgress(0, songs.size, "", 0, 0)
+                                            scanProgress = TwinSenseScanProgress(0, songs.size, "", 0, 0)
                                             scanJob = scope.launch {
                                                 try {
                                                     scanResult = scanner.scan { scanProgress = it }
@@ -292,7 +292,7 @@ internal fun SongsLibraryScreen(
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Column(Modifier.weight(1f)) {
                                                             Text(track.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                            Text("${track.artist} · ${formatSoundprintDuration(track.durationMs / 1000.0)} · ${track.sizeBytes / (1024 * 1024)} MB",
+                                                            Text("${track.artist} · ${formatTwinSenseDuration(track.durationMs / 1000.0)} · ${track.sizeBytes / (1024 * 1024)} MB",
                                                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         }
                                                         TextButton(onClick = { pendingRemoval = track }) { Text("Remove", color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
@@ -300,9 +300,9 @@ internal fun SongsLibraryScreen(
                                                 }
                                                 group.matches.forEach { match ->
                                                     val label = when (match.kind) {
-                                                        SoundprintMatchKind.EXACT_AUDIO -> "Exact audio"
-                                                        SoundprintMatchKind.ACOUSTIC -> "Acoustic match"
-                                                        SoundprintMatchKind.METADATA -> "Possible match"
+                                                        TwinSenseMatchKind.EXACT_AUDIO -> "Exact audio"
+                                                        TwinSenseMatchKind.ACOUSTIC -> "Acoustic match"
+                                                        TwinSenseMatchKind.METADATA -> "Possible match"
                                                     }
                                                     Text("$label · ${match.confidence}% confidence${if (match.versionWarning) " · possible alternate version" else ""}",
                                                         fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
@@ -400,7 +400,7 @@ internal fun SongsLibraryScreen(
                             Text(track.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${track.artist} · ${track.album}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text(formatSoundprintDuration(track.durationMs / 1000.0), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatTwinSenseDuration(track.durationMs / 1000.0), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
