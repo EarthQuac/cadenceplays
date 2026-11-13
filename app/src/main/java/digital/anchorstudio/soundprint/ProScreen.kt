@@ -64,9 +64,9 @@ private val proFeatures = listOf(
     ProFeature(Icons.Filled.Headphones, "Gapless playback & crossfade", "Reduce gaps between tracks or blend the end of one song into the next."),
     ProFeature(Icons.Filled.Timer, "Sleep controls", "Use enhanced sleep controls and flexible playback timers."),
     ProFeature(Icons.Filled.MusicNote, "Synced lyrics & karaoke", "Follow timestamped lyric lines during playback and use karaoke-style synced lyrics. Basic lyrics lookup stays free."),
-    ProFeature(Icons.Filled.Palette, "Exclusive colour palettes", "Personalize Cadence with the Emerald and Monochrome palettes. Amber and Blue & white remain free."),
+    ProFeature(Icons.Filled.Palette, "Exclusive colour palettes", "Personalize Soundprint with the Emerald and Monochrome palettes. Amber and Blue & white remain free."),
     ProFeature(Icons.Filled.QueueMusic, "Smart playlists & folder auto-watch", "Use unlimited rule-based smart playlists and automatically watch music folders for new tracks."),
-    ProFeature(Icons.Filled.Shield, "Soundprint Pro", "Advanced on-device audio matching helps surface duplicates even when tags differ, explains match confidence, and flags alternate versions for review—not auto-deletion."),
+    ProFeature(Icons.Filled.Shield, "TwinSense", "Advanced on-device audio matching helps surface duplicates even when tags differ, explains match confidence, and flags alternate versions for review—not auto-deletion."),
     ProFeature(Icons.Filled.Waves, "Aura Mode", "Settle into immersive listening with reverb, tonal shaping and slow stereo movement.")
 )
 
@@ -79,7 +79,7 @@ private val proGuides = listOf(
     ProGuide("Sleep timer and stop after current song", "Player sleep controls", listOf("Open the sleep timer control from the player or playback settings.", "Choose a countdown when you want playback to stop after a set period.", "Choose stop-after-current-song when you want the present track to finish but not continue into the queue.", "Confirm the timer state before putting the phone down.")),
     ProGuide("Emerald and Monochrome palettes", "Settings → Appearance / Theme", listOf("Open Appearance or Theme settings.", "Choose Emerald for a richer green accent or Monochrome for a restrained black-and-white look.", "Return to the player and library to see the theme applied throughout the interface.", "Amber and Blue & white remain available without Pro.")),
     ProGuide("Smart playlists and folder auto-watch", "Playlists and Folders", listOf("Open Playlists and create a smart/rule-based playlist.", "Add one or more rules such as artist, genre, rating or other available track metadata, then save it.", "The playlist collects tracks matching those rules rather than requiring you to add every song manually.", "Open Folders and enable folder watching for a supported music folder if the option is available; grant Android file access when prompted so new tracks can be detected.")),
-    ProGuide("Soundprint Pro: advanced audio matching", "Soundprint / duplicate review", listOf("Open the Soundprint duplicate scan from the library tools.", "Run a scan and allow local audio analysis to finish.", "Review the match confidence and compare suspected duplicates or alternate versions before deciding what to keep.", "Use the review actions deliberately: Soundprint flags candidates for you and should not be treated as permission to auto-delete music.")),
+    ProGuide("TwinSense: advanced audio matching", "TwinSense / duplicate review", listOf("Open the TwinSense duplicate scan from the library tools.", "Run a scan and allow local audio analysis to finish.", "Review the match confidence and compare suspected duplicates or alternate versions before deciding what to keep.", "Use the review actions deliberately: TwinSense flags candidates for you and should not be treated as permission to auto-delete music.")),
     ProGuide("Sleep, queue, favourites and library basics", "Player and library", listOf("Use the queue to decide what plays next; add tracks from song menus or library lists.", "Tap the favourite control to keep a track easy to find.", "Use Songs, Albums, Artists, Genres and Folders to browse your own local collection.", "If you remove a track from the library, check Recycle Bin if you need to restore its library entry.")),
     ProGuide("Aura Mode: immersive listening", "Now Playing → Aura", listOf("Start a song, preferably one with spacious production, ambient textures or a slow build.", "Open Aura Mode and use headphones at a comfortable, low volume.", "Lie back somewhere comfortable, close your eyes if safe, relax your jaw and shoulders, and breathe slowly without forcing it.", "Let your attention follow one instrument or sound at a time; you do not need to imagine anything specific. Tap anywhere to return to the player.", "Settle into a softer, roomier sound with gentle stereo movement. For the fullest effect, start playback before entering Aura Mode."))
 )
@@ -115,7 +115,7 @@ fun ProScreen(onBack: () -> Unit, entitled: Boolean = false, trialEndsAt: String
                 ProTutorialSection()
                 ProFreeFeatures()
                 ProFeaturesGrid()
-                Text("Cadence remains free to use for your music. Paid plans are not available until checkout launches. Founder Access remains subject to available spots and eligibility.",
+                Text("Soundprint remains free to use for your music. Paid plans are not available until checkout launches. Founder Access remains subject to available spots and eligibility.",
                     modifier = Modifier.fillMaxWidth().padding(top = 2.dp), fontSize = 11.sp, lineHeight = 17.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Pro Terms   ·   Refund & Cancellation   ·   Privacy Policy   ·   Terms of Service",
@@ -133,7 +133,7 @@ private fun ProPageHeader(onBack: () -> Unit) {
             Text("‹", fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
         }
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
-            Text("Cadence Pro", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            Text("TwinSense", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
         }
     }
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f))
@@ -150,9 +150,9 @@ private fun ProHero() {
             Spacer(Modifier.width(7.dp))
             Text("Your music. Your way.", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
-        Text("Meet Cadence Pro.", modifier = Modifier.padding(top = 18.dp), fontSize = 31.sp, lineHeight = 36.sp,
+        Text("Meet TwinSense.", modifier = Modifier.padding(top = 18.dp), fontSize = 31.sp, lineHeight = 36.sp,
             letterSpacing = (-0.8).sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-        Text("More control, smarter music tools, and a deeper listening experience. Keep enjoying Cadence for free, or unlock the Pro power suite with the plan that works for you.",
+        Text("More control, smarter music tools, and a deeper listening experience. Keep enjoying Soundprint for free, or unlock the Pro power suite with the plan that works for you.",
             modifier = Modifier.padding(top = 10.dp), fontSize = 13.sp, lineHeight = 21.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(Modifier.padding(top = 17.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf("Your music, your library", "Local-first listening", "Flexible plans").forEach { label ->
@@ -176,7 +176,7 @@ private fun ProFounderOffer(onClaim: (() -> Unit)?) {
                 Spacer(Modifier.width(8.dp))
                 Text("Founder offer — Pro free for the first 100", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             }
-            Text("Sign in with a verified Cadence account to check eligibility and claim a founder spot. Availability is confirmed by the account service.",
+            Text("Sign in with a verified Soundprint account to check eligibility and claim a founder spot. Availability is confirmed by the account service.",
                 modifier = Modifier.padding(top = 7.dp), fontSize = 11.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = { onClaim?.invoke() }, enabled = onClaim != null, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), shape = RoundedCornerShape(50.dp)) {
                 Text(if (onClaim == null) "Account connection required" else "Claim free Pro")
@@ -194,7 +194,7 @@ private fun ProPlans() {
                 modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ProPlanCard("Lifetime", "$24.99", "once", "Pay once. Keep the included Cadence Pro features for life, with no recurring bill.",
+            ProPlanCard("Lifetime", "$24.99", "once", "Pay once. Keep the included TwinSense features for life, with no recurring bill.",
                 "Best for long-term listeners", true, Modifier.weight(1f), Icons.Filled.AllInclusive)
             ProPlanCard("Monthly", "$2.99", "/ month", "A smaller payment to get started. Cancel any time; Pro access would end when your paid period ends.",
                 "Budget-friendly", false, Modifier.weight(1f), Icons.Filled.Timer)
@@ -249,7 +249,7 @@ private fun ProTrialCard(onStartTrial: (() -> Unit)?) {
                     modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(if (onStartTrial == null) "A verified Cadence account is required. Native account sign-in is not connected yet."
+        Text(if (onStartTrial == null) "A verified Soundprint account is required. Native account sign-in is not connected yet."
             else "Start your trial below. No payment system is needed for the trial.",
             modifier = Modifier.fillMaxWidth().padding(top = 13.dp).clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.background).padding(12.dp),
@@ -307,7 +307,7 @@ private fun ProFreeFeatures() {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp)).padding(16.dp)) {
         Text("What stays free", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-        Text("Cadence stays useful without Pro. These features are free for everyone.",
+        Text("Soundprint stays useful without Pro. These features are free for everyone.",
             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 11.sp, lineHeight = 17.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         freeFeatures.forEach { feature ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(12.dp))
@@ -324,7 +324,7 @@ private fun ProFeaturesGrid() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text("Every Pro feature", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-            Text("The tools included with Cadence Pro.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("The tools included with TwinSense.", modifier = Modifier.padding(top = 4.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         proFeatures.forEach { feature ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
@@ -353,7 +353,7 @@ private fun ProActiveCard(trialEndsAt: String?) {
             Spacer(Modifier.width(7.dp))
             Text("Pro active", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
-        Text(if (trialEndsAt != null) "Your 14-day Pro trial is active" else "Welcome to Cadence Pro",
+        Text(if (trialEndsAt != null) "Your 14-day Pro trial is active" else "Welcome to TwinSense",
             modifier = Modifier.padding(top = 16.dp), fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text(if (trialEndsAt != null) "Your no-payment trial ends " + trialEndsAt + ". No charge will be made, and access ends when the trial expires."
             else "Your Pro entitlement is active on this account. Sign in on your other devices to access your account benefits.",
