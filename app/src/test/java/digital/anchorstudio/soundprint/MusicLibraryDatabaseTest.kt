@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import android.content.Context
 import org.junit.After
@@ -20,11 +20,11 @@ class MusicLibraryDatabaseTest {
 
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
-        context.deleteDatabase("cadence_music_library.db")
+        context.deleteDatabase("soundprint_music_library.db")
     }
 
     @After fun tearDown() {
-        context.deleteDatabase("cadence_music_library.db")
+        context.deleteDatabase("soundprint_music_library.db")
     }
 
     private fun track(uri: String, source: String? = null) = MusicTrack(
@@ -181,7 +181,7 @@ class MusicLibraryDatabaseTest {
     }
 
     @Test fun versionOneDatabaseMigratesThroughEverySchemaVersion() {
-        val raw = context.openOrCreateDatabase("cadence_music_library.db", Context.MODE_PRIVATE, null)
+        val raw = context.openOrCreateDatabase("soundprint_music_library.db", Context.MODE_PRIVATE, null)
         raw.execSQL("""CREATE TABLE tracks(
             id TEXT PRIMARY KEY, uri TEXT NOT NULL UNIQUE, title TEXT NOT NULL, artist TEXT NOT NULL,
             album TEXT NOT NULL, album_artist TEXT NOT NULL, genre TEXT NOT NULL, duration_ms INTEGER NOT NULL,
@@ -210,7 +210,7 @@ class MusicLibraryDatabaseTest {
     }
 
     @Test fun versionTwoDatabaseMigratesWithoutDroppingExistingTracks() {
-        val raw = context.openOrCreateDatabase("cadence_music_library.db", Context.MODE_PRIVATE, null)
+        val raw = context.openOrCreateDatabase("soundprint_music_library.db", Context.MODE_PRIVATE, null)
         raw.execSQL("""CREATE TABLE tracks(
             id TEXT PRIMARY KEY, uri TEXT NOT NULL UNIQUE, title TEXT NOT NULL, artist TEXT NOT NULL,
             album TEXT NOT NULL, album_artist TEXT NOT NULL, genre TEXT NOT NULL, duration_ms INTEGER NOT NULL,

@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -465,7 +465,7 @@ internal fun SongsLibraryScreen(
         AlertDialog(
             onDismissRequest = { confirmEmptyBin = false },
             title = { Text("Empty Recycle Bin?") },
-            text = { Text("This permanently removes the selected tracks from Cadence's library and history. Original audio files on your device are not deleted.") },
+            text = { Text("This permanently removes the selected tracks from Soundprint's library and history. Original audio files on your device are not deleted.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmEmptyBin = false

@@ -1,4 +1,4 @@
-package digital.anchorstudio.cadenceplays
+package digital.anchorstudio.soundprint
 
 import android.content.Context
 import android.media.AudioFormat
@@ -55,7 +55,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
     }
 
     suspend fun analyse(track: MusicTrack): Map<String, Float> {
-        check(audioSession != null && textEmbeddings.size == CadenceMood.entries.size) {
+        check(audioSession != null && textEmbeddings.size == SoundprintMood.entries.size) {
             "The CLAP model has not been prepared."
         }
         val waveform = ClapPcmDecoder(app).decodeCenterWindow(track)
@@ -107,7 +107,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
                     val total = exponentials.sum().coerceAtLeast(1e-12f)
                     val probabilities = exponentials.map { it / total }
                     val highest = probabilities.maxOrNull()?.coerceAtLeast(1e-12f) ?: 1f
-                    CadenceMood.entries.mapIndexed { index, mood ->
+                    SoundprintMood.entries.mapIndexed { index, mood ->
                         mood.id to (probabilities[index] / highest).coerceIn(0f, 1f)
                     }.toMap()
                 }
@@ -121,7 +121,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
         val tokenizer = ClapRobertaTokenizer(files.vocabulary, files.merges)
         val options = OrtSession.SessionOptions().apply { setIntraOpNumThreads(2) }
         environment.createSession(files.textModel.absolutePath, options).use { session ->
-            CadenceMood.entries.map { mood ->
+            SoundprintMood.entries.map { mood ->
                 coroutineContext.ensureActive()
                 val tokenIds = tokenizer.encode(mood.prompt)
                 val ids = OnnxTensor.createTensor(environment, LongBuffer.wrap(tokenIds), longArrayOf(1, tokenIds.size.toLong()))
@@ -154,7 +154,7 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
         java.io.DataInputStream(file.inputStream().buffered()).use { input ->
             if (input.readUTF() != CLAP_MODEL_VERSION) return null
             val count = input.readInt()
-            if (count != CadenceMood.entries.size) return null
+            if (count != SoundprintMood.entries.size) return null
             val dimension = input.readInt()
             List(count) { FloatArray(dimension) { input.readFloat() } }
         }
