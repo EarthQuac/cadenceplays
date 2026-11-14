@@ -673,38 +673,15 @@ fun SoundprintNowPlayingScreen(
                 }
             }
             item {
-                PlayerPanel("Lyrics", onClose = { lyricsExpanded=false }) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick={ findLyrics() }, enabled=!lyricsBusy) { Text(if(lyricsBusy) "Searching…" else "Find lyrics online") }
-                        OutlinedButton(onClick={ lrcPicker.launch(arrayOf("text/plain","application/octet-stream")) }) { Text("Import") }
-                        OutlinedButton(onClick={ lyricsEdit=true; lyricsDraft=lyrics }) { Text("Edit") }
-                        if (lyricLines.isNotEmpty()) OutlinedButton(onClick={ karaoke=true }) { Text("Karaoke") }
-                    }
-                    if (lyricsEdit) {
-                        OutlinedTextField(value=lyricsDraft,onValueChange={lyricsDraft=it},modifier=Modifier.fillMaxWidth().heightIn(min=150.dp),label={Text("Lyrics / LRC")})
-                        Button(onClick={ lyrics=lyricsDraft; lyricsSource="Edited locally"; playerPrefs.edit().putString("lyrics:" + trackId,lyricsDraft).putString("lyrics-source:" + trackId,lyricsSource).apply(); lyricsEdit=false }) { Text("Save lyrics") }
-                    } else if (lyrics.isNotBlank()) {
-                        if (lyricLines.isNotEmpty()) {
-                            LazyColumn(state=lyricListState,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp),contentPadding=PaddingValues(vertical=18.dp,horizontal=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                                itemsIndexed(lyricLines) { index, line ->
-                                    val active = index == activeLyricIndex
-                                    val lineColor by animateColorAsState(if(active) MaterialTheme.colorScheme.primary.copy(alpha=.16f) else Color.Transparent,tween(420,easing=FastOutSlowInEasing),label="lyric-highlight")
-                                    val textColor by animateColorAsState(if(active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.72f),tween(420,easing=FastOutSlowInEasing),label="lyric-color")
-                                    Surface(color=lineColor,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()) {
-                                        Text(line.second.trim().ifBlank { "♪" },modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=10.dp),fontSize=if(active) 17.sp else 14.sp,lineHeight=if(active) 25.sp else 21.sp,fontWeight=if(active) FontWeight.SemiBold else FontWeight.Normal,color=textColor,textAlign=TextAlign.Center)
-                                    }
-                                }
-                            }
-                        } else {
-                            Text(lyrics,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp).verticalScroll(rememberScrollState()),fontSize=13.sp,lineHeight=23.sp,textAlign=TextAlign.Center)
-                        }
-                        Text("Saved on this device · $lyricsSource",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
-                    } else {
-                        Text("Search LRCLIB for synced or plain lyrics, import an LRC file, or add your own. Saved lyrics remain available offline.",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        if(lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
-                    }
-                }
+                SoundprintLyricsPanel(
+                    trackId = trackId,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    duration = duration,
+                    position = position,
+                    seek = { target -> controller?.seekTo(target) }
+                )
             }
             item {
                 Spacer(Modifier.height(18.dp))
@@ -787,16 +764,6 @@ fun SoundprintNowPlayingScreen(
         sleepOpen=false
     }){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
     if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Gapless playback",fontSize=12.sp,fontWeight=FontWeight.Medium);Text("Native playlist transitions are enabled by the playback engine",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("ON",fontSize=10.sp,color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","Pause at the end of the current track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);Text("Blend into the next queued track",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),if(crossfade==0)"Off" else "${crossfade}s"){crossfade=it.removeSuffix("s").toIntOrNull()?:0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
-    if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={
-        Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
-            AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",label="karaoke-previous") { Text(it,fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.55f),textAlign=TextAlign.Center,lineHeight=22.sp) }
-            Surface(color=MaterialTheme.colorScheme.primary.copy(alpha=.12f),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().border(1.dp,MaterialTheme.colorScheme.primary.copy(alpha=.25f),RoundedCornerShape(18.dp))) {
-                AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex)?.second ?: "Waiting for lyrics",label="karaoke-current") { Text(it,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=20.dp),fontSize=27.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center,lineHeight=36.sp) }
-            }
-            AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex+1)?.second ?: "♪",label="karaoke-next") { Text(it,fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.55f),textAlign=TextAlign.Center,lineHeight=22.sp) }
-            Text((activeLyricIndex+1).coerceAtLeast(0).toString() + " / " + lyricLines.size + " lines",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    },confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
     if(auraNotice) AlertDialog(onDismissRequest={auraNotice=false},title={Text("Aura Mode")},text={Text("Aura Mode is temporarily paused. The audio effects and Audio Lab remain in Soundprint; the immersive mode will return later.")},confirmButton={TextButton(onClick={auraNotice=false}){Text("Got it")}})
     if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab · 10-band EQ")},text={Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(3.dp)){val labels=listOf("31 Hz","62 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz");labels.forEachIndexed{index,label->Row(verticalAlignment=Alignment.CenterVertically){Text(label,modifier=Modifier.width(54.dp),fontSize=10.sp);Slider(value=eqLevels[index],onValueChange={v->eqLevels=eqLevels.toMutableList().also{it[index]=v}},valueRange=-1f..1f);Text(if(eqLevels[index]>=0)"+"+String.format("%.1f",eqLevels[index]) else String.format("%.1f",eqLevels[index]),modifier=Modifier.width(30.dp),fontSize=9.sp)}};Text("Bass",fontSize=11.sp);Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble",fontSize=11.sp);Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}},dismissButton={TextButton(onClick={eqLevels=List(10){0f};bass=0f;treble=0f}){Text("Reset")}})
 }
