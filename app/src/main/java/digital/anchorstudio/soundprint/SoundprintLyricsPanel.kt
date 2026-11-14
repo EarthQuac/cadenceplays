@@ -397,7 +397,6 @@ fun SoundprintLyricsPanel(
     Column(
         Modifier.fillMaxWidth().padding(top = 20.dp)
             .clip(RoundedCornerShape(24.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f), RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -732,8 +731,8 @@ fun SoundprintLyricsPanel(
                     }
                 }
                 Button(
-                    onClick = { findLyrics() },
-                    enabled = !loading,
+                    onClick = { discoverCandidates(searchQuery) },
+                    enabled = !loading && searchQuery.isNotBlank(),
                     modifier = Modifier.padding(top = 16.dp),
                     shape = CircleShape,
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
