@@ -655,6 +655,18 @@ fun SoundprintLyricsPanel(
                 if (matches.isNotEmpty()) {
                     Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         matches.forEachIndexed { index, match ->
+                            val evidence = buildList {
+                                if (title.isNotBlank() && match.title.equals(title, true)) add("Title ✓")
+                                else if (title.isNotBlank() && (match.title.contains(title, true) || title.contains(match.title, true))) add("Title similar")
+                                if (artist.isNotBlank() && !artist.equals("Unknown artist", true) && match.artist.equals(artist, true)) add("Artist ✓")
+                                else if (artist.isNotBlank() && !artist.equals("Unknown artist", true) && (match.artist.contains(artist, true) || artist.contains(match.artist, true))) add("Artist similar")
+                                if (album.isNotBlank() && match.album.equals(album, true)) add("Album ✓")
+                                if (duration > 0L && match.durationSeconds > 0.0) {
+                                    val delta = abs(match.durationSeconds - duration / 1000.0)
+                                    if (delta <= 3.0) add("Duration match")
+                                    else add("Duration ${if (match.durationSeconds > duration / 1000.0) "+" else ""}${(match.durationSeconds - duration / 1000.0).toInt()}s")
+                                }
+                            }
                             Column(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                                     .border(1.dp, if (index == 0) Color(0xFF16A36A).copy(alpha = .5f) else MaterialTheme.colorScheme.outline.copy(alpha = .45f), RoundedCornerShape(12.dp))
@@ -669,6 +681,11 @@ fun SoundprintLyricsPanel(
                                     match.artist + (if (match.album.isNotBlank()) " · ${match.album}" else "") +
                                         (if (match.durationSeconds > 0) " · ${soundprintLyricClock((match.durationSeconds * 1000).toLong())}" else ""),
                                     Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    if (evidence.isNotEmpty()) evidence.joinToString(" · ") else "Limited metadata to verify this match",
+                                    Modifier.padding(top = 6.dp), fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     when {
