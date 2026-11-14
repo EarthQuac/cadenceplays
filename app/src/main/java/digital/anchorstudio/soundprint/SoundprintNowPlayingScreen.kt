@@ -381,26 +381,24 @@ fun SoundprintNowPlayingScreen(
                                     Box(
                                         Modifier.align(Alignment.TopEnd)
                                             .padding(end = maxWidth * .15f - 5.dp, top = maxHeight * .08f - 6.dp)
-                                            .size(16.dp).border(2.dp, Color(0xFFD4D4D8), CircleShape)
-                                            .background(Color(0xFF52525B), CircleShape)
+                                            .size(16.dp).background(Color(0xFF52525B), CircleShape)
                                     )
                                 }
                             }
                             Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape)
-                                .border(if (discStyle == PlayerDiscStyle.VINYL) 1.dp else 0.dp, Color.White.copy(alpha = .10f), CircleShape)
                                 .background(discBrush(discStyle, discFinish))
                                 .then(if (spin && playing) Modifier.rotate(rotation) else Modifier),
                                 contentAlignment = Alignment.Center) {
                                 if (discStyle == PlayerDiscStyle.ARTWORK) TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
                                 else Box(Modifier.fillMaxWidth(.34f).aspectRatio(1f).clip(CircleShape)
-                                    .border(4.dp, if (discStyle == PlayerDiscStyle.VINYL) Color.Black.copy(alpha=.70f) else Color.White.copy(alpha=.60f), CircleShape)) {
+                                    .border(4.dp, Color.Black.copy(alpha=.70f), CircleShape)) {
                                     TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
                                 }
                                 if (discStyle == PlayerDiscStyle.VINYL) {
-                                    Box(Modifier.fillMaxSize(.84f).border(1.dp, Color.White.copy(alpha = .10f), CircleShape))
+                                    Box(Modifier.fillMaxSize(.84f))
                                 }
                                 if (discStyle == PlayerDiscStyle.CD) {
-                                    Box(Modifier.fillMaxSize().border(10.dp, Color.White.copy(alpha = .15f), CircleShape))
+                                    Box(Modifier.fillMaxSize())
                                 }
                             }
                         }
@@ -634,7 +632,6 @@ fun SoundprintNowPlayingScreen(
                                 shape = RoundedCornerShape(28.dp),
                                 color = MaterialTheme.colorScheme.background,
                                 tonalElevation = 8.dp,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f))
                             ) {
                                 Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
                 val fileName = track?.uri?.let { runCatching { Uri.parse(it).lastPathSegment.orEmpty() }.getOrDefault("") }.orEmpty()
@@ -750,10 +747,9 @@ fun SoundprintNowPlayingScreen(
                         Text("Find by mood")
                     }
                     Spacer(Modifier.width(8.dp))
-                    OutlinedButton(
+                    TextButton(
                         onClick = { queueOpen = true },
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f)),
+                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = .65f)),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
                     ) {
                         Icon(Icons.Filled.QueueMusic, null, modifier = Modifier.size(15.dp))
@@ -1028,7 +1024,6 @@ private fun SoundprintFloatingDialog(
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
                 ) {
                     Column(Modifier.padding(18.dp)) {
                         Row(
