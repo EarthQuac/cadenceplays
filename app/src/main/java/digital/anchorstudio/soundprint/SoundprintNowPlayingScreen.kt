@@ -10,6 +10,13 @@ import android.media.audiofx.Virtualizer
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.LinearEasing
@@ -21,6 +28,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -47,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -155,9 +164,6 @@ fun SoundprintNowPlayingScreen(
     var sleepMinutes by remember { mutableStateOf("30") }
     val playbackOptionsPrefs = remember { context.getSharedPreferences("soundprint_playback_options", 0) }
     var sleepRemaining by remember { mutableLongStateOf(0L) }
-    var moodOpen by remember { mutableStateOf(false) }
-    var moodStatus by remember { mutableStateOf("") }
-    var moodBusy by remember { mutableStateOf(false) }
     var lyricsExpanded by remember { mutableStateOf(false) }
     var auraNotice by remember { mutableStateOf(false) }
     var aura by remember { mutableStateOf(false) }
@@ -374,6 +380,10 @@ fun SoundprintNowPlayingScreen(
                     IconButton(onClick = { library.toggleFavorite(trackId); favorite = library.isFavorite(trackId) }) {
                         Icon(Icons.Filled.Favorite, "Add to favorites", tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             item {
@@ -461,13 +471,21 @@ fun SoundprintNowPlayingScreen(
                     Text(if (moreOpen) "Less" else "More actions", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Icon(painterResource(R.drawable.lucide_chevron_down), null, modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = if (moreOpen) 180f else 0f }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (moreOpen) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PlayerAction("Share track", R.drawable.lucide_share_2, Modifier.weight(1f)) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
-                        PlayerAction("Restart track", R.drawable.lucide_rotate_ccw, Modifier.weight(1f)) { controller?.seekTo(0L) }
-                        PlayerAction("Playback options", R.drawable.lucide_settings_2, Modifier.weight(1f)) { optionsOpen = true }
-                        PlayerAction("Customize artwork", R.drawable.lucide_disc_3, Modifier.weight(1f)) { customizerOpen = true }
+                AnimatedVisibility(
+                    visible = moreOpen,
+                    enter = fadeIn(tween(180)) + expandVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { -it / 12 },
+                    exit = fadeOut(tween(130)) + shrinkVertically(animationSpec = tween(180)) +
+                        slideOutVertically(animationSpec = tween(180)) { -it / 16 }
+                ) {
+                    Column {
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PlayerAction("Share track", R.drawable.lucide_share_2, Modifier.weight(1f)) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
+                            PlayerAction("Restart track", R.drawable.lucide_rotate_ccw, Modifier.weight(1f)) { controller?.seekTo(0L) }
+                            PlayerAction("Playback options", R.drawable.lucide_settings_2, Modifier.weight(1f)) { optionsOpen = true }
+                            PlayerAction("Customize artwork", R.drawable.lucide_disc_3, Modifier.weight(1f)) { customizerOpen = true }
+                        }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -484,6 +502,30 @@ fun SoundprintNowPlayingScreen(
                 }
             }
             if (infoOpen) item {
+                androidx.compose.ui.window.Dialog(
+                    onDismissRequest = { infoOpen = false },
+                    properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    Box(
+                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable { infoOpen = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(tween(180)) + androidx.compose.animation.scaleIn(initialScale = .96f, animationSpec = tween(220)) +
+                                slideInVertically(animationSpec = tween(220)) { it / 18 }
+                        ) {
+                            Surface(
+                                onClick = {},
+                                modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp).padding(18.dp)
+                                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .82f),
+                                shape = RoundedCornerShape(28.dp),
+                                color = MaterialTheme.colorScheme.background,
+                                tonalElevation = 8.dp,
+                                shadowElevation = 24.dp,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f))
+                            ) {
+                                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
                 val fileName = track?.uri?.let { runCatching { Uri.parse(it).lastPathSegment.orEmpty() }.getOrDefault("") }.orEmpty()
                 val extension = fileName.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase()
                 val mime = track?.mimeType.orEmpty()
@@ -527,13 +569,7 @@ fun SoundprintNowPlayingScreen(
                     "Times played" to (track?.playCount?.toString() ?: "0"),
                     "Folder" to (track?.folder?.takeIf { it.isNotBlank() } ?: "Unknown")
                 )
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 12.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f), RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(16.dp)
-                ) {
+                Column(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Track details", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -574,30 +610,6 @@ fun SoundprintNowPlayingScreen(
                     }
                 }
             }
-            if (moodOpen) item {
-                PlayerPanel("Find by mood", onClose={moodOpen=false}) {
-                    val moods=listOf("workout","chill","focus","late-night","romantic","melancholy")
-                    moods.chunked(2).forEach { pair -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { pair.forEach { mood -> OutlinedButton(onClick={
-                        if (!moodBusy) {
-                            moodBusy=true
-                            moodStatus="Checking your saved audio mood profiles…"
-                            scope.launch {
-                                val matches = withContext(Dispatchers.IO) {
-                                    library.allSongs().filter { it.id != trackId }
-                                        .mapNotNull { candidate -> library.clapMoodProfile(candidate)?.let { candidate to (it.scores[mood] ?: 0f) } }
-                                        .filter { it.second >= .35f }.sortedByDescending { it.second }.take(20).map { it.first }
-                                }
-                                if(matches.isNotEmpty()) withContext(Dispatchers.Main) {
-                                    controller?.addMediaItems((currentIndex+1).coerceAtLeast(0),matches.map { it.toSoundprintMediaItem() })
-                                }
-                                moodStatus=if(matches.isEmpty()) "No saved matches yet. Run Discover scan to analyse more songs." else "Added ${matches.size} mood matches to your queue."
-                                moodBusy=false
-                            }
-                        }
-                    },modifier=Modifier.weight(1f),enabled=!moodBusy){ Text(mood.replaceFirstChar { it.uppercase() },fontSize=11.sp) } } } }
-                    if(moodStatus.isNotBlank()) Text(moodStatus,fontSize=11.sp,color=MaterialTheme.colorScheme.primary)
-                }
-            }
             item {
                 Box(Modifier.bringIntoViewRequester(lyricsPanelRequester)) {
                     SoundprintLyricsPanel(
@@ -616,7 +628,7 @@ fun SoundprintNowPlayingScreen(
             item {
                 Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    OutlinedButton(onClick = { moodOpen = !moodOpen }) {
+                    OutlinedButton(onClick = { /* Find by mood is intentionally paused for this UI pass. */ }) {
                         Icon(Icons.Filled.Psychology, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Find by mood")
@@ -920,20 +932,27 @@ private fun ArtworkCustomizerDialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Box(
-                Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = .45f))
-                    .clickable(onClick = onDismiss)
-            )
-            Column(
-                Modifier.fillMaxWidth().widthIn(max = 448.dp)
-                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f)
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(MaterialTheme.colorScheme.background)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .padding(16.dp)
+        Box(
+            Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(180)) +
+                    androidx.compose.animation.scaleIn(initialScale = .96f, animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                    slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 18 }
             ) {
+                Surface(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp).padding(18.dp)
+                        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f),
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 26.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
+                ) {
+                    Column(Modifier.padding(16.dp)) {
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1034,6 +1053,7 @@ private fun ArtworkCustomizerDialog(
                         Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
+                    }
                 }
             }
         }
