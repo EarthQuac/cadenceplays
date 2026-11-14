@@ -448,6 +448,7 @@ fun ClapDiscoverScreen(
                 if (currentIds != knownTrackIds) scanner.startScan()
             } else {
                 profiles = profiles.filterKeys { it in currentIds }
+                if (currentIds != knownTrackIds) scanner.startScan()
             }
             tracks = refreshedTracks
             knownTrackIds = currentIds
