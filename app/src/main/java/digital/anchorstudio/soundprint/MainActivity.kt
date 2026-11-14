@@ -600,7 +600,7 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(R.drawable.soundprint_icon),
+                painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
             )
@@ -693,7 +693,7 @@ private fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Image(painterResource(R.drawable.soundprint_icon), "Soundprint", Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
+                Image(painterResource(R.drawable.ic_launcher_foreground), "Soundprint", Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("YOUR LIBRARY", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
