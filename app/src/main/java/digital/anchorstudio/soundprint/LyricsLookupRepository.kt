@@ -17,6 +17,16 @@ data class LyricsLookupResult(
     val matchedAlbum: String
 )
 
+data class LyricsLookupCandidate(
+    val title: String,
+    val artist: String,
+    val album: String,
+    val durationSeconds: Double,
+    val syncedLyrics: String?,
+    val plainLyrics: String?,
+    val provider: String = "LRCLIB"
+)
+
 /**
  * LRCLIB client. Network access stays outside Compose; callers should invoke this
  * from Dispatchers.IO. Synced LRC is preferred, with plain lyrics as a fallback.
@@ -61,6 +71,37 @@ class LyricsLookupRepository(
             candidates += score to parsed
         }
         return candidates.maxByOrNull { it.first }?.second
+    }
+
+    fun discover(query: String): List<LyricsLookupCandidate> {
+        if (query.isBlank()) return emptyList()
+        val variants = linkedSetOf(query.trim(), "${query.trim()} soundtrack")
+        val found = linkedMapOf<String, LyricsLookupCandidate>()
+        variants.forEach { variant ->
+            runCatching {
+                val results = requestJsonArray(baseUrl.trimEnd('/') + "/search?q=" + encode(variant))
+                for (i in 0 until results.length()) {
+                    val item = results.optJSONObject(i) ?: continue
+                    val title = item.optString("trackName").trim()
+                    val artist = item.optString("artistName").trim()
+                    if (title.isBlank() || artist.isBlank()) continue
+                    val candidate = LyricsLookupCandidate(
+                        title = title,
+                        artist = artist,
+                        album = item.optString("albumName"),
+                        durationSeconds = item.optDouble("duration", 0.0).coerceAtLeast(0.0),
+                        syncedLyrics = item.optString("syncedLyrics").takeIf { it.isNotBlank() },
+                        plainLyrics = item.optString("plainLyrics").takeIf { it.isNotBlank() }
+                    )
+                    val key = normalize(title) + "|" + normalize(artist) + "|" + normalize(candidate.album)
+                    found.putIfAbsent(key, candidate)
+                }
+            }
+        }
+        return found.values.sortedWith(
+            compareByDescending<LyricsLookupCandidate> { it.syncedLyrics != null }
+                .thenByDescending { it.plainLyrics != null }
+        ).take(10)
     }
 
     private fun score(
