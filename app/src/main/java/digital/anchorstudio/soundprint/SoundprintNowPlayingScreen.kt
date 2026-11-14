@@ -158,10 +158,8 @@ fun SoundprintNowPlayingScreen(
     var bass by remember { mutableFloatStateOf(0f) }
     var treble by remember { mutableFloatStateOf(0f) }
     var eqLevels by remember { mutableStateOf(List(10) { 0f }) }
-    var gapless by remember { mutableStateOf(playbackOptionsPrefs.getBoolean("gapless", true)) }
     var loudness by remember { mutableStateOf(false) }
     var stopAfterCurrent by remember { mutableStateOf(playbackOptionsPrefs.getBoolean("stop_after_current", false)) }
-    var crossfade by remember { mutableIntStateOf(playbackOptionsPrefs.getInt("crossfade_seconds", 0)) }
 
     // The service owns the timer, not this screen. Its absolute deadline survives
     // navigation away from Now Playing and fades the audio before pausing.
@@ -174,12 +172,6 @@ fun SoundprintNowPlayingScreen(
     }
     LaunchedEffect(stopAfterCurrent) {
         playbackOptionsPrefs.edit().putBoolean("stop_after_current", stopAfterCurrent).apply()
-    }
-    LaunchedEffect(gapless) {
-        playbackOptionsPrefs.edit().putBoolean("gapless", gapless).apply()
-    }
-    LaunchedEffect(crossfade) {
-        playbackOptionsPrefs.edit().putInt("crossfade_seconds", crossfade).apply()
     }
 
     val progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
@@ -588,7 +580,7 @@ fun SoundprintNowPlayingScreen(
         sleepRemaining=0L
         sleepOpen=false
     }){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
-    if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){PlayerToggle("Gapless playback","Use seamless native playlist transitions",gapless){gapless=it};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","Pause at the end of the current track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);Text("Crossfade mixing is not active yet. Duration choices are temporarily unavailable until the dual-player audio mixer is connected.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),"${crossfade}s"){crossfade=0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
+    if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Gapless playback",fontSize=12.sp,fontWeight=FontWeight.Medium);Text("Native playlist transitions are enabled by the playback engine",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("ON",fontSize=10.sp,color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","Pause at the end of the current track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);Text("Off · Audio crossfading needs a second synchronized player. The old duration selector has been removed rather than pretending it works.",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
     if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={
         Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
             AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",label="karaoke-previous") { Text(it,fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.55f),textAlign=TextAlign.Center,lineHeight=22.sp) }
