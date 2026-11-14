@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.EnvironmentalReverb
+import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -293,6 +294,24 @@ fun SoundprintNowPlayingScreen(
     LaunchedEffect(aura, auraPreset) {
         controller?.setPlaybackSpeed(if (aura && auraPreset == "Slowed + Reverb") 0.85f else 1f)
     }
+    DisposableEffect(controller?.audioSessionId, audioLabOpen, bass, treble) {
+        val sessionId = controller?.audioSessionId ?: 0
+        var equalizer: Equalizer? = null
+        if (audioLabOpen && sessionId > 0) runCatching {
+            Equalizer(0, sessionId).also { eq ->
+                eq.enabled = true
+                val range = eq.bandLevelRange
+                for (band in 0 until eq.numberOfBands) {
+                    val frequency = eq.getCenterFreq(band.toShort()) / 1000
+                    val adjustment = if (frequency < 250) bass else if (frequency > 5000) treble else 0f
+                    val level = (adjustment * range[1].toFloat()).toInt().coerceIn(range[0].toInt(), range[1].toInt())
+                    eq.setBandLevel(band.toShort(), level.toShort())
+                }
+                equalizer = eq
+            }
+        }
+        onDispose { runCatching { equalizer?.release() } }
+    }
 
     if (aura) {
         AuraListeningStage(
@@ -464,7 +483,8 @@ fun SoundprintNowPlayingScreen(
             item {
                 PlayerPanel("Lyrics", onClose = { lyricsExpanded=false }) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick={ findLyrics() }, enabled=!lyricsBusy) { Text(if(lyricsBusy) "Searching…" else "Find lyrics online") }\n                        OutlinedButton(onClick={ lrcPicker.launch(arrayOf("text/plain","application/octet-stream")) }) { Text("Import") }
+                        OutlinedButton(onClick={ findLyrics() }, enabled=!lyricsBusy) { Text(if(lyricsBusy) "Searching…" else "Find lyrics online") }
+                        OutlinedButton(onClick={ lrcPicker.launch(arrayOf("text/plain","application/octet-stream")) }) { Text("Import") }
                         OutlinedButton(onClick={ lyricsEdit=true; lyricsDraft=lyrics }) { Text("Edit") }
                         if (lyricLines.isNotEmpty()) OutlinedButton(onClick={ karaoke=true }) { Text("Karaoke") }
                     }
@@ -477,6 +497,20 @@ fun SoundprintNowPlayingScreen(
                     } else {
                         Text("Fetch lyrics, import an LRC file, or add your own. Saved lyrics remain available offline.",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         if(lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
+                    }
+                }
+            }
+            item {
+                Spacer(Modifier.height(18.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    OutlinedButton(onClick = { moodOpen = !moodOpen }) {
+                        Icon(Icons.Filled.Psychology, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Find by mood")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(onClick = { /* queue preview is directly below */ }) {
+                        Text("Queue · " + queueTracks.size)
                     }
                 }
             }
