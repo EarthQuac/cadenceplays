@@ -131,9 +131,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             val now = SystemClock.elapsedRealtime()
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
             applyPlaybackOptions()
-            if (player.isPlaying || playbackOptions.getLong(KEY_SLEEP_ENDS_AT, 0L) > 0L) {
-                handler.postDelayed(this, SAMPLE_INTERVAL_MS)
-            }
+            handler.postDelayed(this, SAMPLE_INTERVAL_MS)
         }
     }
 
