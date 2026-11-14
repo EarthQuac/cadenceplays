@@ -104,6 +104,100 @@ class LyricsLookupRepository(
         ).take(10)
     }
 
+    fun fetchWordTimedLyrics(
+        title: String,
+        artist: String,
+        album: String = "",
+        durationMs: Long = 0L
+    ): String? {
+        val params = buildList {
+            add("s" to title)
+            add("a" to artist)
+            if (album.isNotBlank() && album != "Unknown") add("al" to album)
+            if (durationMs > 0L) add("d" to (durationMs / 1000L).toString())
+        }.joinToString("&") { encode(it.first) + "=" + encode(it.second) }
+
+        fun providerTime(value: String): Double? {
+            val clean = value.trim().removeSuffix("s")
+            val parts = clean.split(":")
+            val seconds = when (parts.size) {
+                3 -> (parts[0].toDoubleOrNull() ?: return null) * 3600.0 +
+                    (parts[1].toDoubleOrNull() ?: return null) * 60.0 + (parts[2].toDoubleOrNull() ?: return null)
+                2 -> (parts[0].toDoubleOrNull() ?: return null) * 60.0 + (parts[1].toDoubleOrNull() ?: return null)
+                else -> clean.toDoubleOrNull() ?: return null
+            }
+            return seconds.takeIf { it >= 0.0 }
+        }
+        fun stamp(seconds: Double): String {
+            val cs = (seconds * 100.0).toLong().coerceAtLeast(0L)
+            return "[%02d:%02d.%02d]".format(cs / 6000L, (cs % 6000L) / 100L, cs % 100L)
+        }
+        fun cleanText(value: String): String = value
+            .replace(Regex("<[^>]+>"), "")
+            .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            .replace("&quot;", "\"").replace("&apos;", "'")
+            .replace("&#39;", "'").replace("&#x27;", "'")
+            .trim()
+
+        runCatching {
+            val payload = JSONObject(request("https://api.betterlyrics.org/ttml/getLyrics?$params"))
+            val ttml = payload.optString("lyrics").ifBlank { payload.optString("ttml") }
+            if (ttml.isNotBlank()) {
+                val paragraphRegex = Regex("""(?is)<p\\b[^>]*\\bbegin\\s*=\\s*["']([^"']+)["'][^>]*>(.*?)</p>""")
+                val spanRegex = Regex("""(?is)<span\\b[^>]*\\bbegin\\s*=\\s*["']([^"']+)["'][^>]*>(.*?)</span>""")
+                val rows = paragraphRegex.findAll(ttml).mapNotNull { paragraph ->
+                    val lineTime = providerTime(paragraph.groupValues[1]) ?: return@mapNotNull null
+                    val body = paragraph.groupValues[2]
+                    val spans = spanRegex.findAll(body).toList()
+                    if (spans.isEmpty()) return@mapNotNull null
+                    val words = mutableListOf<Pair<Double, String>>()
+                    var cursor = 0
+                    spans.forEach { span ->
+                        val gap = cleanText(body.substring(cursor, span.range.first))
+                        if (gap.isNotEmpty() && words.isNotEmpty()) {
+                            val last = words.removeAt(words.lastIndex)
+                            words += last.first to (last.second + gap)
+                        }
+                        val wordTime = providerTime(span.groupValues[1])
+                        val wordText = cleanText(span.groupValues[2])
+                        if (wordTime != null && wordText.isNotEmpty()) words += wordTime to wordText
+                        cursor = span.range.last + 1
+                    }
+                    if (words.isEmpty()) null
+                    else stamp(lineTime) + words.joinToString("") { (time, word) -> stamp(time).removePrefix("[").removeSuffix("]") .let { "<$it>$word" } }
+                }.toList()
+                if (rows.isNotEmpty()) return rows.joinToString("\\n")
+            }
+        }
+
+        runCatching {
+            val payload = JSONObject(request("https://api.betterlyrics.org/qq/getLyrics?$params"))
+            val xml = payload.optString("lyrics")
+            val content = Regex("""(?is)<Lyric_1[^>]*LyricContent=["'](.*?)["']""").find(xml)?.groupValues?.get(1)
+                ?.replace("&quot;", "\"")?.replace("&amp;", "&")?.replace("&lt;", "<")?.replace("&gt;", ">")
+                ?: return@runCatching null
+            val rows = content.lineSequence().mapNotNull { raw ->
+                val header = Regex("""^\\[(\\d+),(\\d+)]""").find(raw) ?: return@mapNotNull null
+                val lineStart = (header.groupValues[1].toLongOrNull() ?: 0L) / 1000.0
+                val rest = raw.substring(header.range.last + 1)
+                val wordRegex = Regex("""\\((\\d+),(\\d+)\\)""")
+                val matches = wordRegex.findAll(rest).toList()
+                if (matches.isEmpty()) return@mapNotNull null
+                val words = matches.mapIndexedNotNull { index, match ->
+                    val end = matches.getOrNull(index + 1)?.range?.first ?: rest.length
+                    val text = rest.substring(match.range.last + 1, end)
+                    val time = (match.groupValues[1].toLongOrNull() ?: 0L) / 1000.0
+                    text.takeIf { it.isNotEmpty() }?.let { time to it }
+                }
+                stamp(lineStart) + words.joinToString("") { (time, word) ->
+                    stamp(time).removePrefix("[").removeSuffix("]").let { "<$it>$word" }
+                }
+            }.toList()
+            if (rows.isNotEmpty()) return rows.joinToString("\\n")
+        }
+        return null
+    }
+
     private fun score(
         item: JSONObject,
         title: String,
