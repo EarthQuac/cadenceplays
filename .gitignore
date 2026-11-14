@@ -1,0 +1,6 @@
+# Gradle
+.gradle/
+**/build/
+
+# Generated model weights are fetched and checksum-verified during builds.
+clapmodels/src/main/assets/clap/
