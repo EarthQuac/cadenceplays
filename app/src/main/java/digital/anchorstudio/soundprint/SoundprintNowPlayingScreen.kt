@@ -52,10 +52,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URLEncoder
-import java.net.URL
 import kotlin.math.max
 import kotlin.math.min
 
@@ -202,57 +198,36 @@ fun SoundprintNowPlayingScreen(
         }.sortedBy { it.first }
     }
     val activeLyricIndex = lyricLines.indexOfLast { it.first <= position }
+    val lyricsLookup = remember { LyricsLookupRepository() }
     fun findLyrics() {
         if (lyricsBusy) return
+        if (title.isBlank() || artist.isBlank()) {
+            lyricsError = "Song title and artist are needed before searching."
+            return
+        }
         lyricsBusy = true
         lyricsError = ""
+        val requestedTrackId = trackId
+        val requestedTitle = title
+        val requestedArtist = artist
+        val requestedAlbum = album
+        val requestedDuration = duration
         scope.launch {
             try {
                 val found = withContext(Dispatchers.IO) {
-                    val query = URLEncoder.encode(title + " " + artist, "UTF-8")
-                    val connection = (URL("https://lrclib.net/api/search?q=" + query).openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 9000
-                        readTimeout = 9000
-                        requestMethod = "GET"
-                        setRequestProperty("Accept", "application/json")
-                        setRequestProperty("User-Agent", "Soundprint Android Music Player")
-                    }
-                    try {
-                        val body = connection.inputStream.bufferedReader().use { it.readText() }
-                        val results = org.json.JSONArray(body)
-                        var bestText: String? = null
-                        var bestSource = ""
-                        var bestScore = -1
-                        for (index in 0 until results.length()) {
-                            val item = results.optJSONObject(index) ?: continue
-                            val foundTitle = item.optString("trackName")
-                            val foundArtist = item.optString("artistName")
-                            val score = (if (foundTitle.equals(title, true)) 4 else 0) +
-                                (if (foundArtist.equals(artist, true)) 4 else 0) +
-                                (if (item.optString("syncedLyrics").isNotBlank()) 1 else 0)
-                            val text = item.optString("syncedLyrics").takeIf(String::isNotBlank)
-                                ?: item.optString("plainLyrics").takeIf(String::isNotBlank)
-                            if (text != null && score > bestScore) {
-                                bestText = text
-                                bestSource = "LRCLIB · " + foundArtist
-                                bestScore = score
-                            }
-                        }
-                        if (bestText != null) bestText to bestSource else null
-                    } finally {
-                        connection.disconnect()
-                    }
+                    lyricsLookup.search(requestedTitle, requestedArtist, requestedAlbum, requestedDuration)
                 }
+                if (trackId != requestedTrackId) return@launch
                 if (found == null) {
-                    lyricsError = "Lyrics weren't found. Check the song title and artist, or import an LRC file."
+                    lyricsError = "No lyrics matched this track. Check its title and artist, or import an LRC file."
                 } else {
-                    lyrics = found.first
-                    lyricsSource = found.second
-                    playerPrefs.edit().putString("lyrics:" + trackId, lyrics)
-                        .putString("lyrics-source:" + trackId, lyricsSource).apply()
+                    lyrics = found.lyrics
+                    lyricsSource = found.source + if (found.synced) " · Synced" else " · Plain text"
+                    playerPrefs.edit().putString("lyrics:" + requestedTrackId, found.lyrics)
+                        .putString("lyrics-source:" + requestedTrackId, lyricsSource).apply()
                 }
             } catch (error: Exception) {
-                lyricsError = error.message ?: "Couldn't fetch lyrics. Check your connection."
+                if (trackId == requestedTrackId) lyricsError = error.message ?: "Couldn't reach LRCLIB. Check your connection and try again."
             } finally {
                 lyricsBusy = false
             }
@@ -521,8 +496,9 @@ fun SoundprintNowPlayingScreen(
                     } else if (lyrics.isNotBlank()) {
                         Text(lyrics,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp).verticalScroll(rememberScrollState()),fontSize=13.sp,lineHeight=23.sp,textAlign=TextAlign.Center)
                         Text("Saved on this device · $lyricsSource",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
                     } else {
-                        Text("Fetch lyrics, import an LRC file, or add your own. Saved lyrics remain available offline.",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Search LRCLIB for synced or plain lyrics, import an LRC file, or add your own. Saved lyrics remain available offline.",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         if(lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
                     }
                 }
