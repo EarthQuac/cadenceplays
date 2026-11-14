@@ -376,9 +376,11 @@ class MainActivity : ComponentActivity() {
                     onBackup = { backupSaver.launch("soundprint-library-backup.json") },
                     onRestore = { backupOpener.launch(arrayOf("application/json")) },
                     onClearLibrary = {
-                        libraryManager.clearAllLibraryData()
-                        refreshLibraryState()
-                        libraryStatus = "Library cleared. Your original audio files are still on your device and can be imported again."
+                        scope.launch {
+                            withContext(Dispatchers.IO) { libraryManager.clearAllLibraryData() }
+                            refreshLibraryState()
+                            libraryStatus = "Library cleared. Your original audio files are still on your device and can be imported again."
+                        }
                     }
                 )
                 }
