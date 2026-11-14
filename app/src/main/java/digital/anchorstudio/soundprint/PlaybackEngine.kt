@@ -100,6 +100,8 @@ fun MusicTrack.toSoundprintMediaItem(): MediaItem {
 @UnstableApi
 class SoundprintPlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
+    private lateinit var standbyPlayer: ExoPlayer
+    private lateinit var servicePlayerListener: Player.Listener
     private lateinit var mediaSession: MediaSession
     private lateinit var queueStore: PlaybackQueueStore
     private lateinit var library: MusicLibraryManager
@@ -112,6 +114,14 @@ class SoundprintPlaybackService : MediaSessionService() {
     }
     private var sleepFadeStartedAt = 0L
     private var sleepLastEndAt = 0L
+    private var crossfadePending = false
+    private var crossfadeActive = false
+    private var crossfadeNextIndex = C.INDEX_UNSET
+    private var crossfadeSourceIndex = C.INDEX_UNSET
+    private var crossfadeStartElapsedMs = 0L
+    private var crossfadeDurationMs = 0L
+    private var crossfadeBaseVolume = 1f
+    private var crossfadeQueueItems: List<MediaItem> = emptyList()
     private var activeTrackId: String? = null
     private var activeOccurrenceKey: String? = null
     private var activeMediaIndex = -1
@@ -131,6 +141,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             val now = SystemClock.elapsedRealtime()
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
             applyPlaybackOptions()
+            prepareOrCheckCrossfade()
             handler.postDelayed(this, SAMPLE_INTERVAL_MS)
         }
     }
@@ -147,9 +158,13 @@ class SoundprintPlaybackService : MediaSessionService() {
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
+        standbyPlayer = ExoPlayer.Builder(this)
+            .setAudioAttributes(audioAttributes, false)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
         mediaSession = MediaSession.Builder(this, player).build()
         handler.post(maintenance)
-        player.addListener(object : Player.Listener {
+        servicePlayerListener = object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val nextId = mediaItem?.mediaId?.takeIf(String::isNotBlank)
                 val previousId = activeTrackId
@@ -181,7 +196,7 @@ class SoundprintPlaybackService : MediaSessionService() {
                     lastSamplePositionMs = player.currentPosition.coerceAtLeast(0L)
                     lastSampleElapsedMs = SystemClock.elapsedRealtime()
                 } else {
-                    handler.removeCallbacks(maintenance)
+                    if (!crossfadeActive) cancelCrossfade(restoreVolume = true)
                     flushListeningTime()
                     lastSampleElapsedMs = 0L
                 }
@@ -207,7 +222,8 @@ class SoundprintPlaybackService : MediaSessionService() {
                 flushListeningTime()
                 persistQueue()
             }
-        })
+        }
+        player.addListener(servicePlayerListener)
         serviceScope.launch {
             val tracks = withContext(Dispatchers.IO) { library.allSongs() }
             withContext(Dispatchers.Main) { restoreQueue(tracks) }
@@ -228,8 +244,147 @@ class SoundprintPlaybackService : MediaSessionService() {
         persistQueue()
         if (::mediaSession.isInitialized) mediaSession.release()
         if (::player.isInitialized) player.release()
+        if (::standbyPlayer.isInitialized) standbyPlayer.release()
         drainListeningWrites()
         super.onDestroy()
+    }
+
+    private fun prepareOrCheckCrossfade() {
+        if (!::player.isInitialized || !::standbyPlayer.isInitialized) return
+        if (crossfadeActive) return
+        if (crossfadePending) {
+            if (player.currentMediaItemIndex != crossfadeSourceIndex) {
+                cancelCrossfade(restoreVolume = true)
+                return
+            }
+            if (standbyPlayer.playbackState == Player.STATE_READY && standbyPlayer.playWhenReady.not()) {
+                runCatching {
+                    standbyPlayer.volume = 0f
+                    standbyPlayer.play()
+                    crossfadeActive = true
+                    crossfadePending = false
+                    crossfadeStartElapsedMs = SystemClock.elapsedRealtime()
+                    handler.removeCallbacks(crossfadeTicker)
+                    handler.post(crossfadeTicker)
+                }.onFailure {
+                    Log.w("SoundprintPlayback", "Crossfade could not start; continuing with the normal playlist transition.", it)
+                    cancelCrossfade(restoreVolume = true)
+                }
+            }
+            return
+        }
+
+        val fadeSeconds = playbackOptions.getInt(KEY_CROSSFADE_SECONDS, 0).coerceIn(0, 8)
+        if (fadeSeconds <= 0 || !player.isPlaying || player.shuffleModeEnabled ||
+            player.repeatMode == Player.REPEAT_MODE_ONE ||
+            playbackOptions.getBoolean(KEY_STOP_AFTER_CURRENT, false) ||
+            playbackOptions.getLong(KEY_SLEEP_ENDS_AT, 0L) > 0L
+        ) return
+        val duration = player.duration
+        if (duration <= 0L || duration == C.TIME_UNSET) return
+        val nextIndex = player.nextMediaItemIndex
+        if (nextIndex == C.INDEX_UNSET || nextIndex !in 0 until player.mediaItemCount) return
+        val remaining = duration - player.currentPosition
+        val fadeMs = fadeSeconds * 1000L
+        if (remaining <= 0L || remaining > fadeMs) return
+
+        crossfadeQueueItems = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
+        crossfadeSourceIndex = player.currentMediaItemIndex
+        crossfadeNextIndex = nextIndex
+        crossfadeDurationMs = minOf(fadeMs, remaining)
+        crossfadeBaseVolume = player.volume.coerceIn(0f, 1f)
+        runCatching {
+            standbyPlayer.stop()
+            standbyPlayer.clearMediaItems()
+            standbyPlayer.shuffleModeEnabled = false
+            standbyPlayer.repeatMode = player.repeatMode
+            standbyPlayer.setMediaItems(crossfadeQueueItems, nextIndex, 0L)
+            standbyPlayer.volume = 0f
+            standbyPlayer.prepare()
+            crossfadePending = true
+        }.onFailure {
+            Log.w("SoundprintPlayback", "Could not preload the next track for crossfade.", it)
+            cancelCrossfade(restoreVolume = true)
+        }
+    }
+
+    private val crossfadeTicker = object : Runnable {
+        override fun run() {
+            if (!crossfadeActive || !::player.isInitialized || !::standbyPlayer.isInitialized) return
+            val progress = ((SystemClock.elapsedRealtime() - crossfadeStartElapsedMs).toFloat() /
+                crossfadeDurationMs.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
+            player.volume = crossfadeBaseVolume * (1f - progress)
+            standbyPlayer.volume = crossfadeBaseVolume * progress
+            if (progress >= 1f) {
+                completeCrossfade()
+            } else {
+                handler.postDelayed(this, CROSSFADE_TICK_MS)
+            }
+        }
+    }
+
+    private fun completeCrossfade() {
+        if (!crossfadeActive) return
+        val outgoing = player
+        val incoming = standbyPlayer
+        val position = incoming.currentPosition.coerceAtLeast(0L)
+        val nextIndex = crossfadeNextIndex
+        val queueItems = crossfadeQueueItems
+        runCatching {
+            outgoing.pause()
+            outgoing.volume = 0f
+            outgoing.removeListener(servicePlayerListener)
+            mediaSession.setPlayer(incoming)
+            player = incoming
+            standbyPlayer = outgoing
+            player.addListener(servicePlayerListener)
+            player.volume = crossfadeBaseVolume
+            standbyPlayer.volume = 0f
+            standbyPlayer.stop()
+            standbyPlayer.clearMediaItems()
+            standbyPlayer.shuffleModeEnabled = false
+            standbyPlayer.repeatMode = player.repeatMode
+            standbyPlayer.setMediaItems(queueItems, nextIndex, position)
+            standbyPlayer.prepare()
+
+            flushListeningTime()
+            activeTrackId = player.currentMediaItem?.mediaId
+            activeMediaIndex = player.currentMediaItemIndex
+            lastTrackDurationMs = player.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0L) ?: 0L
+            transitionSequence += 1L
+            activeOccurrenceKey = activeTrackId?.let { "$transitionSequence:$activeMediaIndex:$it" }
+            recordedOccurrenceKey = null
+            lastSamplePositionMs = position
+            lastSampleElapsedMs = SystemClock.elapsedRealtime()
+            recordCurrentPlayIfNeeded()
+            persistQueue()
+        }.onFailure {
+            Log.e("SoundprintPlayback", "Crossfade handover failed.", it)
+            runCatching { mediaSession.setPlayer(outgoing) }
+            player = outgoing
+            standbyPlayer = incoming
+            player.volume = 1f
+            standbyPlayer.pause()
+        }
+        crossfadeActive = false
+        crossfadePending = false
+        crossfadeNextIndex = C.INDEX_UNSET
+        crossfadeSourceIndex = C.INDEX_UNSET
+        crossfadeQueueItems = emptyList()
+        handler.removeCallbacks(crossfadeTicker)
+    }
+
+    private fun cancelCrossfade(restoreVolume: Boolean) {
+        handler.removeCallbacks(crossfadeTicker)
+        if (::standbyPlayer.isInitialized) {
+            runCatching { standbyPlayer.pause(); standbyPlayer.volume = 0f; standbyPlayer.stop(); standbyPlayer.clearMediaItems() }
+        }
+        if (restoreVolume && ::player.isInitialized) player.volume = 1f
+        crossfadePending = false
+        crossfadeActive = false
+        crossfadeNextIndex = C.INDEX_UNSET
+        crossfadeSourceIndex = C.INDEX_UNSET
+        crossfadeQueueItems = emptyList()
     }
 
     /**
@@ -244,6 +399,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         // Stop-after-current deliberately pauses at the end boundary instead.
         player.pauseAtEndOfMediaItems = stopAfterCurrent
 
+        if (endAt > 0L && (crossfadePending || crossfadeActive)) cancelCrossfade(restoreVolume = true)
         if (endAt <= 0L) {
             sleepFadeStartedAt = 0L
             sleepLastEndAt = 0L
@@ -418,8 +574,10 @@ class SoundprintPlaybackService : MediaSessionService() {
         const val PERSIST_INTERVAL_MS = 5_000L
         const val LISTENING_FLUSH_MS = 10_000L
         const val SLEEP_FADE_MS = 15_000L
+        const val CROSSFADE_TICK_MS = 50L
         const val KEY_SLEEP_ENDS_AT = "sleep_ends_at"
         const val KEY_STOP_AFTER_CURRENT = "stop_after_current"
+        const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
     }
 }
 
