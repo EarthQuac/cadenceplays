@@ -768,7 +768,7 @@ fun SoundprintNowPlayingScreen(
         onDismissRequest = { optionsOpen = false },
         title = "Playback options",
         subtitle = "Fine-tune how your music plays.",
-        maxWidth = 380.dp,
+        maxWidth = 360.dp,
         actions = {
             Spacer(Modifier.weight(1f))
             Button(onClick = { optionsOpen = false }) { Text("Done") }
@@ -854,7 +854,7 @@ private fun SoundprintFloatingDialog(
     onDismissRequest: () -> Unit,
     title: String,
     subtitle: String? = null,
-    maxWidth: androidx.compose.ui.unit.Dp = 380.dp,
+    maxWidth: androidx.compose.ui.unit.Dp = 360.dp,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -877,7 +877,7 @@ private fun SoundprintFloatingDialog(
             ) {
                 Surface(
                     onClick = {},
-                    modifier = Modifier.fillMaxWidth().widthIn(max = maxWidth).padding(18.dp).shadow(26.dp, RoundedCornerShape(28.dp))
+                    modifier = Modifier.fillMaxWidth().widthIn(max = maxWidth).padding(16.dp).shadow(26.dp, RoundedCornerShape(28.dp))
                         .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .82f),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface,
