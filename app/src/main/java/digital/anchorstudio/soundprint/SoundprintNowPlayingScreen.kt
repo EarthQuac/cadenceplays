@@ -13,6 +13,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -37,15 +41,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -323,6 +331,11 @@ fun SoundprintNowPlayingScreen(
 
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        if (ambientGlow && artwork != null) {
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().fillMaxHeight(.55f).alpha(.25f)) {
+                TrackArtwork(artwork, title, Modifier.fillMaxSize().blur(42.dp))
+            }
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
@@ -341,10 +354,22 @@ fun SoundprintNowPlayingScreen(
             item {
                 Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) {
                     if (ambientGlow) {
-                        Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape).background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .20f), Color.Transparent))))
+                        Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .20f), Color.Transparent))))
                     }
+                    val rotationTransition = rememberInfiniteTransition(label = "vinyl-rotation")
+                    val rotation by rotationTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 360f,
+                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                            animation = tween(durationMillis = spinSpeed * 1000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "vinyl-angle"
+                    )
                     Box(
                         Modifier.widthIn(max = 384.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(24.dp))
                             .background(Brush.linearGradient(listOf(PlayerSurface2, MaterialTheme.colorScheme.background, PlayerSurface)))
                             .clickable { customizerOpen = true },
                         contentAlignment = Alignment.Center
@@ -352,17 +377,39 @@ fun SoundprintNowPlayingScreen(
                         if (discStyle == PlayerDiscStyle.NONE) {
                             TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)))
                         } else {
-                            Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape)
-                                .background(discBrush(discStyle, discFinish))
-                                .then(if (spin && playing) Modifier.rotate((position / 1000f * 360f / spinSpeed).rem(360f)) else Modifier),
-                                contentAlignment = Alignment.Center) {
-                                if (discStyle == PlayerDiscStyle.ARTWORK) TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
-                                else Box(Modifier.fillMaxWidth(.35f).aspectRatio(1f).clip(CircleShape).border(4.dp, Color.Black.copy(alpha=.65f), CircleShape)) {
-                                    TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
+                            if (discStyle == PlayerDiscStyle.VINYL && tonearm) {
+                                BoxWithConstraints(Modifier.fillMaxSize()) {
+                                    Box(
+                                        Modifier.align(Alignment.TopEnd)
+                                            .padding(end = maxWidth * .15f, top = maxHeight * .08f)
+                                            .width(5.dp).height(maxHeight * .37f)
+                                            .rotate(24f).clip(CircleShape)
+                                            .background(Brush.verticalGradient(listOf(Color(0xFFE4E4E7), Color(0xFFA1A1AA), Color(0xFF3F3F46))))
+                                    )
+                                    Box(
+                                        Modifier.align(Alignment.TopEnd)
+                                            .padding(end = maxWidth * .15f - 5.dp, top = maxHeight * .08f - 6.dp)
+                                            .size(16.dp).border(2.dp, Color(0xFFD4D4D8), CircleShape)
+                                            .background(Color(0xFF52525B), CircleShape)
+                                    )
                                 }
                             }
-                            if (discStyle == PlayerDiscStyle.VINYL && tonearm) {
-                                Box(Modifier.align(Alignment.TopEnd).padding(end = 50.dp, top = 24.dp).width(5.dp).height(130.dp).rotate(24f).clip(CircleShape).background(Color.LightGray))
+                            Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape)
+                                .border(if (discStyle == PlayerDiscStyle.VINYL) 1.dp else 0.dp, Color.White.copy(alpha = .10f), CircleShape)
+                                .background(discBrush(discStyle, discFinish))
+                                .then(if (spin && playing) Modifier.rotate(rotation) else Modifier),
+                                contentAlignment = Alignment.Center) {
+                                if (discStyle == PlayerDiscStyle.ARTWORK) TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
+                                else Box(Modifier.fillMaxWidth(.34f).aspectRatio(1f).clip(CircleShape)
+                                    .border(4.dp, if (discStyle == PlayerDiscStyle.VINYL) Color.Black.copy(alpha=.70f) else Color.White.copy(alpha=.60f), CircleShape)) {
+                                    TrackArtwork(artwork, title, Modifier.fillMaxSize().clip(CircleShape))
+                                }
+                                if (discStyle == PlayerDiscStyle.VINYL) {
+                                    Box(Modifier.fillMaxSize(.84f).border(1.dp, Color.White.copy(alpha = .10f), CircleShape))
+                                }
+                                if (discStyle == PlayerDiscStyle.CD) {
+                                    Box(Modifier.fillMaxSize().border(10.dp, Color.White.copy(alpha = .15f), CircleShape))
+                                }
                             }
                         }
                         IconButton(onClick = { customizerOpen = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).background(Color.Black.copy(alpha=.55f), CircleShape)) {
@@ -652,9 +699,20 @@ private fun PlayerChoiceRow(options:List<String>,selected:String,onSelect:(Strin
 @Composable
 private fun PlayerToggle(title:String,detail:String,checked:Boolean,onChange:(Boolean)->Unit){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(title,fontSize=12.sp,fontWeight=FontWeight.Medium);Text(detail,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)};Switch(checked,onChange)}}
 private fun discBrush(style:PlayerDiscStyle,finish:PlayerDiscFinish):Brush = when(style){
-    PlayerDiscStyle.VINYL -> Brush.radialGradient(listOf(Color(0xFF444448),Color(0xFF111114),Color(0xFF29292E),Color(0xFF09090B)))
-    PlayerDiscStyle.CD -> Brush.sweepGradient(if(finish==PlayerDiscFinish.PRISMATIC) listOf(Color(0xFFFF6F91),Color(0xFFFFCE70),Color(0xFF7CE7C4),Color(0xFF77A7FF),Color(0xFFD78AFF)) else listOf(Color.LightGray,Color(0xFFF5D9E5),Color(0xFFA8D5CE),Color(0xFFE9E2B5),Color.LightGray))
-    PlayerDiscStyle.ARTWORK -> Brush.radialGradient(listOf(Color(0xFF47382D),Color(0xFF171513)))
+    PlayerDiscStyle.VINYL -> Brush.radialGradient(
+        colors = when (finish) {
+            PlayerDiscFinish.CLASSIC -> listOf(Color(0xFF202024), Color(0xFF111114), Color(0xFF29292E), Color(0xFF101013), Color(0xFF202024))
+            PlayerDiscFinish.PRISMATIC -> listOf(Color(0xFF37213F), Color(0xFF160F20), Color(0xFF6D315E), Color(0xFF170E21), Color(0xFF37213F))
+            PlayerDiscFinish.MIDNIGHT -> listOf(Color(0xFF18212B), Color(0xFF05080D), Color(0xFF293848), Color(0xFF05080D), Color(0xFF18212B))
+        },
+        tileMode = TileMode.Repeated
+    )
+    PlayerDiscStyle.CD -> Brush.sweepGradient(when(finish) {
+        PlayerDiscFinish.CLASSIC -> listOf(Color(0xFFC8D3DB),Color(0xFFF5D9E5),Color(0xFFA8D5CE),Color(0xFFE9E2B5),Color(0xFFA9BCE8),Color(0xFFF0F0F0))
+        PlayerDiscFinish.PRISMATIC -> listOf(Color(0xFFFF6F91),Color(0xFFFFCE70),Color(0xFF7CE7C4),Color(0xFF77A7FF),Color(0xFFD78AFF))
+        PlayerDiscFinish.MIDNIGHT -> listOf(Color(0xFF5B6470),Color(0xFFB8C1CC),Color(0xFF353D4B),Color(0xFFE1E5EA),Color(0xFF424A58))
+    })
+    PlayerDiscStyle.ARTWORK -> Brush.radialGradient(listOf(Color(0xFF27272A),Color(0xFF09090B)))
     PlayerDiscStyle.NONE -> Brush.linearGradient(listOf(Color.DarkGray,Color.Black))
 }
 private fun formatPlayerTime(ms:Long):String{val seconds=(ms/1000L).coerceAtLeast(0L);return "%d:%02d".format(seconds/60L,seconds%60L)}
