@@ -246,8 +246,8 @@ fun SoundprintNowPlayingScreen(
         value = withContext(Dispatchers.IO) {
             if (upcoming.size <= 200) upcoming.mapNotNull { (index, id) ->
                 (library.ensureArtwork(id) ?: library.song(id))?.let { index to it }
-            } else library.allSongs().associateBy { it.id }.let { byId ->
-                upcoming.mapNotNull { (index, id) -> byId[id]?.let { index to it } }
+            } else upcoming.mapNotNull { (index, id) ->
+                (library.ensureArtwork(id) ?: library.song(id))?.let { index to it }
             }
         }
     }.value
@@ -573,7 +573,6 @@ fun SoundprintNowPlayingScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .35f), RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = .6f))
                         .clickable { moreOpen = !moreOpen }.padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -816,7 +815,9 @@ fun SoundprintNowPlayingScreen(
     ) {
         LazyColumn(Modifier.heightIn(max = 420.dp)) {
             itemsIndexed(queueIds) { index, id ->
-                val item = library.song(id)
+                val item = produceState<MusicTrack?>(null, id) {
+                    value = withContext(Dispatchers.IO) { library.ensureArtwork(id) ?: library.song(id) }
+                }.value
                 if (item != null) {
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 3.dp)
@@ -1181,7 +1182,6 @@ private fun PlayerQuickAction(
 ) {
     Column(
         modifier.height(84.dp).clip(RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (selected) .55f else .38f), RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick).padding(horizontal = 6.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1196,7 +1196,6 @@ private fun PlayerQuickAction(
 private fun PlayerAction(label: String, icon: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier.height(88.dp).clip(RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .38f), RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = .6f))
             .clickable(onClick = onClick).padding(horizontal = 5.dp, vertical = 9.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
