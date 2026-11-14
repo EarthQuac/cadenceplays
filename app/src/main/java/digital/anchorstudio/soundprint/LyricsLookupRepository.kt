@@ -143,8 +143,8 @@ class LyricsLookupRepository(
             val payload = JSONObject(request("https://api.betterlyrics.org/ttml/getLyrics?$params"))
             val ttml = payload.optString("lyrics").ifBlank { payload.optString("ttml") }
             if (ttml.isNotBlank()) {
-                val paragraphRegex = Regex("""(?is)<p\\b[^>]*\\bbegin\\s*=\\s*["']([^"']+)["'][^>]*>(.*?)</p>""")
-                val spanRegex = Regex("""(?is)<span\\b[^>]*\\bbegin\\s*=\\s*["']([^"']+)["'][^>]*>(.*?)</span>""")
+                val paragraphRegex = Regex("""(?is)<p\b[^>]*\bbegin\s*=\s*["']([^"']+)["'][^>]*>(.*?)</p>""")
+                val spanRegex = Regex("""(?is)<span\b[^>]*\bbegin\s*=\s*["']([^"']+)["'][^>]*>(.*?)</span>""")
                 val rows = paragraphRegex.findAll(ttml).mapNotNull { paragraph ->
                     val lineTime = providerTime(paragraph.groupValues[1]) ?: return@mapNotNull null
                     val body = paragraph.groupValues[2]
@@ -166,7 +166,7 @@ class LyricsLookupRepository(
                     if (words.isEmpty()) null
                     else stamp(lineTime) + words.joinToString("") { (time, word) -> stamp(time).removePrefix("[").removeSuffix("]") .let { "<$it>$word" } }
                 }.toList()
-                if (rows.isNotEmpty()) return rows.joinToString("\\n")
+                if (rows.isNotEmpty()) return rows.joinToString("\n")
             }
         }
 
@@ -177,10 +177,10 @@ class LyricsLookupRepository(
                 ?.replace("&quot;", "\"")?.replace("&amp;", "&")?.replace("&lt;", "<")?.replace("&gt;", ">")
                 ?: return@runCatching null
             val rows = content.lineSequence().mapNotNull { raw ->
-                val header = Regex("""^\\[(\\d+),(\\d+)]""").find(raw) ?: return@mapNotNull null
+                val header = Regex("""^\[(\d+),(\d+)]""").find(raw) ?: return@mapNotNull null
                 val lineStart = (header.groupValues[1].toLongOrNull() ?: 0L) / 1000.0
                 val rest = raw.substring(header.range.last + 1)
-                val wordRegex = Regex("""\\((\\d+),(\\d+)\\)""")
+                val wordRegex = Regex("""\((\d+),(\d+)\)""")
                 val matches = wordRegex.findAll(rest).toList()
                 if (matches.isEmpty()) return@mapNotNull null
                 val words = matches.mapIndexedNotNull { index, match ->
@@ -193,7 +193,7 @@ class LyricsLookupRepository(
                     stamp(time).removePrefix("[").removeSuffix("]").let { "<$it>$word" }
                 }
             }.toList()
-            if (rows.isNotEmpty()) return rows.joinToString("\\n")
+            if (rows.isNotEmpty()) return rows.joinToString("\n")
         }
         return null
     }
