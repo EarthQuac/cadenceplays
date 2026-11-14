@@ -505,9 +505,94 @@ fun SoundprintNowPlayingScreen(
                 }
             }
             if (infoOpen) item {
-                PlayerPanel("Track details", onClose = { infoOpen=false }) {
-                    val details = listOf("Title" to title,"Artist" to artist,"Album" to album,"Genre" to genre,"Duration" to formatPlayerTime(duration),"Format" to (track?.mimeType ?: "Unknown"),"Bitrate" to "${track?.bitrate ?: 0} kbps","Sample rate" to "${track?.sampleRate ?: 0} Hz","Channels" to (track?.channelCount?.toString() ?: "Unknown"),"File size" to "${(track?.sizeBytes ?: 0L)/1024} KB","Folder" to (track?.folder ?: "Unknown"),"Times played" to (track?.playCount?.toString() ?: "0"))
-                    details.chunked(2).forEach { pair -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { pair.forEach { (k,v) -> Column(Modifier.weight(1f).padding(vertical=5.dp)) { Text(k,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant); Text(v,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis) } }; if(pair.size==1) Spacer(Modifier.weight(1f)) } }
+                val fileName = track?.uri?.let { runCatching { Uri.parse(it).lastPathSegment.orEmpty() }.getOrDefault("") }.orEmpty()
+                val extension = fileName.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase()
+                val mime = track?.mimeType.orEmpty()
+                val format = extension ?: when {
+                    mime.contains("mpeg", true) -> "MP3"
+                    mime.contains("wav", true) -> "WAV"
+                    mime.contains("flac", true) -> "FLAC"
+                    mime.contains("ogg", true) -> "OGG"
+                    mime.contains("aac", true) -> "AAC"
+                    mime.contains("mp4", true) || mime.contains("m4a", true) -> "M4A"
+                    mime.isNotBlank() -> mime.substringAfter('/').uppercase()
+                    else -> "Unknown"
+                }
+                val codec = mime.substringAfter('/', "").takeIf { it.isNotBlank() }?.uppercase() ?: "Not identified"
+                val size = track?.sizeBytes ?: 0L
+                val fileSize = when {
+                    size <= 0L -> "Unknown"
+                    size < 1024L * 1024L -> "${(size / 1024.0).toInt()} KB"
+                    else -> "${"%.2f".format(java.util.Locale.getDefault(), size / (1024.0 * 1024.0))} MB"
+                }
+                val sampleRate = track?.sampleRate ?: 0
+                val channels = track?.channelCount ?: 0
+                val addedAt = track?.addedAt ?: 0L
+                val lastPlayed = track?.lastPlayedAt
+                val dateAdded = if (addedAt > 0L) java.text.DateFormat.getDateInstance().format(java.util.Date(addedAt)) else "Unknown"
+                val lastPlayedLabel = lastPlayed?.let { java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it)) } ?: "Not played yet"
+                val detailRows = listOf(
+                    "Title" to title,
+                    "Artist" to artist,
+                    "Album" to album,
+                    "Genre" to genre,
+                    "Duration" to if (duration > 0L) formatPlayerTime(duration) else "Indexing…",
+                    "Format" to format,
+                    "Encoding / codec" to codec,
+                    "Bitrate" to if ((track?.bitrate ?: 0) > 0) "${track!!.bitrate} kbps" else "Not available",
+                    "Sample rate" to if (sampleRate > 0) "${"%.3f".format(java.util.Locale.getDefault(), sampleRate / 1000.0).trimEnd('0').trimEnd('.')} kHz" else "Not available",
+                    "Channels" to when (channels) { 1 -> "Mono (1)"; in 2..Int.MAX_VALUE -> "$channels channels"; else -> "Not available" },
+                    "File size" to fileSize,
+                    "Date added" to dateAdded,
+                    "Last played" to lastPlayedLabel,
+                    "Times played" to (track?.playCount?.toString() ?: "0"),
+                    "Folder" to (track?.folder?.takeIf { it.isNotBlank() } ?: "Unknown")
+                )
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f), RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Track details", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Local file metadata", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    val copied = listOf(title, artist, album, genre, format).filter { it.isNotBlank() }.joinToString(" · ")
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Track details", copied))
+                                    android.widget.Toast.makeText(context, "Track info copied", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) { Icon(Icons.Filled.ContentCopy, "Copy track details", modifier = Modifier.size(17.dp)) }
+                            IconButton(onClick = { infoOpen = false }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Filled.Close, "Hide track details", modifier = Modifier.size(17.dp))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    detailRows.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pair.forEach { (label, value) ->
+                                Column(
+                                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .padding(10.dp)
+                                ) {
+                                    Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                    Text(value.ifBlank { "Unknown" }, Modifier.padding(top = 2.dp), fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                        if (pair != detailRows.chunked(2).last()) Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
             if (moodOpen) item {
