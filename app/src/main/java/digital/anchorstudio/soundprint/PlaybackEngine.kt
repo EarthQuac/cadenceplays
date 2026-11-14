@@ -160,7 +160,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         standbyPlayer = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, false)
+            .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
         mediaSession = MediaSession.Builder(this, player).build()
