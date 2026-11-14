@@ -296,16 +296,10 @@ class MainActivity : ComponentActivity() {
                 if (queuedImports.any { !it.state.isFinished }) {
                     libraryStatus = "Music import is continuing in the background."
                 } else {
-                    // Clear an orphaned progress notification left by an older Activity-scoped importer.
+                    // Opening the app must stay cheap: the database is the library index.
+                    // Folder traversal is an explicit user action from Settings/Home > Rescan.
                     SoundprintImportNotifications(applicationContext).dismiss()
-                    val recovery = runScanWithoutSwallowingCancellation {
-                        withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() }
-                    }
-                    refreshLibraryState()
-                    libraryStatus = recovery.fold(
-                        { "Startup recovery: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
-                        { "Startup recovery failed: ${it.message ?: "Unknown error"}" }
-                    )
+                    libraryStatus = "Library ready. Saved folders are checked when you choose Rescan."
                 }
             }
             val darkTheme = when (themeMode) {
