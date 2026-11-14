@@ -91,6 +91,19 @@ class ClapModelManager(context: Context) {
         return files
     }
 
+    suspend fun downloadSizeBytes(): Long? = withContext(Dispatchers.IO) {
+        suspendCancellableCoroutine { continuation ->
+            assetPackManager.getPackStates(listOf(PACK_NAME))
+                .addOnSuccessListener { states ->
+                    val bytes = states.packStates()[PACK_NAME]?.totalBytesToDownload()?.takeIf { it > 0L }
+                    if (continuation.isActive) continuation.resume(bytes)
+                }
+                .addOnFailureListener {
+                    if (continuation.isActive) continuation.resume(null)
+                }
+        }
+    }
+
     suspend fun install(onProgress: (ClapModelInstallProgress) -> Unit = {}): ClapModelFiles =
         withContext(Dispatchers.IO) {
             packFiles()?.let { files ->
