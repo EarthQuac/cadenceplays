@@ -1567,7 +1567,8 @@ private fun SettingsScreen(
     var crossfade by remember { mutableIntStateOf(0) }
     var resume by remember { mutableStateOf(true) }
     var rememberPosition by remember { mutableStateOf(true) }
-    val playbackPrefs = remember { LocalContext.current.getSharedPreferences("soundprint_playback_options", 0) }
+    val settingsContext = LocalContext.current
+    val playbackPrefs = remember(settingsContext) { settingsContext.getSharedPreferences("soundprint_playback_options", 0) }
     var seekSeconds by remember { mutableIntStateOf(playbackPrefs.getInt("double_tap_seek_seconds", 10).coerceIn(5, 60)) }
     var replaceQueue by remember { mutableStateOf(false) }
     var autoAdd by remember { mutableStateOf(true) }
