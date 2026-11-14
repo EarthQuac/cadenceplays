@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -801,10 +802,10 @@ private fun ArtworkCustomizerDialog(
                     }
                     ArtworkSwitchRow("Ambient glow", "Soft light behind the artwork", ambientGlow, onAmbientGlow)
                 }
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 20.dp).border(
-                        width = 0.dp, color = Color.Transparent
-                    ).padding(top = 12.dp),
+                Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = .7f)))
+                    Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -814,6 +815,7 @@ private fun ArtworkCustomizerDialog(
                     Button(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
+                    )
                 }
             }
         }
