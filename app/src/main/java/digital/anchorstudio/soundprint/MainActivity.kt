@@ -63,6 +63,11 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
@@ -797,17 +802,17 @@ private fun HomeScreen(
                                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                     DropdownMenuItem(
                                         text = { Text("Play next") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null) },
+                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track), next = true) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to queue") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.QueueMusic, null) },
+                                        leadingIcon = { Icon(Icons.Filled.QueueMusic, null) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track)) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to favorites") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Favorite, null) },
+                                        leadingIcon = { Icon(Icons.Filled.Favorite, null) },
                                         onClick = {
                                             menuExpanded = false
                                             if (!libraryManager.isFavorite(track.id)) libraryManager.toggleFavorite(track.id)
@@ -816,7 +821,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to playlist") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.PlaylistAdd, null) },
+                                        leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) },
                                         onClick = {
                                             menuExpanded = false
                                             playlistChoices = libraryManager.playlists()
@@ -826,7 +831,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Edit song information") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Edit, null) },
+                                        leadingIcon = { Icon(Icons.Filled.Edit, null) },
                                         onClick = {
                                             menuExpanded = false
                                             editTitle = track.title
@@ -838,7 +843,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Go to artist") },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Person, null) },
+                                        leadingIcon = { Icon(Icons.Filled.Person, null) },
                                         onClick = {
                                             menuExpanded = false
                                             selectedArtist = track.artist.ifBlank { "Unknown artist" }
@@ -846,7 +851,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Move to recycle bin", color = Color(0xFFE5484D)) },
-                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Delete, null, tint = Color(0xFFE5484D)) },
+                                        leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFE5484D)) },
                                         onClick = {
                                             menuExpanded = false
                                             recycleConfirmationTrack = track
@@ -971,7 +976,7 @@ private fun ArtistHomeScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             androidx.compose.material3.IconButton(onClick = onBack) {
-                Icon(androidx.compose.material.icons.Icons.Filled.ChevronLeft, contentDescription = "Back")
+                Icon(Icons.Filled.ChevronLeft, contentDescription = "Back")
             }
             Column(Modifier.weight(1f)) {
                 Text("ARTIST", fontSize = 10.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
