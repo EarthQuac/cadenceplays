@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
@@ -754,9 +755,10 @@ private fun HomeScreen(
                         TextButton(onClick = onOpenSongs) { Text("See all") }
                     }
                     recentTracks.forEachIndexed { index, track ->
+                        var menuExpanded by remember(track.id) { mutableStateOf(false) }
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(MaterialTheme.colorScheme.surface)
-                                .clickable { playback.playTracks(recentTracks, index) }.padding(11.dp),
+                                .clickable { playback.playTracks(recentTracks, index) }.padding(start = 11.dp, end = 5.dp, top = 7.dp, bottom = 7.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             NativeArtwork(track.artworkUri, track.id, Modifier.size(44.dp), 10)
@@ -766,6 +768,28 @@ private fun HomeScreen(
                                 Text(track.artist, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                            Box {
+                                androidx.compose.material3.IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.MoreVert, contentDescription = "Song options", modifier = Modifier.size(19.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Play next") },
+                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
+                                        onClick = { menuExpanded = false; playback.enqueue(listOf(track), next = true) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Add to queue") },
+                                        leadingIcon = { Icon(Icons.Filled.QueueMusic, null) },
+                                        onClick = { menuExpanded = false; playback.enqueue(listOf(track)) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Play now") },
+                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
+                                        onClick = { menuExpanded = false; playback.playTracks(recentTracks, index) }
+                                    )
+                                }
+                            }
                         }
                     }
                     OutlinedButton(onClick = onImportAudio, modifier = Modifier.fillMaxWidth()) {
