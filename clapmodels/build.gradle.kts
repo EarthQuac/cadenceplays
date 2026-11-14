@@ -9,6 +9,3 @@ assetPack {
     }
 }
 
-tasks.matching { it.name == "assetPackPreBundleTask" }.configureEach {
-    dependsOn(rootProject.tasks.named("prepareClapModelAssets"))
-}
