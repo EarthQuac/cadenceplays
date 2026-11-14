@@ -130,6 +130,8 @@ fun SoundprintLyricsPanel(
     album: String,
     duration: Long,
     position: Long,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     seek: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -147,7 +149,6 @@ fun SoundprintLyricsPanel(
     var searchQuery by remember(trackId) { mutableStateOf(title) }
     var editorOpen by remember(trackId) { mutableStateOf(false) }
     var draft by remember(trackId) { mutableStateOf("") }
-    var showAll by remember(trackId) { mutableStateOf(false) }
     var karaokeMode by remember(trackId) { mutableStateOf(false) }
     var karaokeLoading by remember(trackId) { mutableStateOf(false) }
     var syncOffset by remember(trackId) { mutableFloatStateOf(0f) }
@@ -225,7 +226,6 @@ fun SoundprintLyricsPanel(
         error = ""
         draft = ""
         karaokeMode = false
-        showAll = false
         prefs.edit()
             .remove("lyrics:$trackId")
             .remove("lyrics-source:$trackId")
@@ -473,7 +473,7 @@ fun SoundprintLyricsPanel(
                 if (lines.isNotEmpty()) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = if (showAll) 448.dp else 256.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = if (expanded) 448.dp else 256.dp),
                         contentPadding = PaddingValues(vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -539,10 +539,10 @@ fun SoundprintLyricsPanel(
                 }
 
                 TextButton(
-                    onClick = { showAll = !showAll },
+                    onClick = { onExpandedChange(!expanded) },
                     modifier = Modifier.align(Alignment.End),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
-                ) { Text(if (showAll) "Show less" else "Show more", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
+                ) { Text(if (expanded) "Show less" else "Show more", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
 
                 if (lines.isNotEmpty()) {
                     Column(
