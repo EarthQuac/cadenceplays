@@ -178,7 +178,7 @@ fun SoundprintLyricsPanel(
         label = "lyrics-panel-center-padding"
     )
     val density = LocalDensity.current
-    val centreScrollOffsetPx = with(density) { lyricsViewportHeight.roundToPx() / 2 - 24.dp.roundToPx() }
+    val centreScrollOffsetPx = with(density) { (if (expanded) 448.dp else 256.dp).roundToPx() / 2 - 24.dp.roundToPx() }
     val lines = remember(lyrics) { parseSoundprintLrc(lyrics) }
     val activeIndex = remember(lines, position, syncOffset, syncAnchors) {
         lines.indexOfLast { alignSoundprintLyricTime(it.timeMs, syncAnchors) + (syncOffset * 1000f).toLong() <= position }
@@ -211,7 +211,7 @@ fun SoundprintLyricsPanel(
         syncAnchors = restored
     }
 
-    LaunchedEffect(activeIndex, lines.size, karaokeMode, expanded, lyricsViewportHeight) {
+    LaunchedEffect(activeIndex, lines.size, karaokeMode, expanded) {
         if (!karaokeMode && activeIndex >= 0 && lines.isNotEmpty()) {
             // A leading/trailing spacer gives the first and last lines enough
             // scroll range to stay centred, not just the middle of the list.
