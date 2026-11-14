@@ -7,7 +7,12 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
-import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCancellableCoroutine
+import com.google.android.play.core.assetpacks.AssetPackManagerFactory
+import com.google.android.play.core.assetpacks.AssetPackStateUpdatedListener
+import com.google.android.play.core.assetpacks.AssetPackStatus
 
 const val CLAP_MODEL_VERSION = "larger-clap-music-speech-56bcfdb-v1"
 private const val CLAP_AUDIO_MODEL_SHA256 = "021dd4fb962b4ed20cc3a6730b09e0ccf9f9c49931047032118a3b64828513a6"
@@ -62,116 +67,196 @@ data class ClapModelFiles(
 )
 
 /**
- * Installs the model weights that are already bundled inside the APK.
- * No network connection or in-app model download is required.
+ * Loads the optional CLAP model pack from Google Play Asset Delivery.
+ *
+ * Production builds use the Play-managed on-demand pack directly. The model
+ * files are never copied into filesDir. Debug APKs keep a cache-only fallback
+ * so local/Appetize previews can still exercise CLAP without a Play install.
  */
 class ClapModelManager(context: Context) {
     private val app = context.applicationContext
-    private val modelDir = File(app.filesDir, "models/clap/$CLAP_MODEL_VERSION")
+    private val debugModelDir = File(app.codeCacheDir, "clap/$CLAP_MODEL_VERSION")
+    private val preferences = app.getSharedPreferences("soundprint_clap_models", Context.MODE_PRIVATE)
 
-    fun isInstalled(): Boolean = filesExist() && File(modelDir, ".verified").isFile
+    private val assetPackManager by lazy { AssetPackManagerFactory.getInstance(app) }
+
+    fun isInstalled(): Boolean = packFiles() != null ||
+        (BuildConfig.DEBUG && debugFiles() != null)
 
     fun installedFiles(): ClapModelFiles? {
-        if (!isInstalled()) return null
-        return files()
+        val files = packFiles() ?: if (BuildConfig.DEBUG) debugFiles() else null
+        if (files != null) verifyIfNeeded(files)
+        return files
     }
 
     suspend fun install(onProgress: (ClapModelInstallProgress) -> Unit = {}): ClapModelFiles =
         withContext(Dispatchers.IO) {
-            modelDir.mkdirs()
-            val assets = listOf(
-                BundledAsset("clap/onnx/audio_model_quantized.onnx", "audio_model_quantized.onnx", 78_155_433L, CLAP_AUDIO_MODEL_SHA256),
-                BundledAsset("clap/onnx/text_model_quantized.onnx", "text_model_quantized.onnx", 126_000_000L, CLAP_TEXT_MODEL_SHA256),
-                BundledAsset("clap/vocab.json", "vocab.json", 0L, null),
-                BundledAsset("clap/merges.txt", "merges.txt", 0L, null)
-            )
-            val total = assets.sumOf { it.expectedBytes }.coerceAtLeast(1L)
-            var completed = 0L
+            installedFiles()?.let { return@withContext it }
 
-            assets.forEach { asset ->
-                coroutineContext.ensureActive()
-                val target = File(modelDir, asset.name)
-                val valid = target.isFile &&
-                    (asset.expectedBytes == 0L || target.length() >= asset.expectedBytes) &&
-                    (asset.sha256 == null || sha256(target) == asset.sha256)
-
-                if (!valid) {
-                    target.delete()
-                    val temporary = File(modelDir, asset.name + ".copy")
-                    temporary.delete()
-                    temporary.parentFile?.mkdirs()
-                    app.assets.open(asset.assetPath).use { input ->
-                        FileOutputStream(temporary).use { output ->
-                            val buffer = ByteArray(1024 * 1024)
-                            var copied = 0L
-                            while (true) {
-                                coroutineContext.ensureActive()
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                output.write(buffer, 0, count)
-                                copied += count
-                                val overall = completed + copied
-                                onProgress(ClapModelInstallProgress(
-                                    asset.name, overall, total,
-                                    ((overall * 100L) / total).toInt().coerceIn(0, 99)
-                                ))
-                            }
-                            output.fd.sync()
-                        }
-                    }
-                    check(temporary.isFile && temporary.length() > 0L) {
-                        "A bundled music feature file is missing: ${asset.name}"
-                    }
-                    if (asset.expectedBytes > 0L) {
-                        check(temporary.length() >= asset.expectedBytes) {
-                            "A bundled music feature file is incomplete: ${asset.name}"
-                        }
-                    }
-                    if (asset.sha256 != null) {
-                        check(sha256(temporary) == asset.sha256) {
-                            "A bundled music feature file failed its integrity check."
-                        }
-                    }
-                    check(temporary.renameTo(target)) { "Could not prepare ${asset.name}." }
-                }
-
-                completed += if (asset.expectedBytes > 0L) asset.expectedBytes else target.length()
-                onProgress(ClapModelInstallProgress(
-                    asset.name, completed, total,
-                    ((completed * 100L) / total).toInt().coerceIn(0, 100)
-                ))
+            val files = if (BuildConfig.DEBUG) {
+                installDebugAssets(onProgress)
+            } else {
+                fetchPlayAssetPack(onProgress)
             }
-
-            File(modelDir, "MODEL-NOTICE.txt").writeText(
-                "Soundprint includes Xenova/larger_clap_music_and_speech quantized ONNX weights. " +
-                    "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
-                    "Pinned revision: 56bcfdb. Inference is performed locally on this device."
-            )
-            File(modelDir, ".verified").writeText(CLAP_MODEL_VERSION)
-            files()
+            verifyIfNeeded(files)
+            files
         }
 
+    /**
+     * Production files are owned and updated by Google Play. Do not modify,
+     * relocate, or duplicate them in app-private storage.
+     */
     fun removeInstalledModel() {
-        modelDir.deleteRecursively()
+        if (BuildConfig.DEBUG) debugModelDir.deleteRecursively()
+        preferences.edit().remove("verified_model_version").apply()
     }
 
-    private data class BundledAsset(
-        val assetPath: String,
-        val name: String,
-        val expectedBytes: Long,
-        val sha256: String?
-    )
+    private fun packFiles(): ClapModelFiles? = runCatching {
+        val location = assetPackManager.getPackLocation(PACK_NAME) ?: return null
+        filesAt(File(location.assetsPath()))
+    }.getOrNull()
 
-    private fun filesExist() = listOf(
-        "audio_model_quantized.onnx", "text_model_quantized.onnx", "vocab.json", "merges.txt"
-    ).all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }
+    private fun debugFiles(): ClapModelFiles? = runCatching {
+        if (!BuildConfig.DEBUG || !File(debugModelDir, ".verified").isFile) return null
+        filesAt(debugModelDir)
+    }.getOrNull()
 
-    private fun files() = ClapModelFiles(
-        File(modelDir, "audio_model_quantized.onnx"),
-        File(modelDir, "text_model_quantized.onnx"),
-        File(modelDir, "vocab.json"),
-        File(modelDir, "merges.txt")
-    )
+    private fun filesAt(root: File): ClapModelFiles {
+        val files = ClapModelFiles(
+            audioModel = File(root, "clap/onnx/audio_model_quantized.onnx").takeIf { it.isFile && it.length() >= AUDIO_MODEL_BYTES }
+                ?: error("The CLAP audio model is not available yet."),
+            textModel = File(root, "clap/onnx/text_model_quantized.onnx").takeIf { it.isFile && it.length() >= TEXT_MODEL_BYTES }
+                ?: error("The CLAP text model is not available yet."),
+            vocabulary = File(root, "clap/vocab.json").takeIf { it.isFile && it.length() > 0L }
+                ?: error("The CLAP vocabulary is not available yet."),
+            merges = File(root, "clap/merges.txt").takeIf { it.isFile && it.length() > 0L }
+                ?: error("The CLAP tokenizer data is not available yet.")
+        )
+        return files
+    }
+
+    private suspend fun installDebugAssets(
+        onProgress: (ClapModelInstallProgress) -> Unit
+    ): ClapModelFiles {
+        debugModelDir.mkdirs()
+        val assets = listOf(
+            Triple("clap/onnx/audio_model_quantized.onnx", AUDIO_MODEL_BYTES, CLAP_AUDIO_MODEL_SHA256),
+            Triple("clap/onnx/text_model_quantized.onnx", TEXT_MODEL_BYTES, CLAP_TEXT_MODEL_SHA256),
+            Triple("clap/vocab.json", 1L, ""),
+            Triple("clap/merges.txt", 1L, "")
+        )
+        val total = assets.sumOf { it.second }
+        var completed = 0L
+        assets.forEach { (assetPath, expectedBytes, expectedSha) ->
+            val target = File(debugModelDir, assetPath.removePrefix("clap/"))
+            val valid = target.isFile && target.length() >= expectedBytes &&
+                (expectedSha.isEmpty() || sha256(target) == expectedSha)
+            if (!valid) {
+                target.parentFile?.mkdirs()
+                val temporary = File(target.parentFile, target.name + ".copy")
+                temporary.delete()
+                app.assets.open(assetPath).use { input ->
+                    FileOutputStream(temporary).use { output ->
+                        val buffer = ByteArray(1024 * 1024)
+                        var copied = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            copied += count
+                            onProgress(ClapModelInstallProgress(
+                                target.name, completed + copied, total,
+                                (((completed + copied) * 100L) / total).toInt().coerceIn(0, 99)
+                            ))
+                        }
+                        output.fd.sync()
+                    }
+                }
+                check(temporary.length() >= expectedBytes) { "The bundled CLAP asset is incomplete: $assetPath" }
+                if (expectedSha.isNotEmpty()) {
+                    check(sha256(temporary) == expectedSha) { "The bundled CLAP asset failed its integrity check." }
+                }
+                check(temporary.renameTo(target)) { "Could not prepare $assetPath." }
+            }
+            completed += target.length()
+            onProgress(ClapModelInstallProgress(
+                target.name, completed, total,
+                ((completed * 100L) / total).toInt().coerceIn(0, 100)
+            ))
+        }
+        File(debugModelDir, ".verified").writeText(CLAP_MODEL_VERSION)
+        return filesAt(File(debugModelDir.parentFile, ""))
+    }
+
+    private suspend fun fetchPlayAssetPack(
+        onProgress: (ClapModelInstallProgress) -> Unit
+    ): ClapModelFiles = suspendCancellableCoroutine { continuation ->
+        val manager = assetPackManager
+        lateinit var listener: AssetPackStateUpdatedListener
+
+        fun finishWithError(message: String) {
+            manager.unregisterListener(listener)
+            if (continuation.isActive) continuation.resumeWithException(IllegalStateException(message))
+        }
+
+        fun handleState(state: com.google.android.play.core.assetpacks.AssetPackState) {
+            if (state.name() != PACK_NAME || !continuation.isActive) return
+            val total = state.totalBytesToDownload()
+            val downloaded = state.bytesDownloaded()
+            val percent = if (total > 0L) {
+                ((downloaded * 100L) / total).toInt().coerceIn(0, 100)
+            } else state.transferProgressPercentage()
+            onProgress(ClapModelInstallProgress("CLAP models", downloaded, total, percent))
+
+            when (state.status()) {
+                AssetPackStatus.COMPLETED -> {
+                    val files = runCatching {
+                        val location = manager.getPackLocation(PACK_NAME)
+                            ?: error("Google Play completed the CLAP download but its files are not available.")
+                        filesAt(File(location.assetsPath()))
+                    }.getOrElse {
+                        finishWithError(it.message ?: "The downloaded CLAP model could not be opened.")
+                        return
+                    }
+                    manager.unregisterListener(listener)
+                    if (continuation.isActive) continuation.resume(files)
+                }
+                AssetPackStatus.FAILED -> finishWithError(
+                    "Google Play could not download the offline music model (error ${state.errorCode()}). Check your connection and try again."
+                )
+                AssetPackStatus.CANCELED -> finishWithError("The offline music model download was cancelled.")
+                AssetPackStatus.WAITING_FOR_WIFI -> finishWithError(
+                    "Google Play is waiting for Wi-Fi before downloading the offline music model. Connect to Wi-Fi, then try again."
+                )
+                AssetPackStatus.REQUIRES_USER_CONFIRMATION -> finishWithError(
+                    "Google Play needs to confirm this installation before it can deliver the offline music model. Install Soundprint from Google Play, then try again."
+                )
+            }
+        }
+
+        listener = AssetPackStateUpdatedListener { state -> handleState(state) }
+        manager.registerListener(listener)
+        continuation.invokeOnCancellation { manager.unregisterListener(listener) }
+
+        manager.fetch(listOf(PACK_NAME))
+            .addOnSuccessListener { states ->
+                states.packStates()[PACK_NAME]?.let(::handleState)
+            }
+            .addOnFailureListener { error ->
+                finishWithError(error.message ?: "Google Play could not start the offline music model download.")
+            }
+    }
+
+    private fun verifyIfNeeded(files: ClapModelFiles) {
+        if (preferences.getString("verified_model_version", null) == CLAP_MODEL_VERSION) return
+        check(sha256(files.audioModel) == CLAP_AUDIO_MODEL_SHA256) {
+            "The CLAP audio model failed its integrity check."
+        }
+        check(sha256(files.textModel) == CLAP_TEXT_MODEL_SHA256) {
+            "The CLAP text model failed its integrity check."
+        }
+        preferences.edit().putString("verified_model_version", CLAP_MODEL_VERSION).apply()
+    }
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -183,6 +268,14 @@ class ClapModelManager(context: Context) {
                 digest.update(buffer, 0, count)
             }
         }
-        return digest.digest().joinToString("") { byte -> (byte.toInt() and 0xff).toString(16).padStart(2, '0') }
+        return digest.digest().joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
+    }
+
+    private companion object {
+        const val PACK_NAME = "clapmodels"
+        const val AUDIO_MODEL_BYTES = 78_155_433L
+        const val TEXT_MODEL_BYTES = 126_000_000L
     }
 }
