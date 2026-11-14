@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -166,13 +167,15 @@ fun SoundprintLyricsPanel(
     var selectedSyncLine by remember(trackId) { mutableIntStateOf(0) }
     var syncMenuOpen by remember(trackId) { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val centredLineOffsetPx = with(density) { -(lyricsViewportHeight.roundToPx() / 2 - 24.dp.roundToPx()) }
     val lyricsViewportHeight by animateDpAsState(
         targetValue = if (expanded) 448.dp else 256.dp,
         animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "lyrics-panel-height"
     )
     val lyricsCenterPadding by animateDpAsState(
-        targetValue = if (expanded) 196.dp else 100.dp,
+        targetValue = if (expanded) 200.dp else 104.dp,
         animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "lyrics-panel-center-padding"
     )
@@ -212,7 +215,7 @@ fun SoundprintLyricsPanel(
         if (!karaokeMode && activeIndex >= 0 && lines.isNotEmpty()) {
             // The list has half a viewport of leading/trailing padding, so the
             // active row is always brought to the visual centre.
-            listState.animateScrollToItem(activeIndex)
+            listState.animateScrollToItem(activeIndex, scrollOffset = centredLineOffsetPx)
         }
     }
 
