@@ -226,6 +226,7 @@ fun SoundprintLyricsPanel(
         error = ""
         draft = ""
         karaokeMode = false
+        onExpandedChange(false)
         prefs.edit()
             .remove("lyrics:$trackId")
             .remove("lyrics-source:$trackId")
