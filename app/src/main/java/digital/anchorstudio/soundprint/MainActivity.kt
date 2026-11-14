@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -309,6 +310,28 @@ class MainActivity : ComponentActivity() {
                     libraryStatus = "Library ready. Saved folders are checked when you choose Rescan."
                 }
             }
+            LaunchedEffect(libraryStatus) {
+                val status = libraryStatus.trim()
+                if (status.isBlank() ||
+                    status.startsWith("Checking your saved music") ||
+                    status.startsWith("Library ready") ||
+                    status.startsWith("Music import is continuing") ||
+                    status.startsWith("Music import is running")
+                ) return@LaunchedEffect
+
+                val normalized = status.lowercase()
+                when {
+                    normalized.contains("failed") || normalized.contains("couldn't") ||
+                        normalized.contains("could not") || normalized.contains("failure") ->
+                        SoundprintToast.error(status)
+                    normalized.contains("complete") || normalized.contains("saved.") ||
+                        normalized.contains("restored") || normalized.contains("removed.") ||
+                        normalized.contains("cleared.") ->
+                        SoundprintToast.success(status)
+                    else -> SoundprintToast.info(status)
+                }
+            }
+
             val darkTheme = when (themeMode) {
                 "light" -> false
                 "system" -> isSystemInDarkTheme()
@@ -354,6 +377,7 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(fontFamily = SoundprintFontFamily)) {
+                Box(Modifier.fillMaxSize()) {
                 SoundprintApp(
                     libraryManager = libraryManager,
                     themeMode = themeMode,
@@ -399,6 +423,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                SoundprintToastHost(
+                    Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp)
+                )
+                }
                 }
             }
         }
