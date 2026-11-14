@@ -56,6 +56,16 @@ enum class TrackSort { TITLE, ARTIST, ALBUM, DATE_ADDED, DURATION, YEAR, PLAY_CO
 class MusicLibraryDatabase(context: Context) :
     SQLiteOpenHelper(context.applicationContext, "soundprint_music_library.db", null, 5) {
 
+    init { setWriteAheadLoggingEnabled(true) }
+
+    companion object {
+        @Volatile private var instance: MusicLibraryDatabase? = null
+        fun getInstance(context: Context): MusicLibraryDatabase =
+            instance ?: synchronized(this) {
+                instance ?: MusicLibraryDatabase(context.applicationContext).also { instance = it }
+            }
+    }
+
     override fun onCreate(db: SQLiteDatabase) = createSchema(db)
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) migrateToV2(db)
@@ -492,7 +502,7 @@ class MusicLibraryDatabase(context: Context) :
 
 class MusicLibraryRepository(context:Context) {
     private val app=context.applicationContext
-    private val db=MusicLibraryDatabase(app)
+    private val db=MusicLibraryDatabase.getInstance(app)
     private val artworkDir=java.io.File(app.filesDir,"music-artwork")
 
     suspend fun importTree(treeUri:Uri,onProgress:(LibraryScanProgress)->Unit={}):LibraryScanResult = withContext(Dispatchers.IO) {
@@ -858,6 +868,12 @@ class MusicLibraryRepository(context:Context) {
         fun result()=LibraryScanResult(visited,imported,updated,skipped,unavailable,errors)
     }
     companion object {
+        @Volatile private var instance: MusicLibraryRepository? = null
+        fun getInstance(context: Context): MusicLibraryRepository =
+            instance ?: synchronized(this) {
+                instance ?: MusicLibraryRepository(context.applicationContext).also { instance = it }
+            }
+
         private val AUDIO_EXTENSIONS=setOf("mp3","m4a","aac","flac","wav","ogg","opus","wma","aiff","aif","alac","3gp","amr")
     }
 }
