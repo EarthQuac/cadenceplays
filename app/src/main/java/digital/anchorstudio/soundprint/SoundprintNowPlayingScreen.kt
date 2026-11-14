@@ -8,8 +8,6 @@ import android.media.audiofx.EnvironmentalReverb
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
 import android.media.audiofx.LoudnessEnhancer
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -32,8 +30,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -88,6 +87,7 @@ fun SoundprintNowPlayingScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lyricsPanelRequester = remember { BringIntoViewRequester() }
     val playerPrefs = remember { context.getSharedPreferences("soundprint_now_playing", 0) }
     var trackId by remember { mutableStateOf(controller?.currentMediaItem?.mediaId.orEmpty()) }
     var title by remember { mutableStateOf("") }
@@ -442,7 +442,7 @@ fun SoundprintNowPlayingScreen(
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PlayerQuickAction("Info", R.drawable.lucide_info, Modifier.weight(1f), selected = infoOpen) { infoOpen = !infoOpen }
-                        PlayerQuickAction("Lyrics", R.drawable.lucide_book_open_text, Modifier.weight(1f)) { lyricsExpanded = true }
+                        PlayerQuickAction("Lyrics", R.drawable.lucide_book_open_text, Modifier.weight(1f)) { lyricsExpanded = true; scope.launch { delay(80); lyricsPanelRequester.bringIntoView() } }
                         PlayerQuickAction(displaySleep, if (sleepRemaining > 0L) R.drawable.lucide_timer_reset else R.drawable.lucide_moon, Modifier.weight(1f), selected = sleepOpen) {
                             sleepMinutes = if (sleepRemaining > 0L) ((sleepRemaining + 59_999L) / 60_000L).toString() else "30"
                             sleepOpen = true
@@ -599,17 +599,19 @@ fun SoundprintNowPlayingScreen(
                 }
             }
             item {
-                SoundprintLyricsPanel(
-                    trackId = trackId,
-                    title = title,
-                    artist = artist,
-                    album = album,
-                    duration = duration,
-                    position = position,
-                    expanded = lyricsExpanded,
-                    onExpandedChange = { lyricsExpanded = it },
-                    seek = { target -> controller?.seekTo(target) }
-                )
+                Box(Modifier.bringIntoViewRequester(lyricsPanelRequester)) {
+                    SoundprintLyricsPanel(
+                        trackId = trackId,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        duration = duration,
+                        position = position,
+                        expanded = lyricsExpanded,
+                        onExpandedChange = { lyricsExpanded = it },
+                        seek = { target -> controller?.seekTo(target) }
+                    )
+                }
             }
             item {
                 Spacer(Modifier.height(18.dp))
