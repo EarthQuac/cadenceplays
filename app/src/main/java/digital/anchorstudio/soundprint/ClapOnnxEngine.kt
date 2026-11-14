@@ -46,8 +46,11 @@ class ClapOnnxEngine(context: Context) : AutoCloseable {
     private val modelManager = ClapModelManager(app)
 
     suspend fun prepare(onProgress: (ClapModelInstallProgress) -> Unit = {}) = withContext(Dispatchers.IO) {
-        val files = modelManager.installedFiles() ?: modelManager.install(onProgress)
-        val cache = File(files.audioModel.parentFile, "mood-text-embeddings.bin")
+        val files = modelManager.install(onProgress)
+        // Play-delivered model assets are read-only. Keep the small derived
+        // embedding cache in app cache storage, never beside the model weights.
+        val cache = File(app.cacheDir, "clap/$CLAP_MODEL_VERSION/mood-text-embeddings.bin")
+        cache.parentFile?.mkdirs()
         textEmbeddings = readEmbeddingCache(cache) ?: createTextEmbeddings(files).also { writeEmbeddingCache(cache, it) }
         audioSession?.close()
         val options = OrtSession.SessionOptions().apply { setIntraOpNumThreads(2) }
