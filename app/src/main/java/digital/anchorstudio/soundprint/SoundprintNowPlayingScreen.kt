@@ -391,7 +391,6 @@ fun SoundprintNowPlayingScreen(
                         Icon(Icons.Filled.Favorite, "Add to favorites", tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                                 }
-                            }
             }
             item {
                 Spacer(Modifier.height(16.dp))
