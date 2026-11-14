@@ -566,20 +566,31 @@ fun SoundprintNowPlayingScreen(
         confirmButton = { TextButton(onClick = { queueOpen = false }) { Text("Done") } },
         dismissButton = { TextButton(onClick = { controller?.clearMediaItems(); queueOpen = false }) { Text("Clear queue") } }
     )
-    if (customizerOpen) AlertDialog(onDismissRequest={customizerOpen=false},title={Text("Customize artwork")},text={
-        Column(Modifier.heightIn(max=500.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text("ARTWORK STYLE",fontSize=10.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            PlayerChoiceRow(listOf("Vinyl","CD","Artwork disc","Cover only"),discStyle.name) { discStyle=when(it){"CD"->PlayerDiscStyle.CD;"Artwork disc"->PlayerDiscStyle.ARTWORK;"Cover only"->PlayerDiscStyle.NONE;else->PlayerDiscStyle.VINYL} }
-            if(discStyle!=PlayerDiscStyle.NONE) {
-                Text("FINISH",fontSize=10.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                PlayerChoiceRow(listOf("Classic","Prismatic","Midnight"),discFinish.name) { discFinish=when(it){"Prismatic"->PlayerDiscFinish.PRISMATIC;"Midnight"->PlayerDiscFinish.MIDNIGHT;else->PlayerDiscFinish.CLASSIC} }
-                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){ Text("Spin while playing"); Switch(spin,{spin=it}) }
-                Text("Speed",fontSize=12.sp); PlayerChoiceRow(listOf("Slow","Normal","Fast"),spinSpeed.toString()) { spinSpeed=when(it){"Slow"->8;"Fast"->2;else->4} }
-                if(discStyle==PlayerDiscStyle.VINYL) Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){ Text("Turntable arm"); Switch(tonearm,{tonearm=it}) }
+    if (customizerOpen) {
+        ArtworkCustomizerDialog(
+            discStyle = discStyle,
+            discFinish = discFinish,
+            spin = spin,
+            spinSpeed = spinSpeed,
+            tonearm = tonearm,
+            ambientGlow = ambientGlow,
+            onDiscStyle = { discStyle = it },
+            onDiscFinish = { discFinish = it },
+            onSpin = { spin = it },
+            onSpinSpeed = { spinSpeed = it },
+            onTonearm = { tonearm = it },
+            onAmbientGlow = { ambientGlow = it },
+            onDismiss = { customizerOpen = false },
+            onReset = {
+                discStyle = PlayerDiscStyle.VINYL
+                discFinish = PlayerDiscFinish.CLASSIC
+                spin = true
+                spinSpeed = 4
+                tonearm = true
+                ambientGlow = true
             }
-            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){ Text("Ambient glow"); Switch(ambientGlow,{ambientGlow=it}) }
-        }
-    },confirmButton={TextButton(onClick={customizerOpen=false}){Text("Done")}},dismissButton={TextButton(onClick={discStyle=PlayerDiscStyle.VINYL;discFinish=PlayerDiscFinish.CLASSIC;spin=true;spinSpeed=4;tonearm=true;ambientGlow=true}){Text("Reset")}})
+        )
+    }
     if(editOpen) AlertDialog(onDismissRequest={editOpen=false},title={Text("Edit song info")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(editTitle,{editTitle=it},label={Text("Title")});OutlinedTextField(editArtist,{editArtist=it},label={Text("Artist")});OutlinedTextField(editAlbum,{editAlbum=it},label={Text("Album")});OutlinedTextField(editGenre,{editGenre=it},label={Text("Genre")})}},confirmButton={TextButton(onClick={library.updateSongMetadata(trackId,editTitle,editArtist,editAlbum,editGenre);title=editTitle;artist=editArtist;album=editAlbum;genre=editGenre;editOpen=false}){Text("Save changes")}},dismissButton={TextButton(onClick={editOpen=false}){Text("Cancel")}})
     if(sleepOpen) AlertDialog(onDismissRequest={sleepOpen=false},title={Text("Sleep timer")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Stop playback after…",fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(15,30,45,60).forEach{OutlinedButton(onClick={sleepMinutes=it.toString()}){Text("${it}m")}}};OutlinedTextField(sleepMinutes,{sleepMinutes=it},label={Text("Custom minutes")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number));if(sleepRemaining>0)Text("Remaining: $displaySleep")}},confirmButton={TextButton(onClick={
         val minutes=(sleepMinutes.toLongOrNull()?.coerceIn(1,720)?:30)
@@ -664,5 +675,249 @@ private fun AuraListeningStage(mood:String,preset:String,onPreset:(String)->Unit
             Text("BEST WITH HEADPHONES · KEEP VOLUME COMFORTABLE",fontSize=9.sp,color=Color.White.copy(alpha=.45f))
             TextButton(onClick=onExit){Text("Tap to return",color=Color.White.copy(alpha=.7f))}
         }
+    }
+}
+
+
+@Composable
+private fun ArtworkCustomizerDialog(
+    discStyle: PlayerDiscStyle,
+    discFinish: PlayerDiscFinish,
+    spin: Boolean,
+    spinSpeed: Int,
+    tonearm: Boolean,
+    ambientGlow: Boolean,
+    onDiscStyle: (PlayerDiscStyle) -> Unit,
+    onDiscFinish: (PlayerDiscFinish) -> Unit,
+    onSpin: (Boolean) -> Unit,
+    onSpinSpeed: (Int) -> Unit,
+    onTonearm: (Boolean) -> Unit,
+    onAmbientGlow: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    onReset: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = .45f))
+                    .clickable(onClick = onDismiss)
+            )
+            Column(
+                Modifier.fillMaxWidth().widthIn(max = 448.dp)
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f)
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(MaterialTheme.colorScheme.background)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .padding(16.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Customize artwork", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.25).sp)
+                        Text("Make the player feel like yours.", modifier = Modifier.padding(top = 2.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Filled.Close, "Close artwork customizer", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(scrollState),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Column {
+                        Text("ARTWORK STYLE", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ArtworkStyleCard(PlayerDiscStyle.VINYL, "Vinyl", "Classic record", discStyle, Modifier.weight(1f), onDiscStyle)
+                                ArtworkStyleCard(PlayerDiscStyle.CD, "CD", "Iridescent disc", discStyle, Modifier.weight(1f), onDiscStyle)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ArtworkStyleCard(PlayerDiscStyle.ARTWORK, "Artwork disc", "Full-cover disc", discStyle, Modifier.weight(1f), onDiscStyle)
+                                ArtworkStyleCard(PlayerDiscStyle.NONE, "Cover only", "No disc effect", discStyle, Modifier.weight(1f), onDiscStyle)
+                            }
+                        }
+                    }
+                    if (discStyle != PlayerDiscStyle.NONE) {
+                        Column {
+                            Text("FINISH", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ArtworkFinishCard(PlayerDiscFinish.CLASSIC, "Classic", discFinish, Modifier.weight(1f), onDiscFinish)
+                                ArtworkFinishCard(PlayerDiscFinish.PRISMATIC, "Prismatic", discFinish, Modifier.weight(1f), onDiscFinish)
+                                ArtworkFinishCard(PlayerDiscFinish.MIDNIGHT, "Midnight", discFinish, Modifier.weight(1f), onDiscFinish)
+                            }
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("MOTION", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).padding(horizontal = 4.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Spin while playing", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    Text("Pause when playback stops", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(checked = spin, onCheckedChange = onSpin)
+                            }
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Speed", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.weight(1f))
+                                Row(
+                                    Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(1.dp)
+                                ) {
+                                    listOf(8 to "Slow", 4 to "Normal", 2 to "Fast").forEach { (value, label) ->
+                                        val selected = spinSpeed == value
+                                        Box(
+                                            Modifier.clip(CircleShape)
+                                                .background(if (selected) MaterialTheme.colorScheme.background else Color.Transparent)
+                                                .clickable { onSpinSpeed(value) }
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                                                color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (discStyle == PlayerDiscStyle.VINYL) {
+                            ArtworkSwitchRow("Turntable arm", "Show the arm on the record", tonearm, onTonearm)
+                        }
+                    }
+                    ArtworkSwitchRow("Ambient glow", "Soft light behind the artwork", ambientGlow, onAmbientGlow)
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 20.dp).border(
+                        width = 0.dp, color = Color.Transparent
+                    ).padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onReset, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
+                        Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtworkSwitchRow(title: String, detail: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(detail, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun ArtworkStyleCard(
+    style: PlayerDiscStyle,
+    label: String,
+    detail: String,
+    selectedStyle: PlayerDiscStyle,
+    modifier: Modifier = Modifier,
+    onSelect: (PlayerDiscStyle) -> Unit
+) {
+    val selected = style == selectedStyle
+    Row(
+        modifier.clip(RoundedCornerShape(16.dp))
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .6f) else MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .07f) else MaterialTheme.colorScheme.surface.copy(alpha = .5f))
+            .clickable { onSelect(style) }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            ArtworkStylePreview(style)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Box(
+            Modifier.size(10.dp).then(
+                if (selected) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                    .border(3.dp, MaterialTheme.colorScheme.primary.copy(alpha = .15f), CircleShape)
+                else Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f), CircleShape)
+            )
+        )
+    }
+}
+
+@Composable
+private fun ArtworkStylePreview(style: PlayerDiscStyle) {
+    when (style) {
+        PlayerDiscStyle.VINYL -> Box(Modifier.size(40.dp).clip(CircleShape)
+            .border(1.dp, Color.White.copy(alpha = .1f), CircleShape)
+            .background(Brush.radialGradient(listOf(Color(0xFF29292E), Color(0xFF111114), Color(0xFF29292E), Color(0xFF101013)))),
+            contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(.28f).background(MaterialTheme.colorScheme.primary, CircleShape))
+        }
+        PlayerDiscStyle.CD -> Box(Modifier.size(40.dp).clip(CircleShape)
+            .border(1.dp, Color.White.copy(alpha = .4f), CircleShape)
+            .background(Brush.sweepGradient(listOf(Color(0xFFC8D3DB), Color(0xFFF5D9E5), Color(0xFFA8D5CE), Color(0xFFE9E2B5), Color(0xFFA9BCE8), Color(0xFFF0F0F0)))),
+            contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(.28f).border(1.dp, Color.White.copy(alpha = .7f), CircleShape).background(MaterialTheme.colorScheme.background, CircleShape))
+        }
+        PlayerDiscStyle.ARTWORK -> Box(Modifier.size(40.dp).clip(CircleShape)
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .8f), Color(0xFFB34B9B).copy(alpha = .5f), Color(0xFF55B8D8).copy(alpha = .7f)))),
+            contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(.28f).border(1.dp, Color.White.copy(alpha = .7f), CircleShape).background(Color.Black.copy(alpha = .5f), CircleShape))
+        }
+        PlayerDiscStyle.NONE -> Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .8f), Color(0xFFB34B9B).copy(alpha = .5f), Color(0xFF55B8D8).copy(alpha = .7f))))
+    }
+}
+
+@Composable
+private fun ArtworkFinishCard(
+    finish: PlayerDiscFinish,
+    label: String,
+    selectedFinish: PlayerDiscFinish,
+    modifier: Modifier = Modifier,
+    onSelect: (PlayerDiscFinish) -> Unit
+) {
+    val selected = finish == selectedFinish
+    Column(
+        modifier.clip(RoundedCornerShape(12.dp))
+            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .6f) else MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(12.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .07f) else MaterialTheme.colorScheme.surface.copy(alpha = .5f))
+            .clickable { onSelect(finish) }.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(8.dp)).background(
+            when (finish) {
+                PlayerDiscFinish.CLASSIC -> Brush.linearGradient(listOf(Color(0xFF27272A), Color(0xFFD4D4D8), Color(0xFF52525B)))
+                PlayerDiscFinish.PRISMATIC -> Brush.linearGradient(listOf(Color(0xFFFB7185), Color(0xFFFACC15), Color(0xFF5EEAD4), Color(0xFF818CF8), Color(0xFFE879F9)))
+                PlayerDiscFinish.MIDNIGHT -> Brush.linearGradient(listOf(Color(0xFF020617), Color(0xFF334155), Color(0xFF020617)))
+            }
+        ))
+        Text(label, Modifier.padding(top = 8.dp), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
