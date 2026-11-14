@@ -87,6 +87,7 @@ import org.json.JSONObject
 data class ClapLibraryScanState(
     val running: Boolean = false,
     val downloadingModel: Boolean = false,
+    val modelDownloadRequired: Boolean = false,
     val modelPercent: Int = 0,
     val completed: Int = 0,
     val total: Int = 0,
@@ -149,7 +150,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
     }
 
     @Synchronized
-    fun startScan(retryFailedOnly: Boolean = false) {
+    fun startScan(retryFailedOnly: Boolean = false, allowModelDownload: Boolean = false) {
         if (scanJob?.isCompleted == false) {
             pendingScanMode = pendingScanMode?.let { it && retryFailedOnly } ?: retryFailedOnly
             return
@@ -178,7 +179,7 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 val total = allTracks.size
                 if (requested.isEmpty()) {
                     mutableState.value = mutableState.value.copy(
-                        running = false, downloadingModel = false,
+                        running = false, downloadingModel = false, modelDownloadRequired = false,
                         completed = done, total = total, failed = errors.size, pending = 0,
                         failureMessages = errors.toMap(), currentTitle = "", currentTrackId = null,
                         message = when {
@@ -187,6 +188,17 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                             errors.isNotEmpty() -> "No new tracks are pending. Retry the failed tracks to try them again."
                             else -> "All tracks have saved CLAP profiles or manual mood assignments."
                         }
+                    )
+                    return@launch
+                }
+
+                if (!modelManager.isInstalled() && !allowModelDownload) {
+                    mutableState.value = mutableState.value.copy(
+                        running = false, downloadingModel = false, modelDownloadRequired = true,
+                        completed = done, total = total, failed = errors.size, pending = pending,
+                        failureMessages = errors.toMap(), currentTitle = "", currentTrackId = null,
+                        stage = "Model download required",
+                        message = "Download the one-time CLAP model pack to enable offline mood discovery."
                     )
                     return@launch
                 }
@@ -254,14 +266,14 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 )
             } catch (cancel: CancellationException) {
                 mutableState.value = mutableState.value.copy(
-                    running = false, downloadingModel = false, currentTitle = "", currentTrackId = null,
+                    running = false, downloadingModel = false, modelDownloadRequired = !modelManager.isInstalled(), currentTitle = "", currentTrackId = null,
                     stage = "Paused",
                     message = "Scan paused. Completed profiles are saved and will be reused next time."
                 )
                 throw cancel
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(
-                    running = false, downloadingModel = false, currentTitle = "", currentTrackId = null,
+                    running = false, downloadingModel = false, modelDownloadRequired = !modelManager.isInstalled(), currentTitle = "", currentTrackId = null,
                     stage = "Error",
                     message = error.message ?: "CLAP could not be prepared on this device."
                 )
@@ -396,7 +408,7 @@ fun ClapDiscoverScreen(
     androidx.compose.runtime.LaunchedEffect(libraryLoaded, tracks.size, scan.running, scan.pending, scan.stage) {
         // Resume only genuinely pending work. Failed tracks stay available for manual
         // correction or an explicit retry instead of causing an automatic retry loop.
-        if (libraryLoaded && tracks.isNotEmpty() && scan.pending > 0 && !scan.running && scan.stage != "Error") {
+        if (libraryLoaded && tracks.isNotEmpty() && scan.pending > 0 && !scan.running && scan.stage != "Error" && !scan.modelDownloadRequired) {
             scanner.startScan()
         }
     }
@@ -462,6 +474,21 @@ fun ClapDiscoverScreen(
                 }
             }
         }
+        if (scan.modelDownloadRequired) {
+            Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 10.dp)) {
+                Text("One-time offline model download", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    "Mood discovery needs about 204 MB of CLAP model files. Download them once while online; analysis then runs on this device without internet. Wi-Fi is recommended.",
+                    modifier = Modifier.padding(top = 5.dp),
+                    fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = { scanner.startScan(allowModelDownload = true) },
+                    modifier = Modifier.padding(top = 11.dp)
+                ) { Text("Download model and analyse") }
+            }
+        }
+
         if (selectedMood != null) {
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -477,6 +504,9 @@ fun ClapDiscoverScreen(
             if (recommendations.isEmpty()) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
                     when {
+                        scan.modelDownloadRequired -> {
+                            Text("Download the offline model above to start matching your songs.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         scan.running || (scan.pending > 0 && scan.stage != "Error") -> {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -492,7 +522,7 @@ fun ClapDiscoverScreen(
                         scan.stage == "Error" -> {
                             Text("Couldn't finish analysing your library.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                             Text(scan.message, modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { scanner.startScan() }) { Text("Try again") }
+                            TextButton(onClick = { scanner.startScan(allowModelDownload = true) }) { Text("Try again") }
                         }
                         tracks.isEmpty() -> Text("Add music to your library to discover songs by mood.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         else -> Text("No strong matches for this mood yet. Try another mood.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
