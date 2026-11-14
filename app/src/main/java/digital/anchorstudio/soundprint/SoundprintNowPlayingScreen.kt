@@ -456,14 +456,13 @@ fun SoundprintNowPlayingScreen(
                                 if (duration <= 0L) "Indexing…" else if (remaining) "-${formatPlayerTime((duration - position).coerceAtLeast(0L))}" else formatPlayerTime(position),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontFeatureSettings = "tnum"
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Spacer(Modifier.width(4.dp))
                         Icon(Icons.Filled.SwapHoriz, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(if (duration > 0L) formatPlayerTime(duration) else "--:--", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFeatureSettings = "tnum")
+                    Text(if (duration > 0L) formatPlayerTime(duration) else "--:--", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -741,7 +740,7 @@ fun SoundprintNowPlayingScreen(
                                 Text(queuedTrack.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(queuedTrack.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            if (queuedTrack.durationMs > 0L) Text(formatPlayerTime(queuedTrack.durationMs), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFeatureSettings = "tnum")
+                            if (queuedTrack.durationMs > 0L) Text(formatPlayerTime(queuedTrack.durationMs), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.padding(start = 8.dp).size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = .8f))
                         }
                     }
