@@ -47,7 +47,7 @@ val prepareClapModelAssets by tasks.registering {
                 val temporary = File(destination.parentFile, destination.name + ".part")
                 temporary.delete()
                 println("Preparing Play-delivered CLAP asset: $relativePath")
-                val connection = URL(baseUrl + relativePath).openConnection().apply {
+                val connection = URL(baseUrl + relativePath.removePrefix("clap/")).openConnection().apply {
                     connectTimeout = 20_000
                     readTimeout = 180_000
                     setRequestProperty("User-Agent", "Soundprint-Android-Build")
