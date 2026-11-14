@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Soundprint"
-include(":app")
+include(":app", ":clapmodels")
