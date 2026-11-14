@@ -96,6 +96,30 @@ class LyricsLookupRepository(
                     found.putIfAbsent(key, candidate)
                 }
             }
+            runCatching {
+                val body = request("https://api.lyrics.ovh/suggest/" + encode(variant))
+                val data = runCatching { JSONArray(body) }.getOrNull()
+                    ?: JSONObject(body).optJSONArray("data")
+                    ?: JSONArray()
+                for (i in 0 until data.length()) {
+                    val item = data.optJSONObject(i) ?: continue
+                    val title = item.optString("title").trim()
+                    val artist = item.optJSONObject("artist")?.optString("name").orEmpty().trim()
+                    if (title.isBlank() || artist.isBlank()) continue
+                    val album = item.optJSONObject("album")?.optString("title").orEmpty()
+                    val candidate = LyricsLookupCandidate(
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        durationSeconds = item.optDouble("duration", 0.0).coerceAtLeast(0.0),
+                        syncedLyrics = null,
+                        plainLyrics = null,
+                        provider = "Music catalog"
+                    )
+                    val key = normalize(title) + "|" + normalize(artist) + "|" + normalize(album)
+                    found.putIfAbsent(key, candidate)
+                }
+            }
         }
         return found.values.sortedWith(
             compareByDescending<LyricsLookupCandidate> { it.syncedLyrics != null }
