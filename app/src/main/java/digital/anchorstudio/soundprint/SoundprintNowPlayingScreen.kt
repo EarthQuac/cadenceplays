@@ -169,7 +169,7 @@ fun SoundprintNowPlayingScreen(
 
     if (aura) {
         AuraListeningStage(
-            mood = library.clapMoodProfile(track ?: return@AuraModeFallback)?.scores?.maxByOrNull { it.value }?.key ?: "adaptive",
+            mood = track?.let { library.clapMoodProfile(it)?.scores?.maxByOrNull { score -> score.value }?.key } ?: "adaptive",
             preset = auraPreset,
             onPreset = { auraPreset = it },
             onExit = { aura = false }
@@ -249,11 +249,11 @@ fun SoundprintNowPlayingScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     IconButton(onClick = { controller?.shuffleModeEnabled = !shuffle }) { Icon(Icons.Filled.Shuffle, "Shuffle", tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton(onClick = { controller?.seekToPrevious() }) { Icon(Icons.Filled.SkipPrevious, "Previous", modifier = Modifier.size(30.dp)) }
+                    IconButton(onClick = { controller?.seekToPreviousMediaItem() }) { Icon(Icons.Filled.SkipPrevious, "Previous", modifier = Modifier.size(30.dp)) }
                     FilledIconButton(onClick = { if (playing) controller?.pause() else controller?.play() }, modifier = Modifier.size(64.dp)) {
                         Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (playing) "Pause" else "Play", modifier = Modifier.size(34.dp))
                     }
-                    IconButton(onClick = { controller?.seekToNext() }) { Icon(Icons.Filled.SkipNext, "Next", modifier = Modifier.size(30.dp)) }
+                    IconButton(onClick = { controller?.seekToNextMediaItem() }) { Icon(Icons.Filled.SkipNext, "Next", modifier = Modifier.size(30.dp)) }
                     IconButton(onClick = {
                         controller?.repeatMode = when (repeatMode) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF }
                     }) { Icon(Icons.Filled.Repeat, "Repeat", tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary) }
@@ -400,7 +400,7 @@ private fun TrackArtwork(uri: String?, title: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun PlayerAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
+private fun RowScope.PlayerAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
     Column(Modifier.weight(1f).height(82.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick=onClick).padding(6.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){Icon(icon,null,tint=MaterialTheme.colorScheme.primary);Spacer(Modifier.height(5.dp));Text(label,fontSize=9.sp,textAlign=TextAlign.Center)}
 }
 @Composable
