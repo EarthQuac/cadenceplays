@@ -15,6 +15,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.awaitCancellation
+import androidx.media3.common.Player
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import androidx.work.WorkManager
@@ -481,13 +484,36 @@ private fun SoundprintApp(
     var settingsOpen by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
     var proOpen by remember { mutableStateOf(false) }
+    var nowPlayingOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(playbackConnection) {
+        while (playbackConnection.controller == null) delay(100)
+        val activePlayer = playbackConnection.controller ?: return@LaunchedEffect
+        val listener = object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                if (mediaItem != null) nowPlayingOpen = true
+            }
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying && activePlayer.currentMediaItem != null) nowPlayingOpen = true
+            }
+        }
+        activePlayer.addListener(listener)
+        if (activePlayer.isPlaying && activePlayer.currentMediaItem != null) nowPlayingOpen = true
+        try { awaitCancellation() } finally { activePlayer.removeListener(listener) }
+    }
 
     Surface(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars), color = MaterialTheme.colorScheme.background) {
         if (!enteredLibrary) {
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (proOpen) {
+                if (nowPlayingOpen) {
+                    SoundprintNowPlayingScreen(
+                        controller = playbackConnection.controller,
+                        library = libraryManager,
+                        onBack = { nowPlayingOpen = false }
+                    )
+                } else if (proOpen) {
                     ProScreen(onBack = { proOpen = false })
                 } else if (statsOpen) {
                     ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
@@ -540,7 +566,7 @@ private fun SoundprintApp(
                 }
             }
 
-            Column(
+            if (!nowPlayingOpen) Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
