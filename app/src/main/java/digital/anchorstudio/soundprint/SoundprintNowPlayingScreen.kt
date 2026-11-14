@@ -100,6 +100,8 @@ private enum class PlayerDiscFinish { CLASSIC, PRISMATIC, MIDNIGHT }
 fun SoundprintNowPlayingScreen(
     controller: MediaController?,
     library: MusicLibraryManager,
+    scanner: ClapLibraryScanner,
+    playback: SoundprintPlaybackConnection,
     onBack: () -> Unit,
     onOpenAudioLab: () -> Unit = {}
 ) {
@@ -739,24 +741,14 @@ fun SoundprintNowPlayingScreen(
                 }
             }
             item {
-                Spacer(Modifier.height(18.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    OutlinedButton(onClick = { /* Find by mood is intentionally paused for this UI pass. */ }) {
-                        Icon(Icons.Filled.Psychology, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Find by mood")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(
-                        onClick = { queueOpen = true },
-                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = .65f)),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
-                    ) {
-                        Icon(Icons.Filled.QueueMusic, null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text("Queue · ${queueTracks.size}", fontSize = 12.sp)
-                    }
-                }
+                SoundprintNowPlayingMoodSection(
+                    library = library,
+                    scanner = scanner,
+                    playback = playback,
+                    currentTrackId = trackId,
+                    queueCount = queueTracks.size,
+                    onOpenQueue = { queueOpen = true }
+                )
             }
             if (queueTracks.isNotEmpty()) item {
                 Column(
