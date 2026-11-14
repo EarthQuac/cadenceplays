@@ -510,6 +510,7 @@ fun SoundprintNowPlayingScreen(
                     onDismissRequest = { infoOpen = false },
                     properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
                 ) {
+                    ApplyCadenceDialogWindow()
                     Box(
                         Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable { infoOpen = false },
                         contentAlignment = Alignment.Center
@@ -828,6 +829,93 @@ fun SoundprintNowPlayingScreen(
 }
 
 @Composable
+private fun ApplyCadenceDialogWindow() {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val blurRadius = with(density) { 14.dp.roundToPx() }
+    val window = (view.parent as? DialogWindowProvider)?.window
+    SideEffect {
+        window?.let { dialogWindow ->
+            dialogWindow.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            val attributes = dialogWindow.attributes
+            attributes.dimAmount = .10f
+            dialogWindow.attributes = attributes
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                dialogWindow.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                dialogWindow.setBackgroundBlurRadius(blurRadius)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoundprintFloatingDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    subtitle: String? = null,
+    maxWidth: androidx.compose.ui.unit.Dp = 380.dp,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        ApplyCadenceDialogWindow()
+        Box(
+            Modifier.fillMaxSize()
+                .background(Color.Black.copy(alpha = .36f))
+                .clickable(onClick = onDismissRequest),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(180)) +
+                    androidx.compose.animation.scaleIn(initialScale = .96f, animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                    slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 18 }
+            ) {
+                Surface(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth().widthIn(max = maxWidth).padding(18.dp)
+                        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .82f),
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 26.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
+                ) {
+                    Column(Modifier.padding(18.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.25).sp)
+                                if (!subtitle.isNullOrBlank()) {
+                                    Text(subtitle, Modifier.padding(top = 3.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 17.sp)
+                                }
+                            }
+                            IconButton(onClick = onDismissRequest, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Filled.Close, "Close", modifier = Modifier.size(17.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Column(content = content)
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 14.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = actions
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrackArtwork(uri: String?, title: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
@@ -1049,6 +1137,7 @@ private fun ArtworkCustomizerDialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        ApplyCadenceDialogWindow()
         Box(
             Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable(onClick = onDismiss),
             contentAlignment = Alignment.Center
