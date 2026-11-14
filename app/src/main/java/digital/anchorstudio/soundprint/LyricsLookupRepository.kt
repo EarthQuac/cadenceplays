@@ -44,7 +44,7 @@ class LyricsLookupRepository(
         }
 
         // The exact endpoint is best when the local metadata is accurate.
-        val exact = runCatching { request(exactUrl) }.getOrNull()
+        val exact = runCatching { JSONObject(request(exactUrl)) }.getOrNull()
             ?.let(::parseTrack)
             ?.takeIf { it.lyrics.isNotBlank() }
         if (exact != null) return exact
