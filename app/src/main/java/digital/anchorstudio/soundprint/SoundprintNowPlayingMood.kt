@@ -24,12 +24,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brain
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -166,7 +164,7 @@ fun SoundprintNowPlayingMoodSection(
             scan.running && unanalysed > 0 ->
                 "Checking " + unanalysed + " songs without saved CLAP profiles. New matches will join your queue automatically."
             recommendations.isNotEmpty() ->
-                recommendations.size.toString() + " matching " + if (recommendations.size == 1) "song is" else "songs are" + " already in your queue."
+                recommendations.size.toString() + " matching " + (if (recommendations.size == 1) "song is" else "songs are") + " already in your queue."
             scan.failed > 0 && !scan.running ->
                 "Some songs need attention. Retry the failed scans below."
             scan.pending == 0 && !scan.running ->
@@ -201,7 +199,7 @@ fun SoundprintNowPlayingMoodSection(
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp)
             ) {
-                Icon(Icons.Filled.Brain, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                CadenceMoodGlyph("brain", MaterialTheme.colorScheme.primary, Modifier.size(16.dp))
                 Spacer(Modifier.width(7.dp))
                 Text("Find by mood", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
             }
@@ -232,7 +230,7 @@ fun SoundprintNowPlayingMoodSection(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Find by mood", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.weight(1f))
-                    Icon(Icons.Filled.Brain, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                    CadenceMoodGlyph("brain", MaterialTheme.colorScheme.primary, Modifier.size(20.dp))
                 }
 
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
