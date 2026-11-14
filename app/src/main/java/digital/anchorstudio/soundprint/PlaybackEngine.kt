@@ -196,6 +196,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                Log.e("SoundprintPlayback", "Audio playback failed for ${player.currentMediaItem?.localConfiguration?.uri}.", error)
                 flushListeningTime()
                 persistQueue()
             }
@@ -225,6 +226,9 @@ class SoundprintPlaybackService : MediaSessionService() {
     }
 
     private fun restoreQueue(availableLibraryTracks: List<MusicTrack>) {
+        // A user may tap a song while the service is still loading its saved queue.
+        // Never let late queue restoration replace that newly requested playback.
+        if (player.mediaItemCount > 0 || player.isPlaying) return
         val saved = queueStore.read()
         if (saved.queueIds.isEmpty()) return
         val availableTracks = availableLibraryTracks.associateBy { it.id }
@@ -419,14 +423,20 @@ class SoundprintPlaybackConnection(
     private fun startPlayback(player: MediaController, request: PendingPlay) {
         if (closed || request.tracks.isEmpty()) return
         runCatching {
+            val mediaItems = request.tracks.map { track ->
+                require(track.uri.isNotBlank()) { "The selected song has no playable file location: ${track.title}" }
+                track.toSoundprintMediaItem()
+            }
             player.shuffleModeEnabled = request.shuffle
             player.setMediaItems(
-                request.tracks.map(MusicTrack::toSoundprintMediaItem),
+                mediaItems,
                 request.startIndex.coerceIn(request.tracks.indices),
                 0L
             )
             player.prepare()
             player.play()
+        }.onFailure { error ->
+            Log.e("SoundprintPlayback", "Could not start the requested music queue.", error)
         }
     }
 
