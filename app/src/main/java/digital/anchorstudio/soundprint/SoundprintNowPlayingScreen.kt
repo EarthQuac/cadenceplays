@@ -24,6 +24,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
@@ -353,10 +355,6 @@ fun SoundprintNowPlayingScreen(
             }
             item {
                 Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) {
-                    if (ambientGlow) {
-                        Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape)
-                            .background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .20f), Color.Transparent))))
-                    }
                     val rotationTransition = rememberInfiniteTransition(label = "vinyl-rotation")
                     val rotation by rotationTransition.animateFloat(
                         initialValue = 0f,
@@ -679,9 +677,102 @@ private fun TrackArtwork(uri: String?, title: String, modifier: Modifier = Modif
         }
     }
     val loadedBitmap = bitmap
-    if (loadedBitmap != null) Image(loadedBitmap.asImageBitmap(), title, modifier)
+    if (loadedBitmap != null) Image(loadedBitmap.asImageBitmap(), title, modifier, contentScale = ContentScale.Crop)
     else Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF47382D),Color(0xFF171513)))),contentAlignment=Alignment.Center){Icon(Icons.Filled.MusicNote,null,tint=Color.White.copy(alpha=.8f),modifier=Modifier.size(52.dp))}
 }
+
+@Composable
+fun SoundprintMiniPlayer(
+    controller: MediaController?,
+    library: MusicLibraryManager,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    onClear: () -> Unit
+) {
+    var track by remember { mutableStateOf<MusicTrack?>(null) }
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var playing by remember { mutableStateOf(false) }
+    var trackId by remember { mutableStateOf(controller?.currentMediaItem?.mediaId.orEmpty()) }
+
+    LaunchedEffect(controller) {
+        while (controller != null) {
+            trackId = controller.currentMediaItem?.mediaId.orEmpty()
+            position = controller.currentPosition.coerceAtLeast(0L)
+            duration = controller.duration.takeIf { it > 0L && it != androidx.media3.common.C.TIME_UNSET } ?: 0L
+            playing = controller.isPlaying
+            delay(250)
+        }
+    }
+    LaunchedEffect(trackId) {
+        track = if (trackId.isBlank()) null else withContext(Dispatchers.IO) { library.song(trackId) }
+    }
+
+    val item = controller?.currentMediaItem
+    if (item != null) {
+        val title = track?.title?.takeIf(String::isNotBlank) ?: item.mediaMetadata.title?.toString().orEmpty()
+        val artist = track?.artist?.takeIf(String::isNotBlank) ?: item.mediaMetadata.artist?.toString().orEmpty()
+        val artworkUri = track?.artworkUri
+        val progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        Column(
+            Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = .95f))
+        ) {
+            Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = .55f))) {
+                Box(Modifier.fillMaxWidth(progress).height(2.dp).background(MaterialTheme.colorScheme.primary))
+            }
+            Row(
+                Modifier.fillMaxWidth().widthIn(max = 672.dp).align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(onClick = onOpen)
+                        .padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TrackArtwork(artworkUri, title, Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(artist, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                MiniPlayerControl(
+                    label = if (playing) "Pause" else "Play",
+                    icon = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    onClick = onToggle
+                )
+                MiniPlayerControl("Next track", Icons.Filled.SkipNext, onNext)
+                MiniPlayerControl("Stop and close player", Icons.Filled.Close, onClear, muted = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerControl(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    muted: Boolean = false
+) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .9f else 1f, animationSpec = tween(120), label = "mini-player-control")
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp).graphicsLayer { scaleX = scale; scaleY = scale },
+        interactionSource = interaction
+    ) {
+        Icon(icon, label, tint = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(20.dp))
+    }
+}
+
 
 @Composable
 private fun RowScope.PlayerAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
