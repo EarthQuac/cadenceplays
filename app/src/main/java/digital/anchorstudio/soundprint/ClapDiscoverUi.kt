@@ -1,6 +1,8 @@
 package digital.anchorstudio.soundprint
 
 import android.content.Context
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,6 +57,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +84,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -101,7 +105,7 @@ data class ClapLibraryScanState(
     val message: String = "",
     val failureMessages: Map<String,String> = emptyMap()
 ) {
-    val percent: Int get() = if (total <= 0) 0 else (completed * 100 / total).coerceIn(0,100)
+    val percent: Int get() = if (total <= 0) 0 else ((completed + failed) * 100 / total).coerceIn(0,100)
 }
 
 /**
@@ -375,6 +379,34 @@ private fun moodIcon(mood: SoundprintMood): ImageVector = when (mood) {
     SoundprintMood.INTENSE -> Icons.Filled.FlashOn
 }
 
+@Composable
+private fun ScanStatusMark(kind: String) {
+    val color = when (kind) {
+        "success" -> Color(0xFF32A56A)
+        "error" -> Color(0xFFD97968)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f)
+    }
+    Box(
+        Modifier.size(18.dp)
+            .clip(CircleShape)
+            .background(if (kind == "pending") Color.Transparent else color.copy(alpha = 0.14f))
+            .border(1.dp, color.copy(alpha = if (kind == "pending") 0.65f else 0.95f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            when (kind) {
+                "success" -> "✓"
+                "error" -> "!"
+                else -> "·"
+            },
+            color = color,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 12.sp
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ClapDiscoverScreen(
@@ -388,18 +420,34 @@ fun ClapDiscoverScreen(
     var tracks by remember { mutableStateOf(emptyList<MusicTrack>()) }
     var profiles by remember { mutableStateOf(emptyMap<String,ClapMoodProfile>()) }
     var libraryLoaded by remember { mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        val loaded = withContext(Dispatchers.IO) {
-            val allTracks = libraryManager.allSongs()
-            val allProfiles = allTracks.mapNotNull { track ->
-                libraryManager.clapMoodProfile(track)?.let { track.id to it }
-            }.toMap()
-            allTracks to allProfiles
+    LaunchedEffect(libraryManager, scanner) {
+        var knownTrackIds = emptySet<String>()
+        var firstLoad = true
+        while (true) {
+            val loaded = withContext(Dispatchers.IO) {
+                val allTracks = libraryManager.allSongs()
+                val allProfiles = allTracks.mapNotNull { track ->
+                    libraryManager.clapMoodProfile(track)?.let { track.id to it }
+                }.toMap()
+                allTracks to allProfiles
+            }
+            val newTrackIds = loaded.first.map { it.id }.toSet() - knownTrackIds
+            tracks = loaded.first
+            // Reconcile against the current library so newly imported tracks enter
+            // the pending queue and removed tracks disappear from this status list.
+            profiles = loaded.second
+            knownTrackIds = loaded.first.map { it.id }.toSet()
+            if (firstLoad) {
+                firstLoad = false
+                libraryLoaded = true
+            } else if (newTrackIds.isNotEmpty()) {
+                // Queue a follow-up pass if the current scan is busy; the scanner
+                // serializes it and reuses every profile already saved.
+                scanner.startScan()
+            }
+            scanner.refreshSummary()
+            delay(1800)
         }
-        tracks = loaded.first
-        // Merge instead of replacing: a scan may finish while the initial read is in flight.
-        profiles = profiles + loaded.second
-        libraryLoaded = true
     }
     androidx.compose.runtime.LaunchedEffect(scan.lastCompletedTrackId) {
         val id = scan.lastCompletedTrackId ?: return@LaunchedEffect
@@ -450,6 +498,149 @@ fun ClapDiscoverScreen(
             fontSize = 13.sp, lineHeight = 19.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (tracks.isNotEmpty()) {
+            val processed = (scan.completed + scan.failed).coerceAtMost(scan.total)
+            val progress = if (scan.total > 0) processed.toFloat() / scan.total.toFloat() else 0f
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(durationMillis = 650),
+                label = "discover-scan-progress"
+            )
+            val percent = if (scan.total > 0) (processed * 100 / scan.total).coerceIn(0, 100) else 0
+            Column(
+                Modifier.fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 22.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
+                    .padding(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("LIBRARY SCAN", fontSize = 10.sp, letterSpacing = 1.35.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            when {
+                                scan.running && scan.currentTitle.isNotBlank() -> "Analysing your songs"
+                                scan.running -> "Preparing your library"
+                                scan.failed > 0 -> "Scan finished · attention needed"
+                                percent == 100 -> "Your library is ready"
+                                else -> "Ready to discover"
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Text(
+                        "$percent%",
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (scan.failed > 0 && !scan.running) Color(0xFFD97968) else Color(0xFF32A56A)
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(7.dp).clip(CircleShape),
+                    color = Color(0xFF32A56A),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("✓ ${scan.completed} scanned", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF32A56A))
+                    Text("◷ ${scan.pending} waiting", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (scan.failed > 0) Text("! ${scan.failed} failed", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFD97968))
+                }
+                if (scan.currentTrackId != null || scan.message.isNotBlank()) {
+                    Text(
+                        scan.currentTitle.takeIf { it.isNotBlank() }?.let { "Now scanning · $it" }
+                            ?: scan.message,
+                        modifier = Modifier.padding(top = 9.dp),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                androidx.compose.material3.HorizontalDivider(
+                    Modifier.padding(vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                )
+                Text(
+                    "SONG-BY-SONG STATUS · ${tracks.size}",
+                    fontSize = 9.sp,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                tracks.forEach { track ->
+                    val isComplete = profiles.containsKey(track.id) || corrections.containsKey(track.id)
+                    val failure = scan.failureMessages[track.id]
+                    val isCurrent = scan.currentTrackId == track.id
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        when {
+                            failure != null -> ScanStatusMark(kind = "error")
+                            isComplete -> ScanStatusMark(kind = "success")
+                            isCurrent -> CircularProgressIndicator(
+                                Modifier.size(17.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
+                            else -> ScanStatusMark(kind = "pending")
+                        }
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                            Text(
+                                track.title,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                when {
+                                    failure != null -> failure
+                                    isComplete -> "Scanned successfully"
+                                    isCurrent -> scan.stage.ifBlank { "Analysing on this device" }
+                                    else -> "Waiting to be scanned"
+                                },
+                                modifier = Modifier.padding(top = 2.dp),
+                                fontSize = 10.sp,
+                                color = when {
+                                    failure != null -> Color(0xFFD97968)
+                                    isComplete -> Color(0xFF32A56A)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Text(
+                            when {
+                                failure != null -> "Error"
+                                isComplete -> "Done"
+                                isCurrent -> "Scanning"
+                                else -> "Pending"
+                            },
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = when {
+                                failure != null -> Color(0xFFD97968)
+                                isComplete -> Color(0xFF32A56A)
+                                isCurrent -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         Text("Choose a mood", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text("Tap one to jump straight to matching songs.", modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
