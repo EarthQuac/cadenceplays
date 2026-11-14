@@ -682,9 +682,10 @@ private fun HomeScreen(
         HomeSearchScreen(libraryManager, playback) { searchOpen = false }
         return
     }
-    val recentTracks = remember(libraryTrackCount) {
-        libraryManager.allSongs(sort = TrackSort.DATE_ADDED, ascending = false).take(8)
+    val libraryTracks = remember(libraryTrackCount) {
+        libraryManager.allSongs(sort = TrackSort.DATE_ADDED, ascending = false)
     }
+    val recentTracks = libraryTracks.take(8)
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 16.dp),
@@ -712,7 +713,7 @@ private fun HomeScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (libraryTrackCount == 0) item {
+            if (libraryTracks.isEmpty()) item {
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
                         .background(MaterialTheme.colorScheme.surface)
@@ -750,7 +751,7 @@ private fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("YOUR MUSIC", fontSize = 10.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                            Text("$libraryTrackCount songs in your library", fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+                            Text("${libraryTracks.size} songs in your library", fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
                         }
                         TextButton(onClick = onOpenSongs) { Text("See all") }
                     }
