@@ -407,7 +407,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         // Stop-after-current deliberately pauses at the end boundary instead.
         player.pauseAtEndOfMediaItems = stopAfterCurrent
 
-        if ((endAt > 0L || stopAfterCurrent) && (crossfadePending || crossfadeActive)) {
+        val wasCrossfading = crossfadePending || crossfadeActive
+        val volumeBeforeTimer = if (wasCrossfading) crossfadeBaseVolume else player.volume
+        if ((endAt > 0L || stopAfterCurrent) && wasCrossfading) {
             cancelCrossfade(restoreVolume = true)
         }
         if (endAt <= 0L) {
@@ -418,7 +420,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             return
         }
         if (sleepLastEndAt != endAt) {
-            if (sleepLastEndAt == 0L) sleepBaseVolume = player.volume
+            if (sleepLastEndAt == 0L) sleepBaseVolume = volumeBeforeTimer
             sleepLastEndAt = endAt
             sleepFadeStartedAt = 0L
         }
@@ -434,8 +436,8 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (remaining <= SLEEP_FADE_MS) {
             if (sleepFadeStartedAt == 0L) sleepFadeStartedAt = System.currentTimeMillis()
             player.volume = sleepBaseVolume * (remaining.toFloat() / SLEEP_FADE_MS.toFloat()).coerceIn(0f, 1f)
-        } else if (player.volume < 1f) {
-            player.volume = 1f
+        } else {
+            player.volume = sleepBaseVolume
         }
     }
 
