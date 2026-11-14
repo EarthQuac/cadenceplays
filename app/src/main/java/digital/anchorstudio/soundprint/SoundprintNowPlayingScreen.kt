@@ -815,7 +815,6 @@ private fun ArtworkCustomizerDialog(
                     Button(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    )
                 }
             }
         }
