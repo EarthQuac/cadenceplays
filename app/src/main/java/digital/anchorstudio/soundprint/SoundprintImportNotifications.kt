@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
+import android.util.Log
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -18,13 +19,26 @@ class SoundprintImportNotifications(context: Context) {
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Music import", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Progress while Soundprint adds music to your library"
+            val notificationManager = app.getSystemService(NotificationManager::class.java)
+            val progressChannel = NotificationChannel(
+                CHANNEL_ID,
+                "Music import progress",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Quiet progress while Soundprint adds music to your library"
                 setSound(null, null)
                 enableVibration(false)
                 enableLights(false)
             }
-            app.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val resultChannel = NotificationChannel(
+                RESULT_CHANNEL_ID,
+                "Music import updates",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Completion and error updates when Soundprint finishes importing music"
+            }
+            notificationManager.createNotificationChannel(progressChannel)
+            notificationManager.createNotificationChannel(resultChannel)
         }
     }
 
@@ -62,7 +76,7 @@ class SoundprintImportNotifications(context: Context) {
         val done = result.imported + result.updated
         val message = "✓ $done ${if (done == 1) "song" else "songs"} added"
         post(
-            NotificationCompat.Builder(app, CHANNEL_ID)
+            NotificationCompat.Builder(app, RESULT_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setColor(Color.rgb(252, 158, 71))
                 .setContentTitle("Music ready")
@@ -79,7 +93,7 @@ class SoundprintImportNotifications(context: Context) {
 
     fun failed(message: String) {
         post(
-            NotificationCompat.Builder(app, CHANNEL_ID)
+            NotificationCompat.Builder(app, RESULT_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_error)
                 .setColor(Color.rgb(252, 158, 71))
                 .setContentTitle("Music import stopped")
@@ -115,11 +129,21 @@ class SoundprintImportNotifications(context: Context) {
             .build()
 
     private fun post(notification: Notification, id: Int = SoundprintMusicImportQueue.NOTIFICATION_ID) {
-        runCatching { manager.notify(id, notification) }
+        runCatching {
+            if (!manager.areNotificationsEnabled()) {
+                Log.w(TAG, "Notifications are disabled by the user; notification $id was not posted")
+                return
+            }
+            manager.notify(id, notification)
+        }.onFailure { error ->
+            Log.e(TAG, "Unable to post notification $id", error)
+        }
     }
 
     private companion object {
+        const val TAG = "SoundprintNotifications"
         const val CHANNEL_ID = "soundprint_music_import"
+        const val RESULT_CHANNEL_ID = "soundprint_music_import_updates"
         const val COMPLETION_NOTIFICATION_ID = 4108
     }
 }
