@@ -26,7 +26,7 @@ class PlaybackEngineTest {
     }
 
     @After fun tearDown() {
-        context.deleteDatabase("soundprint_music_library.db")
+        MusicLibraryDatabase.getInstance(context).clearLibrary()
         context.deleteDatabase("soundprint_library_management.db")
         context.getSharedPreferences("soundprint_playback_queue", Context.MODE_PRIVATE).edit().clear().commit()
     }
