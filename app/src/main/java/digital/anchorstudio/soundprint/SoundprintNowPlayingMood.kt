@@ -473,103 +473,40 @@ fun SoundprintNowPlayingMoodSection(
 
 @Composable
 private fun CadenceMoodGlyph(name: String, tint: Color, modifier: Modifier = Modifier) {
+    val paths = remember(name) {
+        val pathData = when (name) {
+            "zap" -> listOf("M15.914 4a1.5 1.5 0 0 0-2.474-1.561l-9 9A1.5 1.5 0 0 0 5.5 14h4.002a.5.5 0 0 1 .471.666L8.086 20a1.5 1.5 0 0 0 2.475 1.56l9-9A1.5 1.5 0 0 0 18.5 10h-3.997a.5.5 0 0 1-.472-.667z")
+            "waves" -> listOf(
+                "M2 12q2.5 2 5 0t5 0 5 0 5 0",
+                "M2 19q2.5 2 5 0t5 0 5 0 5 0",
+                "M2 5q2.5 2 5 0t5 0 5 0 5 0"
+            )
+            "brain" -> listOf(
+                "M12 18V5",
+                "M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4",
+                "M17.707 6.294A3 3 0 1 0 12 5a3 3 0 1 0-5.707 1.294",
+                "M17.996 5.125a4 4 0 0 1 2.526 5.77",
+                "M18 18a4 4 0 0 0 2-7.465",
+                "M19.967 17.482a4 4 0 1 1-7.967.517 4 4 0 1 1-7.967-.517",
+                "M6 18a4 4 0 0 1-2-7.465",
+                "M6.004 5.125a4 4 0 0 0-2.526 5.77"
+            )
+            "moon" -> listOf("M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401")
+            "heart" -> listOf("M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5")
+            "cloud-rain" -> listOf(
+                "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242",
+                "M16 14v6",
+                "M8 14v6",
+                "M12 16v6"
+            )
+            else -> emptyList()
+        }
+        pathData.map { androidx.compose.ui.graphics.vector.PathParser().parsePathString(it).toPath() }
+    }
     Canvas(modifier) {
-        val sx = size.width / 24f
-        val sy = size.height / 24f
-        scale(sx, sy, pivot = androidx.compose.ui.geometry.Offset.Zero) {
+        scale(size.width / 24f, size.height / 24f, pivot = androidx.compose.ui.geometry.Offset.Zero) {
             val stroke = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            fun line(vararg points: Float) {
-                val path = Path()
-                path.moveTo(points[0], points[1])
-                var index = 2
-                while (index + 1 < points.size) {
-                    path.lineTo(points[index], points[index + 1])
-                    index += 2
-                }
-                drawPath(path, tint, style = stroke)
-            }
-            fun curve(points: FloatArray) {
-                val path = Path()
-                path.moveTo(points[0], points[1])
-                path.cubicTo(points[2], points[3], points[4], points[5], points[6], points[7])
-                drawPath(path, tint, style = stroke)
-            }
-            when (name) {
-                "zap" -> {
-                    val path = Path().apply { moveTo(13f, 2f); lineTo(3f, 14f); lineTo(12f, 14f); lineTo(11f, 22f); lineTo(21f, 10f); lineTo(12f, 10f); close() }
-                    drawPath(path, tint, style = stroke)
-                }
-                "waves" -> {
-                    curve(floatArrayOf(2f, 6f, 3f, 6.8f, 3.8f, 7f, 5f, 7f))
-                    curve(floatArrayOf(5f, 7f, 7.5f, 7f, 7.5f, 5f, 10f, 5f))
-                    curve(floatArrayOf(10f, 5f, 12.5f, 5f, 12.5f, 7f, 15f, 7f))
-                    curve(floatArrayOf(15f, 7f, 17.5f, 7f, 17.5f, 5f, 20f, 5f))
-                    curve(floatArrayOf(20f, 5f, 21f, 5f, 21.5f, 5.5f, 22f, 6f))
-                    line(2f, 12f, 4f, 13f, 5f, 13f)
-                    curve(floatArrayOf(5f, 13f, 7.5f, 13f, 7.5f, 11f, 10f, 11f))
-                    curve(floatArrayOf(10f, 11f, 12.5f, 11f, 12.5f, 13f, 15f, 13f))
-                    curve(floatArrayOf(15f, 13f, 17.5f, 13f, 17.5f, 11f, 20f, 11f))
-                    line(20f, 11f, 22f, 12f)
-                    line(2f, 18f, 4f, 19f, 5f, 19f)
-                    curve(floatArrayOf(5f, 19f, 7.5f, 19f, 7.5f, 17f, 10f, 17f))
-                    curve(floatArrayOf(10f, 17f, 12.5f, 17f, 12.5f, 19f, 15f, 19f))
-                    curve(floatArrayOf(15f, 19f, 17.5f, 19f, 17.5f, 17f, 20f, 17f))
-                    line(20f, 17f, 22f, 18f)
-                }
-                "brain" -> {
-                    curve(floatArrayOf(12f, 18f, 9f, 18f, 8f, 16f, 8f, 14f))
-                    curve(floatArrayOf(8f, 14f, 5f, 14f, 4f, 12f, 5f, 10f))
-                    curve(floatArrayOf(5f, 10f, 3f, 8f, 4f, 5f, 7f, 5f))
-                    curve(floatArrayOf(7f, 5f, 8f, 2f, 11f, 3f, 12f, 5f))
-                    curve(floatArrayOf(12f, 5f, 13f, 3f, 16f, 2f, 17f, 5f))
-                    curve(floatArrayOf(17f, 5f, 20f, 5f, 21f, 8f, 19f, 10f))
-                    curve(floatArrayOf(19f, 10f, 20f, 12f, 19f, 14f, 16f, 14f))
-                    curve(floatArrayOf(16f, 14f, 16f, 16f, 15f, 18f, 12f, 18f))
-                    line(12f, 5f, 12f, 18f)
-                    curve(floatArrayOf(8f, 9f, 10f, 9f, 10f, 11f, 12f, 11f))
-                    curve(floatArrayOf(12f, 11f, 14f, 11f, 14f, 9f, 16f, 9f))
-                }
-                "moon" -> {
-                    val path = Path().apply {
-                        moveTo(20.5f, 14.2f)
-                        cubicTo(19.2f, 18.5f, 14.7f, 21f, 10.2f, 19.8f)
-                        cubicTo(5.5f, 18.6f, 2.8f, 13.8f, 4.1f, 9.1f)
-                        cubicTo(5f, 5.9f, 7.7f, 3.6f, 11.1f, 3f)
-                        cubicTo(8.6f, 6.1f, 9f, 10.3f, 11.8f, 13.1f)
-                        cubicTo(14.2f, 15.5f, 17.7f, 15.8f, 20.5f, 14.2f)
-                        close()
-                    }
-                    drawPath(path, tint, style = stroke)
-                }
-                "heart" -> {
-                    val path = Path().apply {
-                        moveTo(20.8f, 4.6f)
-                        cubicTo(18.5f, 2.4f, 15f, 2.8f, 12f, 6f)
-                        cubicTo(9f, 2.8f, 5.5f, 2.4f, 3.2f, 4.6f)
-                        cubicTo(0.5f, 7.4f, 2.2f, 11.2f, 4.8f, 13.8f)
-                        lineTo(12f, 21f)
-                        lineTo(19.2f, 13.8f)
-                        cubicTo(21.8f, 11.2f, 23.5f, 7.4f, 20.8f, 4.6f)
-                        close()
-                    }
-                    drawPath(path, tint, style = stroke)
-                }
-                "cloud-rain" -> {
-                    val cloud = Path().apply {
-                        moveTo(20f, 16f)
-                        cubicTo(22f, 15f, 22f, 12f, 20f, 10f)
-                        cubicTo(18.5f, 8.5f, 16.5f, 8f, 14.5f, 8.5f)
-                        cubicTo(13f, 4.5f, 9f, 3f, 5.5f, 5f)
-                        cubicTo(2f, 7f, 2f, 11f, 4f, 13f)
-                        cubicTo(2f, 14f, 3f, 16f, 5f, 16f)
-                        lineTo(20f, 16f)
-                    }
-                    drawPath(cloud, tint, style = stroke)
-                    line(8f, 18f, 7f, 21f)
-                    line(14f, 18f, 13f, 21f)
-                    line(20f, 18f, 19f, 21f)
-                }
-            }
+            paths.forEach { drawPath(it, tint, style = stroke) }
         }
     }
 }
