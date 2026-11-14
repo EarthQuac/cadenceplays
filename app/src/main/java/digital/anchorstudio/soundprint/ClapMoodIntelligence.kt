@@ -9,10 +9,10 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
 import com.google.android.play.core.assetpacks.AssetPackManagerFactory
-import com.google.android.play.core.assetpacks.AssetPackStateUpdatedListener
-import com.google.android.play.core.assetpacks.AssetPackStatus
+import com.google.android.play.core.assetpacks.AssetPackStateUpdateListener
+import com.google.android.play.core.assetpacks.model.AssetPackStatus
 
 const val CLAP_MODEL_VERSION = "larger-clap-music-speech-56bcfdb-v1"
 private const val CLAP_AUDIO_MODEL_SHA256 = "021dd4fb962b4ed20cc3a6730b09e0ccf9f9c49931047032118a3b64828513a6"
@@ -223,7 +223,7 @@ class ClapModelManager(context: Context) {
         onProgress: (ClapModelInstallProgress) -> Unit
     ): ClapModelFiles = suspendCancellableCoroutine { continuation ->
         val manager = assetPackManager
-        lateinit var listener: AssetPackStateUpdatedListener
+        lateinit var listener: AssetPackStateUpdateListener
 
         fun finishWithError(message: String) {
             manager.unregisterListener(listener)
@@ -265,7 +265,7 @@ class ClapModelManager(context: Context) {
             }
         }
 
-        listener = AssetPackStateUpdatedListener { state -> handleState(state) }
+        listener = AssetPackStateUpdateListener { state -> handleState(state) }
         manager.registerListener(listener)
         continuation.invokeOnCancellation { manager.unregisterListener(listener) }
 
