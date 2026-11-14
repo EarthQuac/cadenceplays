@@ -27,7 +27,6 @@ import java.util.concurrent.Executor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -106,7 +105,6 @@ class SoundprintPlaybackService : MediaSessionService() {
     private lateinit var library: MusicLibraryManager
     private val listeningWriteQueue = java.util.ArrayDeque<Triple<String, Long, Long>>()
     private var listeningWriteInFlight = false
-    @Volatile private var serviceDestroying = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val handler = Handler(Looper.getMainLooper())
     private var activeTrackId: String? = null
@@ -220,7 +218,6 @@ class SoundprintPlaybackService : MediaSessionService() {
         persistQueue()
         if (::mediaSession.isInitialized) mediaSession.release()
         if (::player.isInitialized) player.release()
-        serviceDestroying = true
         drainListeningWrites()
         super.onDestroy()
     }
@@ -331,12 +328,7 @@ class SoundprintPlaybackService : MediaSessionService() {
                 true
             }
         }
-        if (!shouldStart) {
-            if (serviceDestroying && synchronized(listeningWriteQueue) { listeningWriteQueue.isEmpty() }) {
-                serviceScope.cancel()
-            }
-            return
-        }
+        if (!shouldStart) return
         serviceScope.launch {
             while (true) {
                 val batch = synchronized(listeningWriteQueue) {
@@ -353,11 +345,7 @@ class SoundprintPlaybackService : MediaSessionService() {
                     continue
                 }
             }
-            val shouldCancel = synchronized(listeningWriteQueue) {
-                listeningWriteInFlight = false
-                serviceDestroying && listeningWriteQueue.isEmpty()
-            }
-            if (shouldCancel) serviceScope.cancel()
+            synchronized(listeningWriteQueue) { listeningWriteInFlight = false }
         }
     }
 
