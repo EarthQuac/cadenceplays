@@ -41,11 +41,10 @@ class LyricsLookupRepository(
         durationMs: Long = 0L
     ): LyricsLookupResult? {
         require(title.isNotBlank()) { "A song title is required to search for lyrics." }
-        require(artist.isNotBlank()) { "An artist is required to search for lyrics." }
 
         val params = buildList {
             add("track_name" to title)
-            add("artist_name" to artist)
+            if (artist.isNotBlank()) add("artist_name" to artist)
             if (album.isNotBlank()) add("album_name" to album)
             if (durationMs > 0L) add("duration" to (durationMs / 1000L).toString())
         }
@@ -54,13 +53,13 @@ class LyricsLookupRepository(
         }
 
         // The exact endpoint is best when the local metadata is accurate.
-        val exact = runCatching { JSONObject(request(exactUrl)) }.getOrNull()
+        val exact = if (artist.isNotBlank()) runCatching { JSONObject(request(exactUrl)) }.getOrNull()
             ?.let(::parseTrack)
-            ?.takeIf { it.lyrics.isNotBlank() }
+            ?.takeIf { it.lyrics.isNotBlank() } else null
         if (exact != null) return exact
 
         // Search endpoint provides alternatives when tags differ from LRCLIB metadata.
-        val query = encode("$title $artist")
+        val query = encode(if (artist.isBlank()) title else "$title $artist")
         val results = requestJsonArray(baseUrl.trimEnd('/') + "/search?q=$query")
         val candidates = mutableListOf<Pair<Int, LyricsLookupResult>>()
         for (i in 0 until results.length()) {
@@ -211,8 +210,10 @@ class LyricsLookupRepository(
         var score = 0
         if (foundTitle == normalize(title)) score += 100
         else if (foundTitle.contains(normalize(title)) || normalize(title).contains(foundTitle)) score += 45
-        if (foundArtist == normalize(artist)) score += 100
-        else if (foundArtist.contains(normalize(artist)) || normalize(artist).contains(foundArtist)) score += 45
+        if (artist.isNotBlank()) {
+            if (foundArtist == normalize(artist)) score += 100
+            else if (foundArtist.contains(normalize(artist)) || normalize(artist).contains(foundArtist)) score += 45
+        }
         if (album.isNotBlank() && foundAlbum == normalize(album)) score += 35
         val foundDuration = item.optDouble("duration", -1.0)
         if (durationMs > 0L && foundDuration >= 0.0) {
