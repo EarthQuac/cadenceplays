@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -483,7 +484,6 @@ fun SoundprintNowPlayingScreen(
                         slideOutVertically(animationSpec = tween(180)) { -it / 16 }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Spacer(Modifier.height(0.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             PlayerAction("Share track", R.drawable.lucide_share_2, Modifier.weight(1f)) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
                             PlayerAction("Restart track", R.drawable.lucide_rotate_ccw, Modifier.weight(1f)) { controller?.seekTo(0L) }
@@ -524,12 +524,11 @@ fun SoundprintNowPlayingScreen(
                         ) {
                             Surface(
                                 onClick = {},
-                                modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp).padding(18.dp)
+                                modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp).padding(18.dp).shadow(24.dp, RoundedCornerShape(28.dp))
                                     .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .82f),
                                 shape = RoundedCornerShape(28.dp),
                                 color = MaterialTheme.colorScheme.background,
                                 tonalElevation = 8.dp,
-                                shadowElevation = 24.dp,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .55f))
                             ) {
                                 Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -878,12 +877,11 @@ private fun SoundprintFloatingDialog(
             ) {
                 Surface(
                     onClick = {},
-                    modifier = Modifier.fillMaxWidth().widthIn(max = maxWidth).padding(18.dp)
+                    modifier = Modifier.fillMaxWidth().widthIn(max = maxWidth).padding(18.dp).shadow(26.dp, RoundedCornerShape(28.dp))
                         .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .82f),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
-                    shadowElevation = 26.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
                 ) {
                     Column(Modifier.padding(18.dp)) {
