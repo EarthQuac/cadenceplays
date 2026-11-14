@@ -477,12 +477,22 @@ fun SoundprintNowPlayingScreen(
                 PlayerPanel("Find by mood", onClose={moodOpen=false}) {
                     val moods=listOf("workout","chill","focus","late-night","romantic","melancholy")
                     moods.chunked(2).forEach { pair -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { pair.forEach { mood -> OutlinedButton(onClick={
-                        moodBusy=true; moodStatus="Checking your saved audio mood profiles…"
-                        val candidates=library.allSongs().filter { it.id!=trackId }
-                        val matches=candidates.mapNotNull { candidate -> library.clapMoodProfile(candidate)?.let { candidate to (it.scores[mood] ?: 0f) } }.filter { it.second>=.35f }.sortedByDescending { it.second }.take(20).map { it.first }
-                        if(matches.isNotEmpty()) controller?.addMediaItems((currentIndex+1).coerceAtLeast(0),matches.map { it.toSoundprintMediaItem() })
-                        moodStatus=if(matches.isEmpty()) "No saved matches yet. Run Discover scan to analyse more songs." else "Added ${matches.size} mood matches to your queue."
-                        moodBusy=false
+                        if (!moodBusy) {
+                            moodBusy=true
+                            moodStatus="Checking your saved audio mood profiles…"
+                            scope.launch {
+                                val matches = withContext(Dispatchers.IO) {
+                                    library.allSongs().filter { it.id != trackId }
+                                        .mapNotNull { candidate -> library.clapMoodProfile(candidate)?.let { candidate to (it.scores[mood] ?: 0f) } }
+                                        .filter { it.second >= .35f }.sortedByDescending { it.second }.take(20).map { it.first }
+                                }
+                                if(matches.isNotEmpty()) withContext(Dispatchers.Main) {
+                                    controller?.addMediaItems((currentIndex+1).coerceAtLeast(0),matches.map { it.toSoundprintMediaItem() })
+                                }
+                                moodStatus=if(matches.isEmpty()) "No saved matches yet. Run Discover scan to analyse more songs." else "Added ${matches.size} mood matches to your queue."
+                                moodBusy=false
+                            }
+                        }
                     },modifier=Modifier.weight(1f),enabled=!moodBusy){ Text(mood.replaceFirstChar { it.uppercase() },fontSize=11.sp) } } } }
                     if(moodStatus.isNotBlank()) Text(moodStatus,fontSize=11.sp,color=MaterialTheme.colorScheme.primary)
                 }
