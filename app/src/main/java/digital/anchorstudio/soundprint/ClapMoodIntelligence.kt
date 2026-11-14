@@ -103,20 +103,14 @@ class ClapModelManager(context: Context) {
                 return@withContext installDebugAssets(onProgress)
             }
 
-            // Existing installs may still have the old private copy. Prefer the
-            // Play-managed pack, but keep that old copy usable if the device is
-            // offline; remove it as soon as the Play pack is verified.
-            val legacy = legacyFiles()
-            try {
-                fetchPlayAssetPack(onProgress).also(::verifyIfNeeded)
-            } catch (error: Exception) {
-                if (legacy != null) {
-                    verifyIfNeeded(legacy)
-                    legacy
-                } else {
-                    throw error
-                }
+            // Preserve an existing user's already-downloaded model. New
+            // installs have no legacy copy and use the Play on-demand pack.
+            legacyFiles()?.let { files ->
+                verifyIfNeeded(files)
+                return@withContext files
             }
+
+            fetchPlayAssetPack(onProgress).also(::verifyIfNeeded)
         }
 
     /**
