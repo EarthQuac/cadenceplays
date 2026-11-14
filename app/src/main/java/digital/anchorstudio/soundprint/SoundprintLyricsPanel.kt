@@ -463,7 +463,7 @@ fun SoundprintLyricsPanel(
                         shape = CircleShape,
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp)
                     ) { Text("Save lyrics", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-                    TextButton(onClick = { findLyrics() }, enabled = !loading, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)) {
+                    TextButton(onClick = { discoverCandidates(searchQuery.ifBlank { title }) }, enabled = !loading, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)) {
                         Text(if (loading) "Searching…" else "Find online", fontSize = 12.sp)
                     }
                 }
