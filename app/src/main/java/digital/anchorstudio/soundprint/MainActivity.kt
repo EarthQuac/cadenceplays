@@ -14,6 +14,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collect
+import androidx.work.WorkManager
+import androidx.work.WorkInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -192,7 +195,6 @@ class MainActivity : ComponentActivity() {
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
             val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
             val libraryManager = remember { MusicLibraryManager(applicationContext) }
-            val importNotifications = remember { SoundprintImportNotifications(applicationContext) }
             val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
             var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
             var librarySources by remember { mutableStateOf(libraryRepository.allSources()) }
@@ -202,43 +204,27 @@ class MainActivity : ComponentActivity() {
                 libraryTrackCount = libraryRepository.count()
                 librarySources = libraryRepository.allSources()
             }
+            fun enqueueMusicImport(label: String, enqueue: () -> Unit) {
+                try {
+                    enqueue()
+                    libraryStatus = "$label queued. Soundprint will keep working if you rotate the phone or leave the app."
+                } catch (error: Exception) {
+                    libraryStatus = "$label could not be queued: ${error.message ?: "Check the selected file permissions and try again."}"
+                }
+            }
             val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
-                if (uri != null) scope.launch {
-                    importNotifications.begin(0, "Scanning selected folder")
-                    val result = runCatching {
-                        withContext(Dispatchers.IO) { libraryRepository.importTree(uri) { progress -> importNotifications.update(progress) } }
-                    }
-                    refreshLibraryState()
-                    result.fold(
-                        { importNotifications.complete(it); libraryStatus = "Folder scan complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { importNotifications.failed(it.message ?: "Folder import failed"); libraryStatus = "Folder import failed: ${it.message ?: "Unknown error"}" }
-                    )
+                if (uri != null) enqueueMusicImport("Folder import") {
+                    SoundprintMusicImportQueue.enqueueFolder(applicationContext, uri)
                 }
             }
             val singleFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                if (uri != null) scope.launch {
-                    importNotifications.begin(1)
-                    val result = runCatching {
-                        withContext(Dispatchers.IO) { libraryRepository.importFiles(listOf(uri)) { progress -> importNotifications.update(progress) } }
-                    }
-                    refreshLibraryState()
-                    result.fold(
-                        { importNotifications.complete(it); libraryStatus = "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { importNotifications.failed(it.message ?: "File import failed"); libraryStatus = "File import failed: ${it.message ?: "Unknown error"}" }
-                    )
+                if (uri != null) enqueueMusicImport("File import") {
+                    SoundprintMusicImportQueue.enqueueFiles(applicationContext, listOf(uri))
                 }
             }
             val filesPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-                if (uris.isNotEmpty()) scope.launch {
-                    importNotifications.begin(uris.size)
-                    val result = runCatching {
-                        withContext(Dispatchers.IO) { libraryRepository.importFiles(uris) { progress -> importNotifications.update(progress) } }
-                    }
-                    refreshLibraryState()
-                    result.fold(
-                        { importNotifications.complete(it); libraryStatus = "File import complete: ${it.imported} added, ${it.updated} updated, ${it.skipped} skipped, ${it.errors.size} errors." },
-                        { importNotifications.failed(it.message ?: "File import failed"); libraryStatus = "File import failed: ${it.message ?: "Unknown error"}" }
-                    )
+                if (uris.isNotEmpty()) enqueueMusicImport("File import") {
+                    SoundprintMusicImportQueue.enqueueFiles(applicationContext, uris)
                 }
             }
             val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -267,6 +253,30 @@ class MainActivity : ComponentActivity() {
                             scan.fold({ "Recovery scan found ${it.unavailable} unavailable locations." }, { "Recovery scan failed: ${it.message}" })
                     } else libraryStatus = "Restore failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
                 }
+            }
+            LaunchedEffect(Unit) {
+                WorkManager.getInstance(applicationContext)
+                    .getWorkInfosForUniqueWorkFlow("soundprint_music_import_queue")
+                    .collect { workInfos ->
+                        if (workInfos.isNotEmpty()) {
+                            val active = workInfos.lastOrNull { !it.state.isFinished }
+                            if (active != null) {
+                                libraryStatus = "Music import is running in the background. You can safely leave Soundprint."
+                            } else {
+                                val latest = workInfos.last()
+                                when (latest.state) {
+                                    WorkInfo.State.SUCCEEDED -> {
+                                        refreshLibraryState()
+                                        val output = latest.outputData
+                                        libraryStatus = "Import complete: ${output.getInt("imported", 0)} added, ${output.getInt("updated", 0)} updated, ${output.getInt("skipped", 0)} skipped, ${output.getInt("errors", 0)} errors."
+                                    }
+                                    WorkInfo.State.FAILED -> libraryStatus = "Music import failed: ${latest.outputData.getString("error") ?: "Open the notification for details."}"
+                                    WorkInfo.State.CANCELLED -> libraryStatus = "Music import was cancelled."
+                                    else -> Unit
+                                }
+                            }
+                        }
+                    }
             }
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
