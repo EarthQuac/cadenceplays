@@ -167,6 +167,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         handler.post(maintenance)
         servicePlayerListener = object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && (crossfadeActive || crossfadePending)) {
+                    cancelCrossfade(restoreVolume = true)
+                }
                 val nextId = mediaItem?.mediaId?.takeIf(String::isNotBlank)
                 val previousId = activeTrackId
                 val nextIndex = player.currentMediaItemIndex
@@ -368,6 +371,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             standbyPlayer = incoming
             player.addListener(servicePlayerListener)
             player.volume = crossfadeBaseVolume
+            standbyPlayer.removeListener(servicePlayerListener)
             standbyPlayer.pause()
         }
         crossfadeActive = false
@@ -403,7 +407,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         // Stop-after-current deliberately pauses at the end boundary instead.
         player.pauseAtEndOfMediaItems = stopAfterCurrent
 
-        if (endAt > 0L && (crossfadePending || crossfadeActive)) cancelCrossfade(restoreVolume = true)
+        if ((endAt > 0L || stopAfterCurrent) && (crossfadePending || crossfadeActive)) {
+            cancelCrossfade(restoreVolume = true)
+        }
         if (endAt <= 0L) {
             val hadActiveTimer = sleepLastEndAt > 0L
             sleepFadeStartedAt = 0L
