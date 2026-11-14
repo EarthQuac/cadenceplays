@@ -90,9 +90,8 @@ class PlaybackEngineTest {
 
     @Test fun playbackEventsFeedPlaySkipAndListeningStatistics() {
         val song = track("content://music/provider/stats")
-        val database = MusicLibraryDatabase(context)
-        database.upsert(song)
-        database.close()
+        // The production manager and repository share the process-wide database instance.
+        MusicLibraryDatabase.getInstance(context).upsert(song)
         val manager = MusicLibraryManager(context)
 
         manager.recordPlay(song.id, 0L, song.durationMs)
