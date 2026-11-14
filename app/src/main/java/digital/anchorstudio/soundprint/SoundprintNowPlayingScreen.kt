@@ -1034,6 +1034,7 @@ private fun ArtworkCustomizerDialog(
                         Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
+                }
             }
         }
     }
