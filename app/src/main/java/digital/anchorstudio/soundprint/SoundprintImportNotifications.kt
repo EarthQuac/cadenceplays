@@ -66,8 +66,9 @@ class SoundprintImportNotifications(context: Context) {
         val completed = (progress.visited).coerceAtLeast(0)
         val finished = (progress.imported + progress.updated).coerceAtLeast(0)
         val left = (total - progress.visited).coerceAtLeast(0)
+        val percent = if (total > 0) (progress.visited * 100 / total).coerceIn(0, 100) else 0
         val title = progress.currentTitle.ifBlank { progress.sourceName.ifBlank { "Your music" } }
-        val summary = "✓ $finished added or updated · $left left" +
+        val summary = "$percent% · ✓ $finished added or updated · $left left" +
             if (progress.skipped > 0) " · ${progress.skipped} skipped" else ""
         post(ongoingNotification(title, summary, total, completed, total <= 0))
     }
