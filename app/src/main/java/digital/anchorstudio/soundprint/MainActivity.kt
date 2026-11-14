@@ -190,6 +190,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val activityWindow = window
         setContent {
             val preferences = remember { getSharedPreferences("soundprint_native_preferences", MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
@@ -308,12 +309,27 @@ class MainActivity : ComponentActivity() {
                 else -> true
             }
             val colors = palette(selectedPalette, darkTheme)
-            window.statusBarColor = colors.background.toArgb()
-            window.navigationBarColor = colors.background.toArgb()
-            window.decorView.setBackgroundColor(colors.background.toArgb())
-            WindowCompat.getInsetsController(window, window.decorView).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+            DisposableEffect(colors.background, darkTheme) {
+                val decorView = activityWindow.decorView
+                decorView.setBackgroundColor(colors.background.toArgb())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                    // Android 15 enforces edge-to-edge for targetSdk 35+. The bars
+                    // must be transparent; the window background supplies the color
+                    // visible behind the system-bar insets.
+                    activityWindow.statusBarColor = android.graphics.Color.TRANSPARENT
+                    activityWindow.navigationBarColor = android.graphics.Color.TRANSPARENT
+                } else {
+                    activityWindow.statusBarColor = colors.background.toArgb()
+                    activityWindow.navigationBarColor = colors.background.toArgb()
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    activityWindow.isNavigationBarContrastEnforced = false
+                }
+                WindowCompat.getInsetsController(activityWindow, decorView).apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
+                onDispose { }
             }
 
             MaterialTheme(
