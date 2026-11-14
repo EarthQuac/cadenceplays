@@ -177,6 +177,122 @@ fun SoundprintNowPlayingScreen(
     }
     val queueTracks = remember(queueIds, currentIndex) { queueIds.drop((currentIndex + 1).coerceAtLeast(0)).mapNotNull { library.song(it) } }
     val displaySleep = if (sleepRemaining > 0L) "%d:%02d".format(sleepRemaining / 60000L, (sleepRemaining / 1000L) % 60L) else "Sleep"
+    LaunchedEffect(trackId) {
+        lyrics = playerPrefs.getString("lyrics:" + trackId, "").orEmpty()
+        lyricsSource = playerPrefs.getString("lyrics-source:" + trackId, "").orEmpty()
+        lyricsError = ""
+    }
+    val lyricLines = remember(lyrics) {
+        lyrics.lines().mapNotNull { line ->
+            val match = Regex("^\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?\\](.*)$").find(line)
+            match?.let {
+                val fraction = it.groupValues[3].takeIf(String::isNotBlank)?.let { raw -> ("0." + raw).toFloatOrNull() } ?: 0f
+                (((it.groupValues[1].toLongOrNull() ?: 0L) * 60L + (it.groupValues[2].toLongOrNull() ?: 0L)) * 1000L + (fraction * 1000f).toLong()) to it.groupValues[4]
+            }
+        }.sortedBy { it.first }
+    }
+    val activeLyricIndex = lyricLines.indexOfLast { it.first <= position }
+    fun findLyrics() {
+        if (lyricsBusy) return
+        lyricsBusy = true
+        lyricsError = ""
+        scope.launch {
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    val query = URLEncoder.encode(title + " " + artist, "UTF-8")
+                    val connection = (URL("https://lrclib.net/api/search?q=" + query).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 9000
+                        readTimeout = 9000
+                        requestMethod = "GET"
+                        setRequestProperty("Accept", "application/json")
+                        setRequestProperty("User-Agent", "Soundprint Android Music Player")
+                    }
+                    try {
+                        val body = connection.inputStream.bufferedReader().use { it.readText() }
+                        val results = org.json.JSONArray(body)
+                        var bestText: String? = null
+                        var bestSource = ""
+                        var bestScore = -1
+                        for (index in 0 until results.length()) {
+                            val item = results.optJSONObject(index) ?: continue
+                            val foundTitle = item.optString("trackName")
+                            val foundArtist = item.optString("artistName")
+                            val score = (if (foundTitle.equals(title, true)) 4 else 0) +
+                                (if (foundArtist.equals(artist, true)) 4 else 0) +
+                                (if (item.optString("syncedLyrics").isNotBlank()) 1 else 0)
+                            val text = item.optString("syncedLyrics").takeIf(String::isNotBlank)
+                                ?: item.optString("plainLyrics").takeIf(String::isNotBlank)
+                            if (text != null && score > bestScore) {
+                                bestText = text
+                                bestSource = "LRCLIB · " + foundArtist
+                                bestScore = score
+                            }
+                        }
+                        if (bestText != null) bestText to bestSource else null
+                    } finally {
+                        connection.disconnect()
+                    }
+                }
+                if (found == null) {
+                    lyricsError = "Lyrics weren't found. Check the song title and artist, or import an LRC file."
+                } else {
+                    lyrics = found.first
+                    lyricsSource = found.second
+                    playerPrefs.edit().putString("lyrics:" + trackId, lyrics)
+                        .putString("lyrics-source:" + trackId, lyricsSource).apply()
+                }
+            } catch (error: Exception) {
+                lyricsError = error.message ?: "Couldn't fetch lyrics. Check your connection."
+            } finally {
+                lyricsBusy = false
+            }
+        }
+    }
+    val lrcPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val imported = withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            }
+            if (imported.isNotBlank()) {
+                lyrics = imported
+                lyricsSource = "Imported file"
+                playerPrefs.edit().putString("lyrics:" + trackId, imported)
+                    .putString("lyrics-source:" + trackId, lyricsSource).apply()
+            } else lyricsError = "That lyrics file is empty or unavailable."
+        }
+    }
+    DisposableEffect(controller?.audioSessionId, aura, auraPreset) {
+        val sessionId = controller?.audioSessionId ?: 0
+        val effects = mutableListOf<android.media.audiofx.AudioEffect>()
+        if (aura && sessionId > 0) {
+            runCatching {
+                BassBoost(0, sessionId).also {
+                    it.setStrength(if (auraPreset == "Pulse") 700 else 350)
+                    it.enabled = true
+                    effects += it
+                }
+            }
+            runCatching {
+                EnvironmentalReverb(0, sessionId).also {
+                    it.reverbLevel = if (auraPreset == "Pulse") 900.toShort() else 4200.toShort()
+                    it.roomLevel = (-1800).toShort()
+                    it.enabled = true
+                    effects += it
+                }
+            }
+            runCatching {
+                Virtualizer(0, sessionId).also {
+                    it.setStrength(if (auraPreset == "Dreamscape") 650 else 350)
+                    it.enabled = true
+                    effects += it
+                }
+            }
+        }
+        onDispose { effects.forEach { runCatching { it.release() } } }
+    }
+    LaunchedEffect(aura, auraPreset) {
+        controller?.setPlaybackSpeed(if (aura && auraPreset == "Slowed + Reverb") 0.85f else 1f)
+    }
 
     if (aura) {
         AuraListeningStage(
