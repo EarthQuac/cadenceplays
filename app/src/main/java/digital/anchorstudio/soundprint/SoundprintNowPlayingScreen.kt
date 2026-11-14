@@ -769,17 +769,31 @@ fun SoundprintNowPlayingScreen(
         LazyColumn(Modifier.heightIn(max = 420.dp)) {
             itemsIndexed(queueIds) { index, id ->
                 val item = library.song(id)
-                if (item != null) Row(
-                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f).clickable { controller?.seekTo(index, 0L); queueOpen = false }) {
-                        Text(item.title, fontSize = 12.sp, fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                if (item != null) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (index == currentIndex) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else Color.Transparent)
+                            .clickable { controller?.seekTo(index, 0L); queueOpen = false }
+                            .padding(horizontal = 7.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            (index + 1).toString().padStart(2, '0'),
+                            modifier = Modifier.width(25.dp),
+                            fontSize = 10.sp,
+                            color = if (index == currentIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        TrackArtwork(item.artworkUri, item.title, Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)))
+                        Column(Modifier.weight(1f).padding(start = 10.dp, end = 6.dp)) {
+                            Text(item.title, fontSize = 12.sp, fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (index == currentIndex) "Now playing · ${item.artist}" else item.artist, fontSize = 10.sp, color = if (index == currentIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (index > 0) IconButton(onClick = { controller?.moveMediaItem(index, index - 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up", modifier = Modifier.size(17.dp)) }
+                        if (index < queueIds.lastIndex) IconButton(onClick = { controller?.moveMediaItem(index, index + 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down", modifier = Modifier.size(17.dp)) }
+                        IconButton(onClick = { controller?.removeMediaItem(index) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(16.dp)) }
                     }
-                    if (index > 0) IconButton(onClick = { controller?.moveMediaItem(index, index - 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
-                    if (index < queueIds.lastIndex) IconButton(onClick = { controller?.moveMediaItem(index, index + 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
-                    IconButton(onClick = { controller?.removeMediaItem(index) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Close, "Remove") }
                 }
             }
         }
