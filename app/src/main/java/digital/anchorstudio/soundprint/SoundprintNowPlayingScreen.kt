@@ -394,7 +394,6 @@ fun SoundprintNowPlayingScreen(
                             }
                         }
                     }
-                }
             }
             item {
                 Spacer(Modifier.height(16.dp))
