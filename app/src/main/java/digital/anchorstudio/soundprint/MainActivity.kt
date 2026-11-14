@@ -460,6 +460,7 @@ private fun SoundprintApp(
                     ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
                 } else if (settingsOpen) {
                     SettingsScreen(
+                        libraryManager = libraryManager,
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange,
                         selectedPalette = selectedPalette,
@@ -1486,6 +1487,7 @@ private fun PageTitle(title: String, subtitle: String, onBack: () -> Unit) {
 
 @Composable
 private fun SettingsScreen(
+    libraryManager: MusicLibraryManager,
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
     selectedPalette: String,
@@ -1518,6 +1520,8 @@ private fun SettingsScreen(
     var clearDialog by remember { mutableStateOf(false) }
     var historyDialog by remember { mutableStateOf(false) }
     var helpDialog by remember { mutableStateOf(false) }
+    var recycleBinOpen by remember { mutableStateOf(false) }
+    var recycleBinEntries by remember { mutableStateOf(emptyList<RecycleBinEntry>()) }
     val needle = query.trim().lowercase()
     fun matches(vararg words: String): Boolean = needle.isEmpty() || words.any { it.lowercase().contains(needle) }
 
@@ -1611,7 +1615,7 @@ private fun SettingsScreen(
                     SettingsActionRow("Folder auto-watch", "Choose a folder to scan every 30 seconds while Soundprint is open.", "Choose")
                 }
             }
-            if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library")) {
+            if (matches("library custom artwork add music your music rescan folders audio tag editor playback history backup restore ignore clips clear library recycle bin")) {
                 SettingsSection("LIBRARY") {
                     SettingsToggleRow("Custom artwork", "Show Soundprint artwork only when a song has no embedded cover. Turn this off anytime to remove Soundprint artwork from your library.", customArtwork) { customArtwork = it }
                     SettingsActionRow("Your music", "$libraryTrackCount songs stored on this device", "Add folder", onClick = onImportMusic)
@@ -1632,6 +1636,10 @@ private fun SettingsScreen(
                             }
                         }
                         SettingsDivider()
+                    }
+                    SettingsActionRow("Recycle Bin", "Restore songs removed from your library within 30 days", "Open") {
+                        recycleBinEntries = libraryManager.recycleBin()
+                        recycleBinOpen = true
                     }
                     SettingsActionRow("Audio tag editor", "Manually edit title, artist, album and genre — free for everyone", "Open")
                     SettingsActionRow("Playback history", "Clear recently played songs, play counts, listening time and streaks", "Clear") { historyDialog = true }
@@ -1656,6 +1664,37 @@ private fun SettingsScreen(
             }
         }
     }
+    if (recycleBinOpen) AlertDialog(
+        onDismissRequest = { recycleBinOpen = false },
+        title = { Text("Recycle Bin") },
+        text = {
+            if (recycleBinEntries.isEmpty()) {
+                Text("Your Recycle Bin is empty.")
+            } else {
+                Column(
+                    Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    recycleBinEntries.forEach { entry ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(entry.track.title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(entry.track.artist, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            TextButton(onClick = {
+                                libraryManager.restoreFromRecycleBin(entry.track.id)
+                                recycleBinEntries = libraryManager.recycleBin()
+                            }) { Text("Restore") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { recycleBinOpen = false }) { Text("Done") } }
+    )
     if (clearDialog) AlertDialog(
         onDismissRequest = { clearDialog = false },
         title = { Text("Clear your library?") },
