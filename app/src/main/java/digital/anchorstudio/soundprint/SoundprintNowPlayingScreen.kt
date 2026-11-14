@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -301,7 +302,7 @@ fun SoundprintNowPlayingScreen(
             Equalizer(0, sessionId).also { eq ->
                 eq.enabled = true
                 val range = eq.bandLevelRange
-                for (band in 0 until eq.numberOfBands) {
+                for (band in 0 until eq.numberOfBands.toInt()) {
                     val frequency = eq.getCenterFreq(band.toShort()) / 1000
                     val adjustment = if (frequency < 250) bass else if (frequency > 5000) treble else 0f
                     val level = (adjustment * range[1].toFloat()).toInt().coerceIn(range[0].toInt(), range[1].toInt())
@@ -568,6 +569,7 @@ private fun RowScope.PlayerAction(label:String,icon:androidx.compose.ui.graphics
 private fun PlayerPanel(title:String,onClose:()->Unit,content:@Composable ColumnScope.()->Unit){
     Column(Modifier.fillMaxWidth().padding(top=10.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text(title,fontWeight=FontWeight.SemiBold,fontSize=14.sp);if(title!="Up next")IconButton(onClick=onClose,modifier=Modifier.size(28.dp)){Icon(Icons.Filled.Close,null,modifier=Modifier.size(16.dp))}};content()}
 }
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerChoiceRow(options:List<String>,selected:String,onSelect:(String)->Unit){
     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){options.forEach{item->FilterChip(selected=selected.equals(item,true)||selected.equals(item.replace(" ","_"),true),onClick={onSelect(item)},label={Text(item,fontSize=11.sp)})}}
@@ -582,6 +584,7 @@ private fun discBrush(style:PlayerDiscStyle,finish:PlayerDiscFinish):Brush = whe
 }
 private fun formatPlayerTime(ms:Long):String{val seconds=(ms/1000L).coerceAtLeast(0L);return "%d:%02d".format(seconds/60L,seconds%60L)}
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AuraListeningStage(mood:String,preset:String,onPreset:(String)->Unit,onExit:()->Unit){
     var prompt by remember{mutableIntStateOf(0)}
