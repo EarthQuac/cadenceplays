@@ -586,12 +586,12 @@ fun SoundprintNowPlayingScreen(
                     exit = fadeOut(tween(130)) + shrinkVertically(animationSpec = tween(180)) +
                         slideOutVertically(animationSpec = tween(180)) { -it / 16 }
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             PlayerAction("Share track", R.drawable.lucide_share_2, Modifier.weight(1f)) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
                             PlayerAction("Restart track", R.drawable.lucide_rotate_ccw, Modifier.weight(1f)) { controller?.seekTo(0L) }
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             PlayerAction("Playback options", R.drawable.lucide_settings_2, Modifier.weight(1f)) { optionsOpen = true }
                             PlayerAction("Customize artwork", R.drawable.lucide_disc_3, Modifier.weight(1f)) { customizerOpen = true }
                         }
@@ -1190,17 +1190,17 @@ private fun PlayerQuickAction(
 @Composable
 private fun PlayerAction(label: String, icon: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
-        modifier.height(88.dp).clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = .6f))
-            .clickable(onClick = onClick).padding(horizontal = 5.dp, vertical = 9.dp),
+        modifier.height(68.dp).clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = .48f))
+            .clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
-            Icon(painterResource(icon), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon), null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 12.sp)
+        Spacer(Modifier.height(5.dp))
+        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 10.sp, overflow = TextOverflow.Ellipsis)
     }
 }
 @Composable
