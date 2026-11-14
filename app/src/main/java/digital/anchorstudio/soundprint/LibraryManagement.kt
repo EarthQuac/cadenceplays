@@ -208,8 +208,8 @@ private fun smartPlaylistFromJson(json:JSONObject):NativeSmartPlaylist {
 }
 
 /** Complete native library-management logic. UI screens consume this API; this class has no Compose dependency. */
-class MusicLibraryManager(context:Context) {
-    private val repository=MusicLibraryRepository(context.applicationContext)
+class MusicLibraryManager private constructor(context:Context) {
+    private val repository=MusicLibraryRepository.getInstance(context.applicationContext)
     private val state=LibraryManagementDatabase(context.applicationContext)
     private val clapPreferences=context.applicationContext.getSharedPreferences("soundprint_clap_scan",Context.MODE_PRIVATE)
 
@@ -340,6 +340,14 @@ class MusicLibraryManager(context:Context) {
     }
     fun searchSongs(query:String,favoritesOnly:Boolean=false,sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=
         repository.tracks(query,sort,ascending).filter { !favoritesOnly||it.isFavorite }
+
+    companion object {
+        @Volatile private var instance: MusicLibraryManager? = null
+        fun getInstance(context: Context): MusicLibraryManager =
+            instance ?: synchronized(this) {
+                instance ?: MusicLibraryManager(context.applicationContext).also { instance = it }
+            }
+    }
 }
 
 fun evaluateNativeSmartPlaylist(playlist:NativeSmartPlaylist,context:SmartPlaylistContext):List<MusicTrack> {
