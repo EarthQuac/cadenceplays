@@ -1567,7 +1567,8 @@ private fun SettingsScreen(
     var crossfade by remember { mutableIntStateOf(0) }
     var resume by remember { mutableStateOf(true) }
     var rememberPosition by remember { mutableStateOf(true) }
-    var seekSeconds by remember { mutableIntStateOf(10) }
+    val playbackPrefs = remember { LocalContext.current.getSharedPreferences("soundprint_playback_options", 0) }
+    var seekSeconds by remember { mutableIntStateOf(playbackPrefs.getInt("double_tap_seek_seconds", 10).coerceIn(5, 60)) }
     var replaceQueue by remember { mutableStateOf(false) }
     var autoAdd by remember { mutableStateOf(true) }
     var customArtwork by remember { mutableStateOf(true) }
@@ -1649,7 +1650,7 @@ private fun SettingsScreen(
                                             Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(12.dp))
                                                 .background(if (seekSeconds == seconds) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
                                                 .border(1.dp, if (seekSeconds == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                                                .clickable { seekSeconds = seconds },
+                                                .clickable { seekSeconds = seconds; playbackPrefs.edit().putInt("double_tap_seek_seconds", seconds).apply() },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text("$seconds s", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (seekSeconds == seconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
