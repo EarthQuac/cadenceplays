@@ -424,29 +424,34 @@ fun ClapDiscoverScreen(
         var knownTrackIds = emptySet<String>()
         var firstLoad = true
         while (true) {
-            val loaded = withContext(Dispatchers.IO) {
-                val allTracks = libraryManager.allSongs()
-                val allProfiles = allTracks.mapNotNull { track ->
-                    libraryManager.clapMoodProfile(track)?.let { track.id to it }
-                }.toMap()
-                allTracks to allProfiles
-            }
-            val newTrackIds = loaded.first.map { it.id }.toSet() - knownTrackIds
-            tracks = loaded.first
-            // Reconcile against the current library so newly imported tracks enter
-            // the pending queue and removed tracks disappear from this status list.
-            profiles = loaded.second
-            knownTrackIds = loaded.first.map { it.id }.toSet()
+            val refreshedTracks = withContext(Dispatchers.IO) { libraryManager.allSongs() }
+            val currentIds = refreshedTracks.map { it.id }.toSet()
+            val changedIds = currentIds - knownTrackIds
             if (firstLoad) {
+                val savedProfiles = withContext(Dispatchers.IO) {
+                    refreshedTracks.mapNotNull { track ->
+                        libraryManager.clapMoodProfile(track)?.let { track.id to it }
+                    }.toMap()
+                }
+                profiles = savedProfiles
                 firstLoad = false
                 libraryLoaded = true
-            } else if (newTrackIds.isNotEmpty()) {
-                // Queue a follow-up pass if the current scan is busy; the scanner
-                // serializes it and reuses every profile already saved.
-                scanner.startScan()
+            } else if (changedIds.isNotEmpty()) {
+                val newProfiles = withContext(Dispatchers.IO) {
+                    refreshedTracks.filter { it.id in changedIds }.mapNotNull { track ->
+                        libraryManager.clapMoodProfile(track)?.let { track.id to it }
+                    }.toMap()
+                }
+                profiles = profiles.filterKeys { it in currentIds } + newProfiles
+                // Newly imported songs join the same sequential scan; the scanner
+                // queues a follow-up pass if another song is currently being analysed.
+                if (currentIds != knownTrackIds) scanner.startScan()
+            } else {
+                profiles = profiles.filterKeys { it in currentIds }
             }
-            scanner.refreshSummary()
-            delay(1800)
+            tracks = refreshedTracks
+            knownTrackIds = currentIds
+            delay(2200)
         }
     }
     androidx.compose.runtime.LaunchedEffect(scan.lastCompletedTrackId) {
@@ -500,6 +505,7 @@ fun ClapDiscoverScreen(
         )
         if (tracks.isNotEmpty()) {
             val processed = (scan.completed + scan.failed).coerceAtMost(scan.total)
+            val waitingCount = (scan.pending - if (scan.currentTrackId != null) 1 else 0).coerceAtLeast(0)
             val progress = if (scan.total > 0) processed.toFloat() / scan.total.toFloat() else 0f
             val animatedProgress by animateFloatAsState(
                 targetValue = progress,
@@ -550,7 +556,7 @@ fun ClapDiscoverScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("✓ ${scan.completed} scanned", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF32A56A))
-                    Text("◷ ${scan.pending} waiting", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("◷ $waitingCount waiting", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (scan.failed > 0) Text("! ${scan.failed} failed", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFD97968))
                 }
                 if (scan.currentTrackId != null || scan.message.isNotBlank()) {
