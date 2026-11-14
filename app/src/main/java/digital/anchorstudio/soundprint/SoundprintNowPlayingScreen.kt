@@ -1150,12 +1150,11 @@ private fun ArtworkCustomizerDialog(
             ) {
                 Surface(
                     onClick = {},
-                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp).padding(18.dp)
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp).padding(18.dp).shadow(26.dp, RoundedCornerShape(28.dp))
                         .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.background,
                     tonalElevation = 8.dp,
-                    shadowElevation = 26.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
                 ) {
                     Column(Modifier.padding(16.dp)) {
