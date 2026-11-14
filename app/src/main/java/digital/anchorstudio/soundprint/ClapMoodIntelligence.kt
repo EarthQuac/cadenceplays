@@ -148,7 +148,7 @@ class ClapModelManager(context: Context) {
         val total = assets.sumOf { it.second }
         var completed = 0L
         assets.forEach { (assetPath, expectedBytes, expectedSha) ->
-            val target = File(debugModelDir, assetPath.removePrefix("clap/"))
+            val target = File(debugModelDir, assetPath)
             val valid = target.isFile && target.length() >= expectedBytes &&
                 (expectedSha.isEmpty() || sha256(target) == expectedSha)
             if (!valid) {
@@ -185,7 +185,7 @@ class ClapModelManager(context: Context) {
             ))
         }
         File(debugModelDir, ".verified").writeText(CLAP_MODEL_VERSION)
-        return filesAt(File(debugModelDir.parentFile, ""))
+        return filesAt(debugModelDir)
     }
 
     private suspend fun fetchPlayAssetPack(
