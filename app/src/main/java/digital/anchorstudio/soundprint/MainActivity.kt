@@ -678,11 +678,31 @@ private fun HomeScreen(
     onOpenSongs: () -> Unit
 ) {
     var searchOpen by remember { mutableStateOf(false) }
+    var refreshVersion by remember { mutableIntStateOf(0) }
+    var playlistTrack by remember { mutableStateOf<MusicTrack?>(null) }
+    var playlistChoices by remember { mutableStateOf(emptyList<ManagedPlaylist>()) }
+    var newPlaylistName by remember { mutableStateOf("") }
+    var editTrack by remember { mutableStateOf<MusicTrack?>(null) }
+    var editTitle by remember { mutableStateOf("") }
+    var editArtist by remember { mutableStateOf("") }
+    var editAlbum by remember { mutableStateOf("") }
+    var editGenre by remember { mutableStateOf("") }
+    var recycleConfirmationTrack by remember { mutableStateOf<MusicTrack?>(null) }
+    var selectedArtist by remember { mutableStateOf<String?>(null) }
     if (searchOpen) {
         HomeSearchScreen(libraryManager, playback) { searchOpen = false }
         return
     }
-    val libraryTracks = remember(libraryTrackCount) {
+    if (selectedArtist != null) {
+        ArtistHomeScreen(
+            artist = selectedArtist!!,
+            tracks = libraryManager.artistTracks(selectedArtist!!),
+            playback = playback,
+            onBack = { selectedArtist = null }
+        )
+        return
+    }
+    val libraryTracks = remember(libraryTrackCount, refreshVersion) {
         libraryManager.allSongs(sort = TrackSort.DATE_ADDED, ascending = false)
     }
     val recentTracks = libraryTracks.take(8)
@@ -776,18 +796,60 @@ private fun HomeScreen(
                                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                     DropdownMenuItem(
                                         text = { Text("Play next") },
-                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track), next = true) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to queue") },
-                                        leadingIcon = { Icon(Icons.Filled.QueueMusic, null) },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.QueueMusic, null) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track)) }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Play now") },
-                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
-                                        onClick = { menuExpanded = false; playback.playTracks(recentTracks, index) }
+                                        text = { Text("Add to favorites") },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Favorite, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            if (!libraryManager.isFavorite(track.id)) libraryManager.toggleFavorite(track.id)
+                                            refreshVersion++
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Add to playlist") },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.PlaylistAdd, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            playlistChoices = libraryManager.playlists()
+                                            newPlaylistName = ""
+                                            playlistTrack = track
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Edit song information") },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Edit, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            editTitle = track.title
+                                            editArtist = track.artist
+                                            editAlbum = track.album
+                                            editGenre = track.genre
+                                            editTrack = track
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Go to artist") },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Person, null) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            selectedArtist = track.artist.ifBlank { "Unknown artist" }
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Move to recycle bin", color = Color(0xFFE5484D)) },
+                                        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Delete, null, tint = Color(0xFFE5484D)) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            recycleConfirmationTrack = track
+                                        }
                                     )
                                 }
                             }
@@ -797,6 +859,144 @@ private fun HomeScreen(
                         Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(7.dp))
                         Text("Add more music")
+                    }
+                }
+            }
+        }
+    }
+
+    playlistTrack?.let { track ->
+        AlertDialog(
+            onDismissRequest = { playlistTrack = null },
+            title = { Text("Add to playlist") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (playlistChoices.isEmpty()) {
+                        Text("You don't have a playlist yet. Create one below to add this song.")
+                    } else {
+                        playlistChoices.forEach { playlist ->
+                            TextButton(
+                                onClick = {
+                                    libraryManager.addToPlaylist(playlist.id, listOf(track.id))
+                                    playlistTrack = null
+                                    refreshVersion++
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(androidx.compose.material.icons.Icons.Filled.QueueMusic, null)
+                                Spacer(Modifier.width(10.dp))
+                                Text(playlist.name, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                    androidx.compose.material3.OutlinedTextField(
+                        value = newPlaylistName,
+                        onValueChange = { newPlaylistName = it },
+                        label = { Text("New playlist name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = newPlaylistName.isNotBlank(),
+                    onClick = {
+                        libraryManager.createPlaylist(newPlaylistName.trim(), listOf(track.id))
+                        newPlaylistName = ""
+                        playlistTrack = null
+                        refreshVersion++
+                    }
+                ) { Text("Create and add") }
+            },
+            dismissButton = { TextButton(onClick = { playlistTrack = null }) { Text("Cancel") } }
+        )
+    }
+
+    editTrack?.let { track ->
+        AlertDialog(
+            onDismissRequest = { editTrack = null },
+            title = { Text("Edit song information") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedTextField(editTitle, { editTitle = it }, label = { Text("Title") }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(editArtist, { editArtist = it }, label = { Text("Artist") }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(editAlbum, { editAlbum = it }, label = { Text("Album") }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(editGenre, { editGenre = it }, label = { Text("Genre") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    libraryManager.updateSongMetadata(track.id, editTitle, editArtist, editAlbum, editGenre)
+                    editTrack = null
+                    refreshVersion++
+                }) { Text("Save changes") }
+            },
+            dismissButton = { TextButton(onClick = { editTrack = null }) { Text("Cancel") } }
+        )
+    }
+
+    recycleConfirmationTrack?.let { track ->
+        AlertDialog(
+            onDismissRequest = { recycleConfirmationTrack = null },
+            title = { Text("Move song to Recycle Bin?") },
+            text = {
+                Text("\"${track.title}\" will be removed from your library and playback queue. You can restore it from the Recycle Bin for 30 days. The original audio file on your device will not be deleted.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    libraryManager.moveToRecycleBin(track.id)
+                    playback.removeTrackFromQueue(track.id)
+                    recycleConfirmationTrack = null
+                    refreshVersion++
+                }) { Text("Move to Recycle Bin", color = Color(0xFFE5484D)) }
+            },
+            dismissButton = { TextButton(onClick = { recycleConfirmationTrack = null }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun ArtistHomeScreen(
+    artist: String,
+    tracks: List<MusicTrack>,
+    playback: SoundprintPlaybackConnection,
+    onBack: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.material3.IconButton(onClick = onBack) {
+                Icon(androidx.compose.material.icons.Icons.Filled.ChevronLeft, contentDescription = "Back")
+            }
+            Column(Modifier.weight(1f)) {
+                Text("ARTIST", fontSize = 10.sp, letterSpacing = 1.4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(artist, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${tracks.size} songs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (tracks.isEmpty()) {
+            Text("No songs by this artist are currently in your library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(tracks, key = { it.id }) { track ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .clickable { playback.playTracks(tracks, tracks.indexOf(track)) }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NativeArtwork(track.artworkUri, track.id, Modifier.size(42.dp), 9)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(track.title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(track.album, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
