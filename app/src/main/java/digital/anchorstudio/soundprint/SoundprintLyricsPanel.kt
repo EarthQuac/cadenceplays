@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -165,6 +166,16 @@ fun SoundprintLyricsPanel(
     var selectedSyncLine by remember(trackId) { mutableIntStateOf(0) }
     var syncMenuOpen by remember(trackId) { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val lyricsViewportHeight by animateDpAsState(
+        targetValue = if (expanded) 448.dp else 256.dp,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        label = "lyrics-panel-height"
+    )
+    val lyricsCenterPadding by animateDpAsState(
+        targetValue = if (expanded) 196.dp else 100.dp,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        label = "lyrics-panel-center-padding"
+    )
     val lines = remember(lyrics) { parseSoundprintLrc(lyrics) }
     val activeIndex = remember(lines, position, syncOffset, syncAnchors) {
         lines.indexOfLast { alignSoundprintLyricTime(it.timeMs, syncAnchors) + (syncOffset * 1000f).toLong() <= position }
@@ -485,8 +496,8 @@ fun SoundprintLyricsPanel(
                 if (lines.isNotEmpty()) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxWidth().height(if (expanded) 448.dp else 256.dp),
-                        contentPadding = PaddingValues(vertical = if (expanded) 196.dp else 100.dp),
+                        modifier = Modifier.fillMaxWidth().height(lyricsViewportHeight),
+                        contentPadding = PaddingValues(vertical = lyricsCenterPadding),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         itemsIndexed(lines) { index, line ->
