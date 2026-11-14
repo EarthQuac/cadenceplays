@@ -324,9 +324,18 @@ class SoundprintPlaybackService : MediaSessionService() {
 
     /** All history writes are serialized on Dispatchers.IO; failed batches remain queued for retry. */
     private fun drainListeningWrites() {
-        synchronized(listeningWriteQueue) {
-            if (listeningWriteInFlight || listeningWriteQueue.isEmpty()) return
-            listeningWriteInFlight = true
+        val shouldStart = synchronized(listeningWriteQueue) {
+            if (listeningWriteInFlight || listeningWriteQueue.isEmpty()) false
+            else {
+                listeningWriteInFlight = true
+                true
+            }
+        }
+        if (!shouldStart) {
+            if (serviceDestroying && synchronized(listeningWriteQueue) { listeningWriteQueue.isEmpty() }) {
+                serviceScope.cancel()
+            }
+            return
         }
         serviceScope.launch {
             while (true) {
