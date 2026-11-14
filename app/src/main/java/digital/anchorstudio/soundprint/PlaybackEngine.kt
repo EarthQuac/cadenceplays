@@ -285,7 +285,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         }
 
         val fadeSeconds = playbackOptions.getInt(KEY_CROSSFADE_SECONDS, 0).coerceIn(0, 8)
-        if (fadeSeconds <= 0 || !player.isPlaying || player.shuffleModeEnabled ||
+        if (fadeSeconds <= 0 || !player.isPlaying ||
             player.repeatMode == Player.REPEAT_MODE_ONE ||
             playbackOptions.getBoolean(KEY_STOP_AFTER_CURRENT, false) ||
             playbackOptions.getLong(KEY_SLEEP_ENDS_AT, 0L) > 0L
@@ -306,9 +306,10 @@ class SoundprintPlaybackService : MediaSessionService() {
         runCatching {
             standbyPlayer.stop()
             standbyPlayer.clearMediaItems()
-            standbyPlayer.shuffleModeEnabled = false
-            standbyPlayer.repeatMode = player.repeatMode
             standbyPlayer.setMediaItems(crossfadeQueueItems, nextIndex, 0L)
+            standbyPlayer.shuffleOrder = player.shuffleOrder
+            standbyPlayer.shuffleModeEnabled = player.shuffleModeEnabled
+            standbyPlayer.repeatMode = player.repeatMode
             standbyPlayer.volume = 0f
             standbyPlayer.prepare()
             crossfadePending = true
@@ -352,9 +353,10 @@ class SoundprintPlaybackService : MediaSessionService() {
             standbyPlayer.volume = 0f
             standbyPlayer.stop()
             standbyPlayer.clearMediaItems()
-            standbyPlayer.shuffleModeEnabled = false
-            standbyPlayer.repeatMode = player.repeatMode
             standbyPlayer.setMediaItems(queueItems, nextIndex, position)
+            standbyPlayer.shuffleOrder = player.shuffleOrder
+            standbyPlayer.shuffleModeEnabled = player.shuffleModeEnabled
+            standbyPlayer.repeatMode = player.repeatMode
             standbyPlayer.prepare()
 
             flushListeningTime()
