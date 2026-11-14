@@ -526,6 +526,8 @@ private fun SoundprintApp(
                         "now-playing" -> SoundprintNowPlayingScreen(
                             controller = playbackConnection.controller,
                             library = libraryManager,
+                            scanner = clapScanner,
+                            playback = playbackConnection,
                             onBack = { nowPlayingOpen = false }
                         )
                         "pro" -> ProScreen(onBack = { proOpen = false })
