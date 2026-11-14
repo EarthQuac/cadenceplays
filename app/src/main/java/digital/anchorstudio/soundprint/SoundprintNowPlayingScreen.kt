@@ -9,6 +9,8 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
+import android.os.Build
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -61,6 +63,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +74,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import kotlinx.coroutines.Dispatchers
@@ -650,28 +655,34 @@ fun SoundprintNowPlayingScreen(
         }
     }
 
-    if (queueOpen) AlertDialog(
+    if (queueOpen) SoundprintFloatingDialog(
         onDismissRequest = { queueOpen = false },
-        title = { Text("Queue · " + queueIds.size) },
-        text = {
-            LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                itemsIndexed(queueIds) { index, id ->
-                    val item = library.song(id)
-                    if (item != null) Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f).clickable { controller?.seekTo(index, 0L); queueOpen = false }) {
-                            Text(item.title, fontSize = 12.sp, fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(item.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
-                        if (index > 0) IconButton(onClick = { controller?.moveMediaItem(index, index - 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
-                        if (index < queueIds.lastIndex) IconButton(onClick = { controller?.moveMediaItem(index, index + 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
-                        IconButton(onClick = { controller?.removeMediaItem(index) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Close, "Remove") }
+        title = "Queue · ${queueIds.size}",
+        maxWidth = 440.dp,
+        actions = {
+            TextButton(onClick = { controller?.clearMediaItems(); queueOpen = false }) { Text("Clear queue", color = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { queueOpen = false }) { Text("Done") }
+        }
+    ) {
+        LazyColumn(Modifier.heightIn(max = 420.dp)) {
+            itemsIndexed(queueIds) { index, id ->
+                val item = library.song(id)
+                if (item != null) Row(
+                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f).clickable { controller?.seekTo(index, 0L); queueOpen = false }) {
+                        Text(item.title, fontSize = 12.sp, fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
+                    if (index > 0) IconButton(onClick = { controller?.moveMediaItem(index, index - 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
+                    if (index < queueIds.lastIndex) IconButton(onClick = { controller?.moveMediaItem(index, index + 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
+                    IconButton(onClick = { controller?.removeMediaItem(index) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Close, "Remove") }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = { queueOpen = false }) { Text("Done") } },
-        dismissButton = { TextButton(onClick = { controller?.clearMediaItems(); queueOpen = false }) { Text("Clear queue") } }
-    )
+        }
+    }
     if (customizerOpen) {
         ArtworkCustomizerDialog(
             discStyle = discStyle,
@@ -697,20 +708,123 @@ fun SoundprintNowPlayingScreen(
             }
         )
     }
-    if(editOpen) AlertDialog(onDismissRequest={editOpen=false},title={Text("Edit song info")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(editTitle,{editTitle=it},label={Text("Title")});OutlinedTextField(editArtist,{editArtist=it},label={Text("Artist")});OutlinedTextField(editAlbum,{editAlbum=it},label={Text("Album")});OutlinedTextField(editGenre,{editGenre=it},label={Text("Genre")})}},confirmButton={TextButton(onClick={library.updateSongMetadata(trackId,editTitle,editArtist,editAlbum,editGenre);title=editTitle;artist=editArtist;album=editAlbum;genre=editGenre;editOpen=false}){Text("Save changes")}},dismissButton={TextButton(onClick={editOpen=false}){Text("Cancel")}})
-    if(sleepOpen) AlertDialog(onDismissRequest={sleepOpen=false},title={Text("Sleep timer")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Stop playback after…",fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(15,30,45,60).forEach{OutlinedButton(onClick={sleepMinutes=it.toString()}){Text("${it}m")}}};OutlinedTextField(sleepMinutes,{sleepMinutes=it},label={Text("Custom minutes")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number));if(sleepRemaining>0)Text("Remaining: $displaySleep")}},confirmButton={TextButton(onClick={
-        val minutes=(sleepMinutes.toLongOrNull()?.coerceIn(1,720)?:30)
-        playbackOptionsPrefs.edit().putLong("sleep_ends_at",System.currentTimeMillis()+minutes*60_000L).apply()
-        sleepRemaining=minutes*60_000L
-        sleepOpen=false
-    }){Text(if(sleepRemaining>0)"Update timer" else "Start timer")}},dismissButton={TextButton(onClick={
-        playbackOptionsPrefs.edit().remove("sleep_ends_at").apply()
-        sleepRemaining=0L
-        sleepOpen=false
-    }){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
-    if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Gapless playback",fontSize=12.sp,fontWeight=FontWeight.Medium);Text("Native playlist transitions are enabled by the playback engine",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("ON",fontSize=10.sp,color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","Pause at the end of the current track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);Text("Blend into the next queued track",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),if(crossfade==0)"Off" else "${crossfade}s"){crossfade=it.removeSuffix("s").toIntOrNull()?:0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
-    if(auraNotice) AlertDialog(onDismissRequest={auraNotice=false},title={Text("Aura Mode")},text={Text("Aura Mode is temporarily paused. The audio effects and Audio Lab remain in Soundprint; the immersive mode will return later.")},confirmButton={TextButton(onClick={auraNotice=false}){Text("Got it")}})
-    if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab · 10-band EQ")},text={Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(3.dp)){val labels=listOf("31 Hz","62 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz");labels.forEachIndexed{index,label->Row(verticalAlignment=Alignment.CenterVertically){Text(label,modifier=Modifier.width(54.dp),fontSize=10.sp);Slider(value=eqLevels[index],onValueChange={v->eqLevels=eqLevels.toMutableList().also{it[index]=v}},valueRange=-1f..1f);Text(if(eqLevels[index]>=0)"+"+String.format("%.1f",eqLevels[index]) else String.format("%.1f",eqLevels[index]),modifier=Modifier.width(30.dp),fontSize=9.sp)}};Text("Bass",fontSize=11.sp);Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble",fontSize=11.sp);Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}},dismissButton={TextButton(onClick={eqLevels=List(10){0f};bass=0f;treble=0f}){Text("Reset")}})
+    if (editOpen) SoundprintFloatingDialog(
+        onDismissRequest = { editOpen = false },
+        title = "Edit song info",
+        subtitle = "Update the details saved in your local library.",
+        actions = {
+            TextButton(onClick = { editOpen = false }) { Text("Cancel") }
+            Spacer(Modifier.weight(1f))
+            Button(onClick = {
+                library.updateSongMetadata(trackId, editTitle, editArtist, editAlbum, editGenre)
+                title = editTitle
+                artist = editArtist
+                album = editAlbum
+                genre = editGenre
+                editOpen = false
+            }) { Text("Save changes") }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(editTitle, { editTitle = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(editArtist, { editArtist = it }, label = { Text("Artist") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(editAlbum, { editAlbum = it }, label = { Text("Album") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(editGenre, { editGenre = it }, label = { Text("Genre") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        }
+    }
+    if (sleepOpen) SoundprintFloatingDialog(
+        onDismissRequest = { sleepOpen = false },
+        title = "Sleep timer",
+        subtitle = "Stop playback after…",
+        maxWidth = 340.dp,
+        actions = {
+            TextButton(onClick = {
+                playbackOptionsPrefs.edit().remove("sleep_ends_at").apply()
+                sleepRemaining = 0L
+                sleepOpen = false
+            }) { Text(if (sleepRemaining > 0) "Cancel timer" else "Close") }
+            Spacer(Modifier.weight(1f))
+            Button(onClick = {
+                val minutes = (sleepMinutes.toLongOrNull()?.coerceIn(1, 720) ?: 30)
+                playbackOptionsPrefs.edit().putLong("sleep_ends_at", System.currentTimeMillis() + minutes * 60_000L).apply()
+                sleepRemaining = minutes * 60_000L
+                sleepOpen = false
+            }) { Text(if (sleepRemaining > 0) "Update timer" else "Start timer") }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(15, 30, 45, 60).forEach { minutes ->
+                    OutlinedButton(onClick = { sleepMinutes = minutes.toString() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) { Text("${minutes}m") }
+                }
+            }
+            OutlinedTextField(sleepMinutes, { sleepMinutes = it }, label = { Text("Custom minutes") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
+            if (sleepRemaining > 0) Text("Remaining: $displaySleep", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+    if (optionsOpen) SoundprintFloatingDialog(
+        onDismissRequest = { optionsOpen = false },
+        title = "Playback options",
+        subtitle = "Fine-tune how your music plays.",
+        maxWidth = 380.dp,
+        actions = {
+            Spacer(Modifier.weight(1f))
+            Button(onClick = { optionsOpen = false }) { Text("Done") }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Gapless playback", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text("Native playlist transitions are enabled by the playback engine", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("ON", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+            PlayerToggle("Loudness leveling", "Keep volume consistent", loudness) { loudness = it }
+            PlayerToggle("Stop after this song", "Pause at the end of the current track", stopAfterCurrent) { stopAfterCurrent = it }
+            Text("Crossfade", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text("Blend into the next queued track", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            PlayerChoiceRow(listOf("Off", "2s", "4s", "6s", "8s"), if (crossfade == 0) "Off" else "${crossfade}s") {
+                crossfade = it.removeSuffix("s").toIntOrNull() ?: 0
+            }
+        }
+    }
+    if (auraNotice) SoundprintFloatingDialog(
+        onDismissRequest = { auraNotice = false },
+        title = "Aura Mode",
+        maxWidth = 340.dp,
+        actions = {
+            Spacer(Modifier.weight(1f))
+            Button(onClick = { auraNotice = false }) { Text("Got it") }
+        }
+    ) {
+        Text("Aura Mode is temporarily paused. The audio effects and Audio Lab remain in Soundprint; the immersive mode will return later.", fontSize = 13.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (audioLabOpen) SoundprintFloatingDialog(
+        onDismissRequest = { audioLabOpen = false },
+        title = "Audio Lab · 10-band EQ",
+        maxWidth = 420.dp,
+        actions = {
+            TextButton(onClick = { eqLevels = List(10) { 0f }; bass = 0f; treble = 0f }) { Text("Reset") }
+            Spacer(Modifier.weight(1f))
+            Button(onClick = { audioLabOpen = false }) { Text("Done") }
+        }
+    ) {
+        Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            val labels = listOf("31 Hz", "62 Hz", "125 Hz", "250 Hz", "500 Hz", "1 kHz", "2 kHz", "4 kHz", "8 kHz", "16 kHz")
+            labels.forEachIndexed { index, label ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, modifier = Modifier.width(54.dp), fontSize = 10.sp)
+                    Slider(value = eqLevels[index], onValueChange = { value -> eqLevels = eqLevels.toMutableList().also { it[index] = value } }, valueRange = -1f..1f)
+                    Text(if (eqLevels[index] >= 0) "+" + String.format("%.1f", eqLevels[index]) else String.format("%.1f", eqLevels[index]), modifier = Modifier.width(30.dp), fontSize = 9.sp)
+                }
+            }
+            Text("Bass", fontSize = 11.sp)
+            Slider(value = bass, onValueChange = { bass = it }, valueRange = -1f..1f)
+            Text("Treble", fontSize = 11.sp)
+            Slider(value = treble, onValueChange = { treble = it }, valueRange = -1f..1f)
+        }
+    }
 }
 
 @Composable
