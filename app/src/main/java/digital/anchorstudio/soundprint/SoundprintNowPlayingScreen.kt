@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.LinearEasing
@@ -395,6 +396,7 @@ fun SoundprintNowPlayingScreen(
                     }
                 }
             }
+            item {
                 Spacer(Modifier.height(16.dp))
                 Box(
                     Modifier.fillMaxWidth().height(30.dp)
@@ -416,26 +418,29 @@ fun SoundprintNowPlayingScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
+                    val seekTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .9f)
+                    val seekActiveColor = MaterialTheme.colorScheme.primary
+                    val seekThumbCenterColor = MaterialTheme.colorScheme.background
                     Canvas(Modifier.fillMaxWidth().height(24.dp)) {
                         val centerY = size.height / 2f
                         val trackHeight = 4.dp.toPx()
                         val radius = 7.dp.toPx()
                         val thumbX = (animatedProgress * size.width).coerceIn(radius, size.width - radius)
                         drawRoundRect(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .9f),
+                            color = seekTrackColor,
                             topLeft = androidx.compose.ui.geometry.Offset(0f, centerY - trackHeight / 2f),
                             size = androidx.compose.ui.geometry.Size(size.width, trackHeight),
                             cornerRadius = CornerRadius(trackHeight / 2f)
                         )
                         drawRoundRect(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = seekActiveColor,
                             topLeft = androidx.compose.ui.geometry.Offset(0f, centerY - trackHeight / 2f),
                             size = androidx.compose.ui.geometry.Size(thumbX, trackHeight),
                             cornerRadius = CornerRadius(trackHeight / 2f)
                         )
-                        drawCircle(MaterialTheme.colorScheme.primary.copy(alpha = .16f), radius = 13.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
-                        drawCircle(MaterialTheme.colorScheme.primary, radius = radius, center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
-                        drawCircle(MaterialTheme.colorScheme.background, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                        drawCircle(seekActiveColor.copy(alpha = .16f), radius = 13.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                        drawCircle(seekActiveColor, radius = radius, center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                        drawCircle(seekThumbCenterColor, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
