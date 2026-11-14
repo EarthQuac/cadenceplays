@@ -125,7 +125,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             drainListeningWrites()
             val now = SystemClock.elapsedRealtime()
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
-            handler.postDelayed(this, SAMPLE_INTERVAL_MS)
+            if (player.isPlaying) handler.postDelayed(this, SAMPLE_INTERVAL_MS)
         }
     }
 
@@ -167,11 +167,14 @@ class SoundprintPlaybackService : MediaSessionService() {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) {
+                    handler.removeCallbacks(maintenance)
+                    handler.postDelayed(maintenance, SAMPLE_INTERVAL_MS)
                     recordCurrentPlayIfNeeded()
                     lastTrackDurationMs = player.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0L) ?: 0L
                     lastSamplePositionMs = player.currentPosition.coerceAtLeast(0L)
                     lastSampleElapsedMs = SystemClock.elapsedRealtime()
                 } else {
+                    handler.removeCallbacks(maintenance)
                     flushListeningTime()
                     lastSampleElapsedMs = 0L
                 }
@@ -201,7 +204,6 @@ class SoundprintPlaybackService : MediaSessionService() {
             val tracks = withContext(Dispatchers.IO) { library.allSongs() }
             withContext(Dispatchers.Main) { restoreQueue(tracks) }
         }
-        handler.postDelayed(maintenance, SAMPLE_INTERVAL_MS)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
