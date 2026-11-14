@@ -343,7 +343,7 @@ fun SoundprintNowPlayingScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             item {
@@ -362,7 +362,7 @@ fun SoundprintNowPlayingScreen(
                         Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(CircleShape).background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .20f), Color.Transparent))))
                     }
                     Box(
-                        Modifier.fillMaxWidth(.88f).aspectRatio(1f).clip(RoundedCornerShape(28.dp))
+                        Modifier.widthIn(max = 384.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp))
                             .background(Brush.linearGradient(listOf(PlayerSurface2, MaterialTheme.colorScheme.background, PlayerSurface)))
                             .clickable { customizerOpen = true },
                         contentAlignment = Alignment.Center
@@ -393,7 +393,7 @@ fun SoundprintNowPlayingScreen(
                 Spacer(Modifier.height(22.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(title.ifBlank { "Nothing playing" }, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(title.ifBlank { "Nothing playing" }, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("$artist · $album", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = { editTitle=title; editArtist=artist; editAlbum=album; editGenre=genre; editOpen=true }) { Icon(Icons.Filled.Edit, "Edit song info", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -441,7 +441,7 @@ fun SoundprintNowPlayingScreen(
                     actions.chunked(3).forEach { row ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             row.forEach { (label, icon, action) ->
-                                Column(Modifier.weight(1f).height(82.dp).clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface).clickable { action() }.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Column(Modifier.weight(1f).height(84.dp).clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface).clickable { action() }.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                     Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
                                     Spacer(Modifier.height(7.dp))
                                     Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
