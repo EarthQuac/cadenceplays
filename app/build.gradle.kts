@@ -85,3 +85,7 @@ dependencies {
 tasks.named("preBuild").configure {
     dependsOn(rootProject.tasks.named("prepareClapModelAssets"))
 }
+
+tasks.matching { it.name == "assetPackPreBundleTask" }.configureEach {
+    dependsOn(rootProject.tasks.named("prepareClapModelAssets"))
+}
