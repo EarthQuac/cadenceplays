@@ -404,9 +404,10 @@ class SoundprintPlaybackService : MediaSessionService() {
 
         if (endAt > 0L && (crossfadePending || crossfadeActive)) cancelCrossfade(restoreVolume = true)
         if (endAt <= 0L) {
+            val hadActiveTimer = sleepLastEndAt > 0L
             sleepFadeStartedAt = 0L
             sleepLastEndAt = 0L
-            if (sleepLastEndAt > 0L) player.volume = sleepBaseVolume
+            if (hadActiveTimer) player.volume = sleepBaseVolume
             return
         }
         if (sleepLastEndAt != endAt) {
