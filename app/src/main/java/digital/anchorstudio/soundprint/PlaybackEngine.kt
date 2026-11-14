@@ -197,7 +197,7 @@ class SoundprintPlaybackService : MediaSessionService() {
                     lastSamplePositionMs = player.currentPosition.coerceAtLeast(0L)
                     lastSampleElapsedMs = SystemClock.elapsedRealtime()
                 } else {
-                    if (!crossfadeActive) cancelCrossfade(restoreVolume = true)
+                    if (crossfadeActive || crossfadePending) cancelCrossfade(restoreVolume = true)
                     flushListeningTime()
                     lastSampleElapsedMs = 0L
                 }
@@ -334,9 +334,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         val nextIndex = crossfadeNextIndex
         val queueItems = crossfadeQueueItems
         runCatching {
+            outgoing.removeListener(servicePlayerListener)
             outgoing.pause()
             outgoing.volume = 0f
-            outgoing.removeListener(servicePlayerListener)
             mediaSession.setPlayer(incoming)
             player = incoming
             standbyPlayer = outgoing
@@ -366,7 +366,8 @@ class SoundprintPlaybackService : MediaSessionService() {
             runCatching { mediaSession.setPlayer(outgoing) }
             player = outgoing
             standbyPlayer = incoming
-            player.volume = 1f
+            player.addListener(servicePlayerListener)
+            player.volume = crossfadeBaseVolume
             standbyPlayer.pause()
         }
         crossfadeActive = false
