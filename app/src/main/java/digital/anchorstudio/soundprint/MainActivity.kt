@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.awaitCancellation
 import androidx.media3.common.Player
+import androidx.media3.session.MediaController
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import androidx.work.WorkManager
@@ -67,6 +68,8 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -555,6 +558,14 @@ private fun SoundprintApp(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
             ) {
+                SoundprintMiniPlayer(
+                    controller = playbackConnection.controller,
+                    library = libraryManager,
+                    onOpen = { nowPlayingOpen = true },
+                    onToggle = { playbackConnection.toggle() },
+                    onNext = { playbackConnection.next() },
+                    onClear = { playbackConnection.clearQueue() }
+                )
                 androidx.compose.material3.HorizontalDivider(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
                     thickness = 0.7.dp
