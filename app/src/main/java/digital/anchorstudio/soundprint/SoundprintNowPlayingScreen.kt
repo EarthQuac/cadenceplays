@@ -2,6 +2,12 @@ package digital.anchorstudio.soundprint
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
+import android.media.audiofx.BassBoost
+import android.media.audiofx.EnvironmentalReverb
+import android.media.audiofx.Virtualizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -42,8 +48,10 @@ import androidx.media3.session.MediaController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 import kotlin.math.max
 import kotlin.math.min
@@ -63,6 +71,8 @@ fun SoundprintNowPlayingScreen(
     onOpenAudioLab: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val playerPrefs = remember { context.getSharedPreferences("soundprint_now_playing", 0) }
     var trackId by remember { mutableStateOf(controller?.currentMediaItem?.mediaId.orEmpty()) }
     var title by remember { mutableStateOf("") }
     var artist by remember { mutableStateOf("") }
@@ -160,7 +170,8 @@ fun SoundprintNowPlayingScreen(
 
     val progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(progress, tween(180, easing = FastOutSlowInEasing), label = "player-progress")
-    val favorite = remember(trackId, title) { library.isFavorite(trackId) }
+    var favorite by remember { mutableStateOf(library.isFavorite(trackId)) }
+    LaunchedEffect(trackId) { favorite = library.isFavorite(trackId) }
     val track = remember(trackId, title, artist, album, genre, artwork, duration) {
         library.song(trackId)?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork, durationMs = duration)
     }
@@ -234,7 +245,7 @@ fun SoundprintNowPlayingScreen(
                         Text("$artist · $album", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = { editTitle=title; editArtist=artist; editAlbum=album; editGenre=genre; editOpen=true }) { Icon(Icons.Filled.Edit, "Edit song info", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton(onClick = { library.toggleFavorite(trackId) }) {
+                    IconButton(onClick = { library.toggleFavorite(trackId); favorite = library.isFavorite(trackId) }) {
                         Icon(Icons.Filled.Favorite, "Add to favorites", tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -267,7 +278,7 @@ fun SoundprintNowPlayingScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 val actions = listOf(
-                    Triple("Audio Lab", Icons.Filled.GraphicEq) { onOpenAudioLab() },
+                    Triple("Audio Lab", Icons.Filled.GraphicEq) { audioLabOpen = true },
                     Triple("Aura Mode", Icons.Filled.Waves) { aura = true },
                     Triple("Playlist", Icons.Filled.Add) { playlists = library.playlists(); playlistOpen = !playlistOpen },
                     Triple("Info", Icons.Filled.Info) { infoOpen = !infoOpen },
@@ -295,7 +306,7 @@ fun SoundprintNowPlayingScreen(
                 }
                 if (moreOpen) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PlayerAction("Share track", Icons.Filled.Share) { /* Android sharesheet requires an activity Intent; metadata is copied below. */ }
+                        PlayerAction("Share track", Icons.Filled.Share) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
                         PlayerAction("Restart track", Icons.Filled.Replay) { controller?.seekTo(0L) }
                         PlayerAction("Playback options", Icons.Filled.Settings) { optionsOpen = true }
                         PlayerAction("Customize artwork", Icons.Filled.Album) { customizerOpen = true }
