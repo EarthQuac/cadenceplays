@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -242,26 +243,26 @@ fun SoundprintLyricsPanel(
         loading = true
         error = ""
         scope.launch {
-            val found = withContext(Dispatchers.IO) {
-                if (candidate?.syncedLyrics != null || candidate?.plainLyrics != null) {
-                    LyricsLookupResult(
-                        lyrics = candidate.syncedLyrics ?: candidate.plainLyrics.orEmpty(),
-                        source = candidate.provider,
-                        synced = candidate.syncedLyrics != null,
-                        matchedTitle = candidate.title,
-                        matchedArtist = candidate.artist,
-                        matchedAlbum = candidate.album
-                    )
-                } else {
-                    repository.search(
-                        candidate?.title ?: title,
-                        candidate?.artist ?: artist,
-                        candidate?.album ?: album,
-                        if (candidate != null && candidate.durationSeconds > 0.0) (candidate.durationSeconds * 1000).toLong() else duration
-                    )
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    if (candidate?.syncedLyrics != null || candidate?.plainLyrics != null) {
+                        LyricsLookupResult(
+                            lyrics = candidate.syncedLyrics ?: candidate.plainLyrics.orEmpty(),
+                            source = candidate.provider,
+                            synced = candidate.syncedLyrics != null,
+                            matchedTitle = candidate.title,
+                            matchedArtist = candidate.artist,
+                            matchedAlbum = candidate.album
+                        )
+                    } else {
+                        repository.search(
+                            candidate?.title ?: title,
+                            candidate?.artist ?: artist,
+                            candidate?.album ?: album,
+                            if (candidate != null && candidate.durationSeconds > 0.0) (candidate.durationSeconds * 1000).toLong() else duration
+                        )
+                    }
                 }
-            }
-            if (trackId.isNotBlank()) {
                 if (found == null) {
                     error = "Lyrics weren't found in the available catalogs. Check the track's title and artist tags, or import an .lrc file."
                 } else {
@@ -274,8 +275,11 @@ fun SoundprintLyricsPanel(
                     )
                     matches = emptyList()
                 }
+            } catch (failure: Exception) {
+                error = failure.message ?: "Couldn't fetch lyrics. Check your connection."
+            } finally {
+                loading = false
             }
-            loading = false
         }
     }
 
@@ -290,10 +294,15 @@ fun SoundprintLyricsPanel(
         error = ""
         matches = emptyList()
         scope.launch {
-            val found = withContext(Dispatchers.IO) { repository.discover(clean) }
-            matches = found
-            error = if (found.isEmpty()) "No matches found. Try a song title, artist, or soundtrack name separately." else ""
-            loading = false
+            try {
+                val found = withContext(Dispatchers.IO) { repository.discover(clean) }
+                matches = found
+                error = if (found.isEmpty()) "No matches found. Try a song title, artist, or soundtrack name separately." else ""
+            } catch (failure: Exception) {
+                error = failure.message ?: "Couldn't search for lyrics. Check your connection."
+            } finally {
+                loading = false
+            }
         }
     }
 
