@@ -208,7 +208,7 @@ private fun smartPlaylistFromJson(json:JSONObject):NativeSmartPlaylist {
 }
 
 /** Complete native library-management logic. UI screens consume this API; this class has no Compose dependency. */
-class MusicLibraryManager private constructor(context:Context) {
+class MusicLibraryManager(context:Context) {
     private val repository=MusicLibraryRepository.getInstance(context.applicationContext)
     private val state=LibraryManagementDatabase(context.applicationContext)
     private val clapPreferences=context.applicationContext.getSharedPreferences("soundprint_clap_scan",Context.MODE_PRIVATE)
