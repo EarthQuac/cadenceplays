@@ -759,21 +759,19 @@ fun SoundprintLyricsPanel(
 
                     // The lyric stack is independently centred in the window;
                     // transport controls and the header never push the sung line down.
-                    Column(
-                        Modifier.align(Alignment.Center).fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                    Box(
+                        Modifier.align(Alignment.Center).fillMaxWidth().height(240.dp)
                     ) {
                         Text(
                             lines.getOrNull(activeIndex - 1)?.text ?: "♪",
-                            Modifier.fillMaxWidth(),
+                            Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(top = 8.dp),
                             fontSize = 16.sp, lineHeight = 24.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .48f),
                             textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
                         )
                         AnimatedContent(
                             targetState = activeIndex,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
                             transitionSpec = {
                                 (fadeIn(tween(240)) + slideInVertically(tween(280)) { it / 7 }) togetherWith
                                     (fadeOut(tween(170)) + slideOutVertically(tween(190)) { -it / 9 }) using
@@ -788,7 +786,7 @@ fun SoundprintLyricsPanel(
                         }
                         Text(
                             lines.getOrNull(activeIndex + 1)?.text ?: "♪",
-                            Modifier.fillMaxWidth(),
+                            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 8.dp),
                             fontSize = 16.sp, lineHeight = 24.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .48f),
                             textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
