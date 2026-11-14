@@ -158,14 +158,7 @@ fun SoundprintNowPlayingScreen(
     var moodOpen by remember { mutableStateOf(false) }
     var moodStatus by remember { mutableStateOf("") }
     var moodBusy by remember { mutableStateOf(false) }
-    var lyrics by remember { mutableStateOf("") }
-    var lyricsSource by remember { mutableStateOf("") }
-    var lyricsError by remember { mutableStateOf("") }
-    var lyricsBusy by remember { mutableStateOf(false) }
     var lyricsExpanded by remember { mutableStateOf(false) }
-    var karaoke by remember { mutableStateOf(false) }
-    var lyricsEdit by remember { mutableStateOf(false) }
-    var lyricsDraft by remember { mutableStateOf("") }
     var auraNotice by remember { mutableStateOf(false) }
     var aura by remember { mutableStateOf(false) }
     var auraPreset by remember { mutableStateOf("Auto") }
@@ -210,73 +203,6 @@ fun SoundprintNowPlayingScreen(
         }
     }.value
     val displaySleep = if (sleepRemaining > 0L) "%d:%02d".format(sleepRemaining / 60000L, (sleepRemaining / 1000L) % 60L) else "Sleep"
-    LaunchedEffect(trackId) {
-        lyrics = playerPrefs.getString("lyrics:" + trackId, "").orEmpty()
-        lyricsSource = playerPrefs.getString("lyrics-source:" + trackId, "").orEmpty()
-        lyricsError = ""
-    }
-    val lyricLines = remember(lyrics) {
-        lyrics.lines().mapNotNull { line ->
-            val match = Regex("^\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?\\](.*)$").find(line)
-            match?.let {
-                val fraction = it.groupValues[3].takeIf(String::isNotBlank)?.let { raw -> ("0." + raw).toFloatOrNull() } ?: 0f
-                (((it.groupValues[1].toLongOrNull() ?: 0L) * 60L + (it.groupValues[2].toLongOrNull() ?: 0L)) * 1000L + (fraction * 1000f).toLong()) to it.groupValues[4]
-            }
-        }.sortedBy { it.first }
-    }
-    val activeLyricIndex = lyricLines.indexOfLast { it.first <= position }
-    val lyricListState = rememberLazyListState()
-    LaunchedEffect(activeLyricIndex, lyricLines.size) {
-        if (activeLyricIndex >= 0 && lyricLines.isNotEmpty()) lyricListState.animateScrollToItem((activeLyricIndex - 2).coerceAtLeast(0))
-    }
-    val lyricsLookup = remember { LyricsLookupRepository() }
-    fun findLyrics() {
-        if (lyricsBusy) return
-        if (title.isBlank() || artist.isBlank()) {
-            lyricsError = "Song title and artist are needed before searching."
-            return
-        }
-        lyricsBusy = true
-        lyricsError = ""
-        val requestedTrackId = trackId
-        val requestedTitle = title
-        val requestedArtist = artist
-        val requestedAlbum = album
-        val requestedDuration = duration
-        scope.launch {
-            try {
-                val found = withContext(Dispatchers.IO) {
-                    lyricsLookup.search(requestedTitle, requestedArtist, requestedAlbum, requestedDuration)
-                }
-                if (trackId != requestedTrackId) return@launch
-                if (found == null) {
-                    lyricsError = "No lyrics matched this track. Check its title and artist, or import an LRC file."
-                } else {
-                    lyrics = found.lyrics
-                    lyricsSource = found.source + if (found.synced) " · Synced" else " · Plain text"
-                    playerPrefs.edit().putString("lyrics:" + requestedTrackId, found.lyrics)
-                        .putString("lyrics-source:" + requestedTrackId, lyricsSource).apply()
-                }
-            } catch (error: Exception) {
-                if (trackId == requestedTrackId) lyricsError = error.message ?: "Couldn't reach LRCLIB. Check your connection and try again."
-            } finally {
-                lyricsBusy = false
-            }
-        }
-    }
-    val lrcPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            val imported = withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
-            }
-            if (imported.isNotBlank()) {
-                lyrics = imported
-                lyricsSource = "Imported file"
-                playerPrefs.edit().putString("lyrics:" + trackId, imported)
-                    .putString("lyrics-source:" + trackId, lyricsSource).apply()
-            } else lyricsError = "That lyrics file is empty or unavailable."
-        }
-    }
     DisposableEffect(controller?.audioSessionId, aura, auraPreset) {
         val sessionId = controller?.audioSessionId ?: 0
         val effects = mutableListOf<android.media.audiofx.AudioEffect>()
@@ -680,6 +606,8 @@ fun SoundprintNowPlayingScreen(
                     album = album,
                     duration = duration,
                     position = position,
+                    expanded = lyricsExpanded,
+                    onExpandedChange = { lyricsExpanded = it },
                     seek = { target -> controller?.seekTo(target) }
                 )
             }
