@@ -762,7 +762,7 @@ fun SoundprintLyricsPanel(
                 Box(
                     Modifier.fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
-                        .padding(horizontal = 24.dp, vertical = 28.dp)
+                        .padding(horizontal = 20.dp, vertical = 32.dp)
                 ) {
                     Text(
                         "SOUNDPRINT · KARAOKE",
@@ -775,73 +775,74 @@ fun SoundprintLyricsPanel(
                         modifier = Modifier.align(Alignment.TopEnd).size(40.dp)
                     ) { Icon(Icons.Filled.Close, "Close karaoke mode", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
 
-                    // Three fixed lyric lanes prevent long current lines from colliding
-                    // with the previous and upcoming lines on smaller displays.
+                    // Match Cadence's compact, content-sized karaoke stack instead of
+                    // reserving three oversized fixed-height lanes.
                     Column(
-                        Modifier.align(Alignment.Center).fillMaxWidth().height(270.dp)
-                    ) {
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text(
-                                lines.getOrNull(activeIndex - 1)?.text ?: "♪",
-                                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                                fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .48f),
-                                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            AnimatedContent(
-                                targetState = activeIndex,
-                                modifier = Modifier.fillMaxWidth(),
-                                transitionSpec = {
-                                    (fadeIn(tween(240)) + slideInVertically(tween(280)) { it / 7 }) togetherWith
-                                        (fadeOut(tween(170)) + slideOutVertically(tween(190)) { -it / 9 }) using
-                                        SizeTransform(clip = false)
-                                },
-                                label = "karaoke-current-line"
-                            ) { index ->
-                                SoundprintKaraokeLine(
-                                    line = lines.getOrNull(index),
-                                    activeWordIndex = if (index == activeIndex) activeWordIndex else -1
-                                )
-                            }
-                        }
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text(
-                                lines.getOrNull(activeIndex + 1)?.text ?: "♪",
-                                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                                fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .48f),
-                                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Column(
-                        Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                        Modifier.align(Alignment.Center).fillMaxWidth().verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(
+                        Text(
+                            lines.getOrNull(activeIndex - 1)?.text ?: "♪",
+                            Modifier.fillMaxWidth().padding(bottom = 32.dp, start = 8.dp, end = 8.dp),
+                            fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f),
+                            textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
+                        )
+                        AnimatedContent(
+                            targetState = activeIndex,
+                            modifier = Modifier.fillMaxWidth(),
+                            transitionSpec = {
+                                (fadeIn(tween(240)) + slideInVertically(tween(280)) { it / 7 }) togetherWith
+                                    (fadeOut(tween(170)) + slideOutVertically(tween(190)) { -it / 9 }) using
+                                    SizeTransform(clip = false)
+                            },
+                            label = "karaoke-current-line"
+                        ) { index ->
+                            SoundprintKaraokeLine(
+                                line = lines.getOrNull(index),
+                                activeWordIndex = if (index == activeIndex) activeWordIndex else -1
+                            )
+                        }
+                        Text(
+                            lines.getOrNull(activeIndex + 1)?.text ?: "♪",
+                            Modifier.fillMaxWidth().padding(top = 32.dp, start = 8.dp, end = 8.dp),
+                            fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .55f),
+                            textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
+                        )
+                        Row(
+                            Modifier.padding(top = 48.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
                                 onClick = { if (activeIndex > 0) seek(lines[activeIndex - 1].timeMs) },
-                                enabled = activeIndex > 0, shape = CircleShape
+                                enabled = activeIndex > 0,
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface
                             ) {
-                                Icon(Icons.Filled.ExpandLess, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Previous line", fontSize = 11.sp)
+                                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.ExpandLess, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Previous line", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                }
                             }
-                            OutlinedButton(
+                            Surface(
                                 onClick = { if (activeIndex >= 0 && activeIndex < lines.lastIndex) seek(lines[activeIndex + 1].timeMs) },
-                                enabled = activeIndex >= 0 && activeIndex < lines.lastIndex, shape = CircleShape
+                                enabled = activeIndex >= 0 && activeIndex < lines.lastIndex,
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface
                             ) {
-                                Text("Next line", fontSize = 11.sp)
-                                Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp))
+                                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Next line", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
                         Text(
                             if (activeIndex >= 0) "${activeIndex + 1} / ${lines.size} lines" else "Waiting for the first lyric timestamp",
-                            Modifier.padding(top = 16.dp), fontSize = 11.sp,
+                            Modifier.padding(top = 20.dp), fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -884,12 +885,12 @@ private fun SoundprintKaraokeLine(
     Text(
         text,
         Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-        fontSize = 30.sp,
-        lineHeight = 36.sp,
+        fontSize = 36.sp,
+        lineHeight = 42.sp,
         fontWeight = FontWeight.ExtraBold,
         color = MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
-        maxLines = 2,
+        maxLines = 3,
         overflow = TextOverflow.Ellipsis
     )
 }
