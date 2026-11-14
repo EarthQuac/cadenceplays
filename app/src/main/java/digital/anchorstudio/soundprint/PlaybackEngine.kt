@@ -107,6 +107,11 @@ class SoundprintPlaybackService : MediaSessionService() {
     private var listeningWriteInFlight = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val handler = Handler(Looper.getMainLooper())
+    private val playbackOptions by lazy {
+        getSharedPreferences("soundprint_playback_options", Context.MODE_PRIVATE)
+    }
+    private var sleepFadeStartedAt = 0L
+    private var sleepLastEndAt = 0L
     private var activeTrackId: String? = null
     private var activeOccurrenceKey: String? = null
     private var activeMediaIndex = -1
@@ -125,7 +130,10 @@ class SoundprintPlaybackService : MediaSessionService() {
             drainListeningWrites()
             val now = SystemClock.elapsedRealtime()
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
-            if (player.isPlaying) handler.postDelayed(this, SAMPLE_INTERVAL_MS)
+            applyPlaybackOptions()
+            if (player.isPlaying || playbackOptions.getLong(KEY_SLEEP_ENDS_AT, 0L) > 0L) {
+                handler.postDelayed(this, SAMPLE_INTERVAL_MS)
+            }
         }
     }
 
@@ -142,6 +150,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         mediaSession = MediaSession.Builder(this, player).build()
+        handler.post(maintenance)
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val nextId = mediaItem?.mediaId?.takeIf(String::isNotBlank)
@@ -223,6 +232,45 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (::player.isInitialized) player.release()
         drainListeningWrites()
         super.onDestroy()
+    }
+
+    /**
+     * Sleep timer state is stored outside the screen, so it survives leaving Now Playing
+     * and service recreation. The final 15 seconds fade down smoothly before pausing.
+     */
+    private fun applyPlaybackOptions() {
+        if (!::player.isInitialized) return
+        val endAt = playbackOptions.getLong(KEY_SLEEP_ENDS_AT, 0L)
+        val stopAfterCurrent = playbackOptions.getBoolean(KEY_STOP_AFTER_CURRENT, false)
+        // ExoPlayer playlist transitions are gapless by default; do not pause between items.
+        // Stop-after-current deliberately pauses at the end boundary instead.
+        player.pauseAtEndOfMediaItems = stopAfterCurrent
+
+        if (endAt <= 0L) {
+            sleepFadeStartedAt = 0L
+            sleepLastEndAt = 0L
+            if (player.volume < 1f && player.isPlaying) player.volume = 1f
+            return
+        }
+        if (sleepLastEndAt != endAt) {
+            sleepLastEndAt = endAt
+            sleepFadeStartedAt = 0L
+        }
+        val remaining = endAt - System.currentTimeMillis()
+        if (remaining <= 0L) {
+            player.pause()
+            player.volume = 1f
+            playbackOptions.edit().remove(KEY_SLEEP_ENDS_AT).apply()
+            sleepFadeStartedAt = 0L
+            sleepLastEndAt = 0L
+            return
+        }
+        if (remaining <= SLEEP_FADE_MS) {
+            if (sleepFadeStartedAt == 0L) sleepFadeStartedAt = System.currentTimeMillis()
+            player.volume = (remaining.toFloat() / SLEEP_FADE_MS.toFloat()).coerceIn(0f, 1f)
+        } else if (player.volume < 1f) {
+            player.volume = 1f
+        }
     }
 
     private fun restoreQueue(availableLibraryTracks: List<MusicTrack>) {
@@ -371,6 +419,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         const val SAMPLE_INTERVAL_MS = 1_000L
         const val PERSIST_INTERVAL_MS = 5_000L
         const val LISTENING_FLUSH_MS = 10_000L
+        const val SLEEP_FADE_MS = 15_000L
+        const val KEY_SLEEP_ENDS_AT = "sleep_ends_at"
+        const val KEY_STOP_AFTER_CURRENT = "stop_after_current"
     }
 }
 
