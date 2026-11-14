@@ -512,7 +512,7 @@ fun SoundprintNowPlayingScreen(
                     onDismissRequest = { infoOpen = false },
                     properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
                 ) {
-                    ApplyCadenceDialogWindow()
+                    ApplyCadenceDialogWindow(blurRadiusDp = 2.dp)
                     Box(
                         Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable { infoOpen = false },
                         contentAlignment = Alignment.Center
@@ -830,10 +830,10 @@ fun SoundprintNowPlayingScreen(
 }
 
 @Composable
-private fun ApplyCadenceDialogWindow() {
+private fun ApplyCadenceDialogWindow(blurRadiusDp: androidx.compose.ui.unit.Dp = 3.dp) {
     val view = LocalView.current
     val density = LocalDensity.current
-    val blurRadius = with(density) { 14.dp.roundToPx() }
+    val blurRadius = with(density) { blurRadiusDp.roundToPx() }
     val window = (view.parent as? DialogWindowProvider)?.window
     SideEffect {
         window?.let { dialogWindow ->
@@ -862,7 +862,7 @@ private fun SoundprintFloatingDialog(
         onDismissRequest = onDismissRequest,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        ApplyCadenceDialogWindow()
+        ApplyCadenceDialogWindow(blurRadiusDp = 3.dp)
         Box(
             Modifier.fillMaxSize()
                 .background(Color.Black.copy(alpha = .36f))
@@ -1137,11 +1137,13 @@ private fun ArtworkCustomizerDialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        ApplyCadenceDialogWindow()
-        Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable(onClick = onDismiss),
-            contentAlignment = Alignment.Center
+        ApplyCadenceDialogWindow(blurRadiusDp = 2.dp)
+        BoxWithConstraints(
+            Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f)).clickable(onClick = onDismiss),
+            contentAlignment = if (maxWidth < 600.dp) Alignment.BottomCenter else Alignment.Center
         ) {
+            val compactLayout = maxWidth < 600.dp
+            val panelShape = if (compactLayout) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else RoundedCornerShape(28.dp)
             AnimatedVisibility(
                 visible = true,
                 enter = fadeIn(tween(180)) +
@@ -1150,9 +1152,11 @@ private fun ArtworkCustomizerDialog(
             ) {
                 Surface(
                     onClick = {},
-                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp).padding(18.dp).shadow(26.dp, RoundedCornerShape(28.dp))
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp)
+                        .then(if (compactLayout) Modifier else Modifier.padding(16.dp))
+                        .shadow(26.dp, panelShape)
                         .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = panelShape,
                     color = MaterialTheme.colorScheme.background,
                     tonalElevation = 8.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
