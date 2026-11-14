@@ -612,6 +612,7 @@ fun SoundprintNowPlayingScreen(
                     }
                 }
             }
+            }
             item {
                 Box(Modifier.bringIntoViewRequester(lyricsPanelRequester)) {
                     SoundprintLyricsPanel(
@@ -1060,6 +1061,7 @@ private fun ArtworkCustomizerDialog(
             }
         }
     }
+}
 }
 
 @Composable
