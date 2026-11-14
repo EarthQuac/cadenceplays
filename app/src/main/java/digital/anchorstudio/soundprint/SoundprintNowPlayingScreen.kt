@@ -29,6 +29,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -59,6 +61,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
@@ -117,6 +120,7 @@ fun SoundprintNowPlayingScreen(
     var volume by remember { mutableFloatStateOf(controller?.volume ?: 1f) }
     var queueIds by remember { mutableStateOf(emptyList<String>()) }
     var currentIndex by remember { mutableIntStateOf(-1) }
+    var showRemainingTime by remember { mutableStateOf(false) }
 
     LaunchedEffect(controller) {
         while (controller != null) {
@@ -206,11 +210,11 @@ fun SoundprintNowPlayingScreen(
         value = withContext(Dispatchers.IO) { library.song(trackId) }
             ?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork, durationMs = duration)
     }.value
-    val queueTracks = produceState(emptyList<MusicTrack>(), queueIds, currentIndex) {
-        val upcoming = queueIds.drop((currentIndex + 1).coerceAtLeast(0))
+    val queueTracks = produceState(emptyList<Pair<Int, MusicTrack>>(), queueIds, currentIndex) {
+        val upcoming = queueIds.mapIndexedNotNull { index, id -> if (index > currentIndex) index to id else null }
         value = withContext(Dispatchers.IO) {
-            if (upcoming.size <= 200) upcoming.mapNotNull { library.song(it) }
-            else library.allSongs().associateBy { it.id }.let { byId -> upcoming.mapNotNull { byId[it] } }
+            if (upcoming.size <= 200) upcoming.mapNotNull { (index, id) -> library.song(id)?.let { index to it } }
+            else library.allSongs().associateBy { it.id }.let { byId -> upcoming.mapNotNull { (index, id) -> byId[id]?.let { index to it } } }
         }
     }.value
     val displaySleep = if (sleepRemaining > 0L) "%d:%02d".format(sleepRemaining / 60000L, (sleepRemaining / 1000L) % 60L) else "Sleep"
@@ -391,25 +395,74 @@ fun SoundprintNowPlayingScreen(
                     }
                 }
             }
-            item {
-                Spacer(Modifier.height(18.dp))
-                Slider(
-                    value = animatedProgress,
-                    onValueChange = { value ->
-                        if (duration > 0L) controller?.seekTo((value * duration).toLong().coerceIn(0L, duration))
-                    },
-                    modifier = Modifier.fillMaxWidth().height(28.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.background,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = .20f),
-                        activeTickColor = Color.Transparent,
-                        inactiveTickColor = Color.Transparent
-                    )
-                )
-                Row(Modifier.fillMaxWidth().padding(top = 1.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatPlayerTime(position), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(if (duration > 0) "-${formatPlayerTime((duration-position).coerceAtLeast(0L))}" else "Indexing…", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(16.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(30.dp)
+                        .pointerInput(duration) {
+                            detectTapGestures { point ->
+                                if (duration > 0L && size.width > 0) controller?.seekTo((point.x / size.width * duration).toLong().coerceIn(0L, duration))
+                            }
+                        }
+                        .pointerInput(duration) {
+                            detectDragGestures(
+                                onDragStart = { point ->
+                                    if (duration > 0L && size.width > 0) controller?.seekTo((point.x / size.width * duration).toLong().coerceIn(0L, duration))
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    if (duration > 0L && size.width > 0) controller?.seekTo((change.position.x / size.width * duration).toLong().coerceIn(0L, duration))
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(Modifier.fillMaxWidth().height(24.dp)) {
+                        val centerY = size.height / 2f
+                        val trackHeight = 4.dp.toPx()
+                        val radius = 7.dp.toPx()
+                        val thumbX = (animatedProgress * size.width).coerceIn(radius, size.width - radius)
+                        drawRoundRect(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .9f),
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, centerY - trackHeight / 2f),
+                            size = androidx.compose.ui.geometry.Size(size.width, trackHeight),
+                            cornerRadius = CornerRadius(trackHeight / 2f)
+                        )
+                        drawRoundRect(
+                            color = MaterialTheme.colorScheme.primary,
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, centerY - trackHeight / 2f),
+                            size = androidx.compose.ui.geometry.Size(thumbX, trackHeight),
+                            cornerRadius = CornerRadius(trackHeight / 2f)
+                        )
+                        drawCircle(MaterialTheme.colorScheme.primary.copy(alpha = .16f), radius = 13.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                        drawCircle(MaterialTheme.colorScheme.primary, radius = radius, center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                        drawCircle(MaterialTheme.colorScheme.background, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(thumbX, centerY))
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.clip(RoundedCornerShape(8.dp)).clickable { showRemainingTime = !showRemainingTime }.padding(horizontal = 7.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AnimatedContent(
+                            targetState = showRemainingTime,
+                            transitionSpec = {
+                                (fadeIn(tween(150)) + slideInVertically(tween(170)) { it / 3 }) togetherWith
+                                    (fadeOut(tween(120)) + slideOutVertically(tween(140)) { -it / 3 })
+                            },
+                            label = "elapsed-remaining-time"
+                        ) { remaining ->
+                            Text(
+                                if (duration <= 0L) "Indexing…" else if (remaining) "-${formatPlayerTime((duration - position).coerceAtLeast(0L))}" else formatPlayerTime(position),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontFeatureSettings = "tnum"
+                            )
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Filled.SwapHoriz, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(if (duration > 0L) formatPlayerTime(duration) else "--:--", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFeatureSettings = "tnum")
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -644,14 +697,55 @@ fun SoundprintNowPlayingScreen(
                         Text("Find by mood")
                     }
                     Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { /* queue preview is directly below */ }) {
-                        Text("Queue · " + queueTracks.size)
+                    OutlinedButton(
+                        onClick = { queueOpen = true },
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f)),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
+                    ) {
+                        Icon(Icons.Filled.QueueMusic, null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text("Queue · ${queueTracks.size}", fontSize = 12.sp)
                     }
                 }
             }
             if (queueTracks.isNotEmpty()) item {
-                PlayerPanel("Up next · ${queueTracks.size}", onClose={}) {
-                    queueTracks.forEachIndexed { index, item -> Row(Modifier.fillMaxWidth().clickable { controller?.seekTo((currentIndex+1+index),0L) }.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(item.title,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1); Text(item.artist,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant) }; Text("Play",fontSize=10.sp,color=MaterialTheme.colorScheme.primary) } }
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 18.dp).clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = .82f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .28f), RoundedCornerShape(24.dp))
+                        .padding(15.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Up next", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.2).sp)
+                            Text("${queueTracks.size} ${if (queueTracks.size == 1) "track" else "tracks"} in line", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { queueOpen = true }, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 5.dp)) {
+                            Text("Manage queue", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    queueTracks.take(5).forEachIndexed { index, entry ->
+                        val (queueIndex, queuedTrack) = entry
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                .clickable { controller?.seekTo(queueIndex, 0L) }
+                                .padding(horizontal = 5.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text((index + 1).toString().padStart(2, '0'), modifier = Modifier.width(25.dp), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f), fontWeight = FontWeight.Medium)
+                            TrackArtwork(queuedTrack.artworkUri, queuedTrack.title, Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)))
+                            Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp)) {
+                                Text(queuedTrack.title, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(queuedTrack.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            if (queuedTrack.durationMs > 0L) Text(formatPlayerTime(queuedTrack.durationMs), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFeatureSettings = "tnum")
+                            Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.padding(start = 8.dp).size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = .8f))
+                        }
+                    }
+                    if (queueTracks.size > 5) TextButton(onClick = { queueOpen = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Text("Show all ${queueTracks.size} tracks", fontSize = 11.sp)
+                    }
                 }
             }
         }
