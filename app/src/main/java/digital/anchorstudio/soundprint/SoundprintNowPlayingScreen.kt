@@ -1140,7 +1140,7 @@ private fun ArtworkCustomizerDialog(
         ApplyCadenceDialogWindow(blurRadiusDp = 2.dp)
         BoxWithConstraints(
             Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f)).clickable(onClick = onDismiss),
-            contentAlignment = if (maxWidth < 600.dp) Alignment.BottomCenter else Alignment.Center
+            contentAlignment = if (LocalConfiguration.current.screenWidthDp < 600) Alignment.BottomCenter else Alignment.Center
         ) {
             val compactLayout = maxWidth < 600.dp
             val panelShape = if (compactLayout) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else RoundedCornerShape(28.dp)
