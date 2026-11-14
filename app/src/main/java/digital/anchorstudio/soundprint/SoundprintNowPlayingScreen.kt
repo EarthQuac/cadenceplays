@@ -529,6 +529,28 @@ fun SoundprintNowPlayingScreen(
         }
     }
 
+    if (queueOpen) AlertDialog(
+        onDismissRequest = { queueOpen = false },
+        title = { Text("Queue · " + queueIds.size) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                itemsIndexed(queueIds) { index, id ->
+                    val item = library.song(id)
+                    if (item != null) Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).clickable { controller?.seekTo(index, 0L); queueOpen = false }) {
+                            Text(item.title, fontSize = 12.sp, fontWeight = if (index == currentIndex) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(item.artist, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                        if (index > 0) IconButton(onClick = { controller?.moveMediaItem(index, index - 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
+                        if (index < queueIds.lastIndex) IconButton(onClick = { controller?.moveMediaItem(index, index + 1) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
+                        IconButton(onClick = { controller?.removeMediaItem(index) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Close, "Remove") }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { queueOpen = false }) { Text("Done") } },
+        dismissButton = { TextButton(onClick = { controller?.clearMediaItems(); queueOpen = false }) { Text("Clear queue") } }
+    )
     if (customizerOpen) AlertDialog(onDismissRequest={customizerOpen=false},title={Text("Customize artwork")},text={
         Column(Modifier.heightIn(max=500.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("ARTWORK STYLE",fontSize=10.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant)
