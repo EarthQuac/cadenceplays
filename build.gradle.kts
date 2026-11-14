@@ -75,6 +75,15 @@ val prepareClapModelAssets by tasks.registering {
                 }
             }
         }
+
+        File(root, "clap/MODEL-NOTICE.txt").apply {
+            parentFile.mkdirs()
+            writeText(
+                "Soundprint includes Xenova/larger_clap_music_and_speech quantized ONNX weights. " +
+                    "Model license: Apache License 2.0. Source: https://huggingface.co/Xenova/larger_clap_music_and_speech " +
+                    "Pinned revision: 56bcfdb. Inference is performed locally on this device."
+            )
+        }
     }
 }
 
