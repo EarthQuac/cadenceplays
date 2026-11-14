@@ -149,6 +149,7 @@ fun SoundprintLyricsPanel(
     var draft by remember(trackId) { mutableStateOf("") }
     var showAll by remember(trackId) { mutableStateOf(false) }
     var karaokeMode by remember(trackId) { mutableStateOf(false) }
+    var karaokeLoading by remember(trackId) { mutableStateOf(false) }
     var syncOffset by remember(trackId) { mutableFloatStateOf(0f) }
     var syncAnchors by remember(trackId) { mutableStateOf(emptyList<SoundprintLyricAnchor>()) }
     var selectedSyncLine by remember(trackId) { mutableIntStateOf(0) }
@@ -279,6 +280,30 @@ fun SoundprintLyricsPanel(
                 error = failure.message ?: "Couldn't fetch lyrics. Check your connection."
             } finally {
                 loading = false
+            }
+        }
+    }
+
+    fun openKaraoke() {
+        if (karaokeLoading) return
+        if (lines.any { it.words.isNotEmpty() }) {
+            karaokeMode = true
+            return
+        }
+        karaokeLoading = true
+        scope.launch {
+            try {
+                val enhanced = withContext(Dispatchers.IO) {
+                    repository.fetchWordTimedLyrics(title, artist, album, duration)
+                }
+                if (!enhanced.isNullOrBlank()) {
+                    saveLyrics(enhanced, source.substringBefore(" ·") + " · Word timed", matchedTitle, matchedArtist, matchedAlbum)
+                }
+            } catch (_: Exception) {
+                // Keep line-synced lyrics if the optional word-timing source is unavailable.
+            } finally {
+                karaokeLoading = false
+                karaokeMode = true
             }
         }
     }
@@ -494,12 +519,14 @@ fun SoundprintLyricsPanel(
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Synced lyrics · ${lines.size} lines", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(
-                            onClick = { karaokeMode = true },
+                            onClick = { openKaraoke() },
+                            enabled = !karaokeLoading,
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Icon(Icons.Filled.Fullscreen, null, modifier = Modifier.size(14.dp))
+                            if (karaokeLoading) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.8.dp)
+                            else Icon(Icons.Filled.Fullscreen, null, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Karaoke mode", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text(if (karaokeLoading) "Finding timed lyrics…" else "Karaoke mode", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 } else {
