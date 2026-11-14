@@ -114,12 +114,18 @@ fun SoundprintNowPlayingScreen(
         }
     }
 
-    var discStyle by remember { mutableStateOf(PlayerDiscStyle.VINYL) }
-    var discFinish by remember { mutableStateOf(PlayerDiscFinish.CLASSIC) }
-    var spin by remember { mutableStateOf(true) }
-    var spinSpeed by remember { mutableIntStateOf(4) }
-    var tonearm by remember { mutableStateOf(true) }
-    var ambientGlow by remember { mutableStateOf(true) }
+    var discStyle by remember { mutableStateOf(runCatching { PlayerDiscStyle.valueOf(playerPrefs.getString("disc-style", "VINYL") ?: "VINYL") }.getOrDefault(PlayerDiscStyle.VINYL)) }
+    var discFinish by remember { mutableStateOf(runCatching { PlayerDiscFinish.valueOf(playerPrefs.getString("disc-finish", "CLASSIC") ?: "CLASSIC") }.getOrDefault(PlayerDiscFinish.CLASSIC)) }
+    var spin by remember { mutableStateOf(playerPrefs.getBoolean("disc-spin", true)) }
+    var spinSpeed by remember { mutableIntStateOf(playerPrefs.getInt("disc-speed", 4).coerceIn(2, 8)) }
+    var tonearm by remember { mutableStateOf(playerPrefs.getBoolean("disc-tonearm", true)) }
+    var ambientGlow by remember { mutableStateOf(playerPrefs.getBoolean("disc-glow", true)) }
+    var queueOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(discStyle, discFinish, spin, spinSpeed, tonearm, ambientGlow) {
+        playerPrefs.edit().putString("disc-style", discStyle.name).putString("disc-finish", discFinish.name)
+            .putBoolean("disc-spin", spin).putInt("disc-speed", spinSpeed)
+            .putBoolean("disc-tonearm", tonearm).putBoolean("disc-glow", ambientGlow).apply()
+    }
     var customizerOpen by remember { mutableStateOf(false) }
     var editOpen by remember { mutableStateOf(false) }
     var editTitle by remember(title) { mutableStateOf(title) }
@@ -335,7 +341,7 @@ fun SoundprintNowPlayingScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Go back") }
                     Text("NOW PLAYING", fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row {
-                        IconButton(onClick = { /* queue is shown below */ }) { Icon(Icons.Filled.QueueMusic, "Queue") }
+                        IconButton(onClick = { queueOpen = true }) { Icon(Icons.Filled.QueueMusic, "Queue") }
                         IconButton(onClick = onBack) { Icon(Icons.Filled.Close, "Close", tint = MaterialTheme.colorScheme.error) }
                     }
                 }
@@ -517,7 +523,7 @@ fun SoundprintNowPlayingScreen(
             }
             if (queueTracks.isNotEmpty()) item {
                 PlayerPanel("Up next · ${queueTracks.size}", onClose={}) {
-                    queueTracks.take(8).forEachIndexed { index, item -> Row(Modifier.fillMaxWidth().clickable { controller?.seekTo((currentIndex+1+index),0L) }.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(item.title,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1); Text(item.artist,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant) }; Text("Play",fontSize=10.sp,color=MaterialTheme.colorScheme.primary) } }
+                    queueTracks.forEachIndexed { index, item -> Row(Modifier.fillMaxWidth().clickable { controller?.seekTo((currentIndex+1+index),0L) }.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(item.title,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1); Text(item.artist,fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant) }; Text("Play",fontSize=10.sp,color=MaterialTheme.colorScheme.primary) } }
                 }
             }
         }
