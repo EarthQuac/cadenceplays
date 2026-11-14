@@ -492,6 +492,14 @@ fun ClapDiscoverScreen(
             }
         }
 
+        if (scan.running && scan.downloadingModel) {
+            Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 8.dp)) {
+                Text("Downloading offline model · ${scan.modelPercent}%", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 7.dp))
+                Text(scan.message, modifier = Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
         if (selectedMood != null) {
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
