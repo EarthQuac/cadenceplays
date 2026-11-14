@@ -217,6 +217,7 @@ class MusicLibraryManager(context:Context) {
 
     fun allSongs(query:String="",sort:TrackSort=TrackSort.TITLE,ascending:Boolean=true)=repository.tracks(query,sort,ascending)
     fun song(id:String)=repository.track(id)
+    suspend fun ensureArtwork(id:String)=repository.ensureArtwork(id)
     fun saveClapMoodProfile(track:MusicTrack,scores:Map<String,Float>) =
         repository.saveClapMoodProfile(track,CLAP_MODEL_VERSION,scores)
     fun clapMoodProfile(track:MusicTrack):ClapMoodProfile? =
