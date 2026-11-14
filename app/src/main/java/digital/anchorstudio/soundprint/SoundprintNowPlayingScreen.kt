@@ -25,6 +25,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -173,6 +175,7 @@ fun SoundprintNowPlayingScreen(
     var loudness by remember { mutableStateOf(false) }
     var stopAfterCurrent by remember { mutableStateOf(playbackOptionsPrefs.getBoolean("stop_after_current", false)) }
     var crossfade by remember { mutableIntStateOf(playbackOptionsPrefs.getInt("crossfade_seconds", 0).coerceIn(0, 8)) }
+    val doubleTapSeekSeconds = remember { playbackOptionsPrefs.getInt("double_tap_seek_seconds", 10).coerceIn(5, 60) }
 
     // The service owns the timer, not this screen. Its absolute deadline survives
     // navigation away from Now Playing and fades the audio before pausing.
@@ -370,7 +373,23 @@ fun SoundprintNowPlayingScreen(
                         Modifier.widthIn(max = 384.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp))
                             .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(24.dp))
                             .background(Brush.linearGradient(listOf(PlayerSurface2, MaterialTheme.colorScheme.background, PlayerSurface)))
-                            .clickable { customizerOpen = true },
+                            .pointerInput(duration, doubleTapSeekSeconds) {
+                                val artworkWidth = size.width.toFloat()
+                                detectTapGestures(onDoubleTap = { offset ->
+                                    if (artworkWidth > 0f && duration > 0L) {
+                                        val direction = when {
+                                            offset.x < artworkWidth * .38f -> -1
+                                            offset.x > artworkWidth * .62f -> 1
+                                            else -> 0
+                                        }
+                                        if (direction != 0) {
+                                            val currentPosition = controller?.currentPosition ?: position
+                                            val target = (currentPosition + direction * doubleTapSeekSeconds * 1000L).coerceIn(0L, duration)
+                                            controller?.seekTo(target)
+                                        }
+                                    }
+                                })
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (discStyle == PlayerDiscStyle.NONE) {
@@ -432,22 +451,50 @@ fun SoundprintNowPlayingScreen(
             }
             item {
                 Spacer(Modifier.height(18.dp))
-                Slider(value = animatedProgress, onValueChange = { controller?.seekTo((it * duration).toLong()) }, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatPlayerTime(position), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(if (duration > 0) "-${formatPlayerTime(duration-position)}" else "Indexing…", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(
+                    value = animatedProgress,
+                    onValueChange = { value ->
+                        if (duration > 0L) controller?.seekTo((value * duration).toLong().coerceIn(0L, duration))
+                    },
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.background,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = .20f),
+                        activeTickColor = Color.Transparent,
+                        inactiveTickColor = Color.Transparent
+                    )
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 1.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatPlayerTime(position), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (duration > 0) "-${formatPlayerTime((duration-position).coerceAtLeast(0L))}" else "Indexing…", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    IconButton(onClick = { controller?.shuffleModeEnabled = !shuffle }) { Icon(Icons.Filled.Shuffle, "Shuffle", tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton(onClick = { controller?.seekToPreviousMediaItem() }) { Icon(Icons.Filled.SkipPrevious, "Previous", modifier = Modifier.size(30.dp)) }
-                    FilledIconButton(onClick = { if (playing) controller?.pause() else controller?.play() }, modifier = Modifier.size(64.dp)) {
-                        Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (playing) "Pause" else "Play", modifier = Modifier.size(34.dp))
+                    IconButton(onClick = { controller?.shuffleModeEnabled = !shuffle }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.Shuffle, "Shuffle", modifier = Modifier.size(20.dp), tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { controller?.seekToNextMediaItem() }) { Icon(Icons.Filled.SkipNext, "Next", modifier = Modifier.size(30.dp)) }
+                    IconButton(onClick = {
+                        val player = controller ?: return@IconButton
+                        if (player.currentPosition > 4_000L) player.seekTo(0L) else player.seekToPreviousMediaItem()
+                    }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.SkipPrevious, "Previous track", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    FilledIconButton(
+                        onClick = { if (playing) controller?.pause() else controller?.play() },
+                        modifier = Modifier.size(64.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (playing) "Pause" else "Play", modifier = Modifier.size(30.dp))
+                    }
+                    IconButton(onClick = { controller?.seekToNextMediaItem() }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.SkipNext, "Next track", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface)
+                    }
                     IconButton(onClick = {
                         controller?.repeatMode = when (repeatMode) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF }
-                    }) { Icon(Icons.Filled.Repeat, "Repeat", tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary) }
+                    }, modifier = Modifier.size(48.dp)) {
+                        Icon(if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat, "Repeat", modifier = Modifier.size(20.dp), tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
             item {
