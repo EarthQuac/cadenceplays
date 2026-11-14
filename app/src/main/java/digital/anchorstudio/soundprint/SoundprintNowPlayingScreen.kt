@@ -7,6 +7,7 @@ import android.media.audiofx.BassBoost
 import android.media.audiofx.EnvironmentalReverb
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
+import android.media.audiofx.LoudnessEnhancer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
@@ -156,6 +157,7 @@ fun SoundprintNowPlayingScreen(
     var audioLabOpen by remember { mutableStateOf(false) }
     var bass by remember { mutableFloatStateOf(0f) }
     var treble by remember { mutableFloatStateOf(0f) }
+    var eqLevels by remember { mutableStateOf(List(10) { 0f }) }
     var gapless by remember { mutableStateOf(true) }
     var loudness by remember { mutableStateOf(false) }
     var stopAfterCurrent by remember { mutableStateOf(false) }
@@ -301,7 +303,14 @@ fun SoundprintNowPlayingScreen(
     LaunchedEffect(aura, auraPreset) {
         controller?.setPlaybackSpeed(if (aura && auraPreset == "Slowed + Reverb") 0.85f else 1f)
     }
-    DisposableEffect(controller?.audioSessionId, audioLabOpen, bass, treble) {
+    DisposableEffect(controller?.audioSessionId, loudness) {
+        val sessionId = controller?.audioSessionId ?: 0
+        val enhancer = if (loudness && sessionId > 0) runCatching {
+            LoudnessEnhancer(sessionId).also { it.setTargetGain(250); it.enabled = true }
+        }.getOrNull() else null
+        onDispose { runCatching { enhancer?.release() } }
+    }
+    DisposableEffect(controller?.audioSessionId, audioLabOpen, bass, treble, eqLevels) {
         val sessionId = controller?.audioSessionId ?: 0
         var equalizer: Equalizer? = null
         if (audioLabOpen && sessionId > 0) runCatching {
@@ -310,7 +319,8 @@ fun SoundprintNowPlayingScreen(
                 val range = eq.bandLevelRange
                 for (band in 0 until eq.numberOfBands.toInt()) {
                     val frequency = eq.getCenterFreq(band.toShort()) / 1000
-                    val adjustment = if (frequency < 250) bass else if (frequency > 5000) treble else 0f
+                    val bandIndex = when { frequency < 60 -> 0; frequency < 125 -> 1; frequency < 250 -> 2; frequency < 500 -> 3; frequency < 1000 -> 4; frequency < 2000 -> 5; frequency < 4000 -> 6; frequency < 8000 -> 7; frequency < 12000 -> 8; else -> 9 }
+                    val adjustment = eqLevels[bandIndex] + if (frequency < 250) bass else if (frequency > 5000) treble else 0f
                     val level = (adjustment * range[1].toFloat()).toInt().coerceIn(range[0].toInt(), range[1].toInt())
                     eq.setBandLevel(band.toShort(), level.toShort())
                 }
@@ -579,7 +589,7 @@ fun SoundprintNowPlayingScreen(
     if(sleepOpen) AlertDialog(onDismissRequest={sleepOpen=false},title={Text("Sleep timer")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Stop playback after…",fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(15,30,45,60).forEach{OutlinedButton(onClick={sleepMinutes=it.toString()}){Text("${it}m")}}};OutlinedTextField(sleepMinutes,{sleepMinutes=it},label={Text("Custom minutes")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number));if(sleepRemaining>0)Text("Remaining: $displaySleep")}},confirmButton={TextButton(onClick={sleepRemaining=(sleepMinutes.toLongOrNull()?.coerceIn(1,720)?:30)*60000L;sleepOpen=false}){Text("Start timer")}},dismissButton={TextButton(onClick={sleepRemaining=0;sleepOpen=false}){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
     if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){PlayerToggle("Gapless playback","Reduce the gap between tracks",gapless){gapless=it};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","End playback after this track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),"${crossfade}s"){crossfade=it.removeSuffix("s").toIntOrNull()?:0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
     if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(14.dp)){Text(lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex)?.second ?: "Waiting for lyrics",fontSize=27.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex+1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text((activeLyricIndex+1).coerceAtLeast(0).toString() + " / " + lyricLines.size + " lines",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}},confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
-    if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Bass");Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble");Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}})
+    if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab · 10-band EQ")},text={Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(3.dp)){val labels=listOf("31 Hz","62 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz");labels.forEachIndexed{index,label->Row(verticalAlignment=Alignment.CenterVertically){Text(label,modifier=Modifier.width(54.dp),fontSize=10.sp);Slider(value=eqLevels[index],onValueChange={v->eqLevels=eqLevels.toMutableList().also{it[index]=v}},valueRange=-1f..1f);Text(if(eqLevels[index]>=0)"+"+String.format("%.1f",eqLevels[index]) else String.format("%.1f",eqLevels[index]),modifier=Modifier.width(30.dp),fontSize=9.sp)}};Text("Bass",fontSize=11.sp);Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble",fontSize=11.sp);Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}},dismissButton={TextButton(onClick={eqLevels=List(10){0f};bass=0f;treble=0f}){Text("Reset")}})
 }
 
 @Composable
