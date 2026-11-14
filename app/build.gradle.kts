@@ -82,6 +82,6 @@ dependencies {
 }
 
 
-tasks.matching { it.name == "mergeDebugAssets" || it.name == "assetPackPreBundleTask" }.configureEach {
+tasks.matching { it.name == "mergeDebugAssets" || it.name == "assetPackPreBundleTask" || it.name == "bundleRelease" }.configureEach {
     dependsOn(rootProject.tasks.named("prepareClapModelAssets"))
 }
