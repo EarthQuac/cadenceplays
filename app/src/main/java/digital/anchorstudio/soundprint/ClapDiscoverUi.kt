@@ -88,6 +88,7 @@ data class ClapLibraryScanState(
     val running: Boolean = false,
     val downloadingModel: Boolean = false,
     val modelDownloadRequired: Boolean = false,
+    val modelDownloadBytes: Long? = null,
     val modelPercent: Int = 0,
     val completed: Int = 0,
     val total: Int = 0,
@@ -193,8 +194,10 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 }
 
                 if (!modelManager.isInstalled() && !allowModelDownload) {
+                    val downloadBytes = modelManager.downloadSizeBytes()
                     mutableState.value = mutableState.value.copy(
                         running = false, downloadingModel = false, modelDownloadRequired = true,
+                        modelDownloadBytes = downloadBytes,
                         completed = done, total = total, failed = errors.size, pending = pending,
                         failureMessages = errors.toMap(), currentTitle = "", currentTrackId = null,
                         stage = "Model download required",
@@ -478,7 +481,7 @@ fun ClapDiscoverScreen(
             Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 10.dp)) {
                 Text("One-time offline model download", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Text(
-                    "Mood discovery needs about 204 MB of CLAP model files. Download them once while online; analysis then runs on this device without internet. Wi-Fi is recommended.",
+                    "Mood discovery needs a one-time ${scan.modelDownloadBytes?.let { "${(it + 999_999L) / 1_000_000L} MB" } ?: "about 204 MB"} download. Download it once while online; analysis then runs on this device without internet. Wi-Fi is recommended.",
                     modifier = Modifier.padding(top = 5.dp),
                     fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
