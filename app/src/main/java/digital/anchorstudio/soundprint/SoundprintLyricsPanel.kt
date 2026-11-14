@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
@@ -533,7 +535,7 @@ fun SoundprintLyricsPanel(
                 } else {
                     Text(
                         lyrics,
-                        Modifier.fillMaxWidth().heightIn(max = if (showAll) 448.dp else 256.dp).verticalScroll(rememberScrollState()),
+                        Modifier.fillMaxWidth().heightIn(max = if (expanded) 448.dp else 256.dp).verticalScroll(rememberScrollState()),
                         fontSize = 14.sp, lineHeight = 28.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .85f),
                         textAlign = TextAlign.Center
                     )
