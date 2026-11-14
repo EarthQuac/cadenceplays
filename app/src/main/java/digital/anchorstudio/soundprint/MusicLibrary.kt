@@ -777,6 +777,27 @@ class MusicLibraryRepository(context:Context) {
         catch(_:Exception) { null }
     }
 
+    suspend fun ensureArtwork(trackId:String):MusicTrack? = withContext(Dispatchers.IO) {
+        val current = db.findById(trackId) ?: return@withContext null
+        val existing = current.artworkUri
+        if (!existing.isNullOrBlank()) {
+            val usable = if (existing.startsWith("/")) java.io.File(existing).isFile
+                else runCatching { app.contentResolver.openInputStream(Uri.parse(existing))?.use { true } ?: false }.getOrDefault(false)
+            if (usable) return@withContext current
+        }
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(app, Uri.parse(current.uri))
+            val embedded = retriever.embeddedPicture ?: return@withContext current
+            val cached = cacheArtwork(embedded, current.uri) ?: return@withContext current
+            current.copy(artworkUri = cached).also(db::updateTrack)
+        } catch (_: Exception) {
+            current
+        } finally {
+            runCatching { retriever.release() }
+        }
+    }
+
     private fun cacheArtwork(bytes:ByteArray,uri:String):String? = runCatching {
         if(!artworkDir.exists()) artworkDir.mkdirs()
         val key=MessageDigest.getInstance("SHA-256").digest(uri.toByteArray()).joinToString("") { "%02x".format(it) }
