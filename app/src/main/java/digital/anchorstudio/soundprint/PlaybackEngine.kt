@@ -114,6 +114,7 @@ class SoundprintPlaybackService : MediaSessionService() {
     }
     private var sleepFadeStartedAt = 0L
     private var sleepLastEndAt = 0L
+    private var sleepBaseVolume = 1f
     private var crossfadePending = false
     private var crossfadeActive = false
     private var crossfadeNextIndex = C.INDEX_UNSET
@@ -259,6 +260,8 @@ class SoundprintPlaybackService : MediaSessionService() {
             }
             if (standbyPlayer.playbackState == Player.STATE_READY && standbyPlayer.playWhenReady.not()) {
                 runCatching {
+                    val remaining = (player.duration - player.currentPosition).coerceAtLeast(1L)
+                    crossfadeDurationMs = minOf(crossfadeDurationMs, remaining)
                     standbyPlayer.volume = 0f
                     standbyPlayer.play()
                     crossfadeActive = true
@@ -379,7 +382,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (::standbyPlayer.isInitialized) {
             runCatching { standbyPlayer.pause(); standbyPlayer.volume = 0f; standbyPlayer.stop(); standbyPlayer.clearMediaItems() }
         }
-        if (restoreVolume && ::player.isInitialized) player.volume = 1f
+        if (restoreVolume && ::player.isInitialized) player.volume = crossfadeBaseVolume
         crossfadePending = false
         crossfadeActive = false
         crossfadeNextIndex = C.INDEX_UNSET
@@ -403,17 +406,18 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (endAt <= 0L) {
             sleepFadeStartedAt = 0L
             sleepLastEndAt = 0L
-            if (player.volume < 1f && player.isPlaying) player.volume = 1f
+            if (sleepLastEndAt > 0L) player.volume = sleepBaseVolume
             return
         }
         if (sleepLastEndAt != endAt) {
+            if (sleepLastEndAt == 0L) sleepBaseVolume = player.volume
             sleepLastEndAt = endAt
             sleepFadeStartedAt = 0L
         }
         val remaining = endAt - System.currentTimeMillis()
         if (remaining <= 0L) {
             player.pause()
-            player.volume = 1f
+            player.volume = sleepBaseVolume
             playbackOptions.edit().remove(KEY_SLEEP_ENDS_AT).apply()
             sleepFadeStartedAt = 0L
             sleepLastEndAt = 0L
@@ -421,7 +425,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         }
         if (remaining <= SLEEP_FADE_MS) {
             if (sleepFadeStartedAt == 0L) sleepFadeStartedAt = System.currentTimeMillis()
-            player.volume = (remaining.toFloat() / SLEEP_FADE_MS.toFloat()).coerceIn(0f, 1f)
+            player.volume = sleepBaseVolume * (remaining.toFloat() / SLEEP_FADE_MS.toFloat()).coerceIn(0f, 1f)
         } else if (player.volume < 1f) {
             player.volume = 1f
         }
