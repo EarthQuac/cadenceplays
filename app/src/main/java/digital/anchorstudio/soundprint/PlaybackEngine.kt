@@ -393,7 +393,12 @@ class SoundprintPlaybackConnection(
 
     init {
         future.addListener({
-            val connected = runCatching { future.get() }.getOrNull() ?: return@addListener
+            val connected = try {
+                future.get()
+            } catch (error: Exception) {
+                Log.e("SoundprintPlayback", "Could not connect to the Android playback service.", error)
+                return@addListener
+            }
             if (closed) connected.release() else {
                 controller = connected
                 onConnected(connected)
