@@ -15,7 +15,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import androidx.work.WorkManager
@@ -285,6 +284,7 @@ class MainActivity : ComponentActivity() {
                     }
             }
             LaunchedEffect(Unit) {
+                refreshLibraryState()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
                 ) {
@@ -368,7 +368,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onRemoveSource = { sourceUri ->
                         scope.launch {
-                            libraryRepository.removeSource(sourceUri)
+                            withContext(Dispatchers.IO) { libraryRepository.removeSource(sourceUri) }
                             refreshLibraryState()
                             libraryStatus = "Music location removed. Original audio files were not deleted."
                         }
