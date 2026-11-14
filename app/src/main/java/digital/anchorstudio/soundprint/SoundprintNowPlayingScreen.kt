@@ -267,7 +267,7 @@ fun SoundprintNowPlayingScreen(
         if (aura && sessionId > 0) {
             runCatching {
                 BassBoost(0, sessionId).also {
-                    it.setStrength(if (auraPreset == "Pulse") 700 else 350)
+                    it.setStrength((if (auraPreset == "Pulse") 700 else 350).toShort())
                     it.enabled = true
                     effects += it
                 }
@@ -282,7 +282,7 @@ fun SoundprintNowPlayingScreen(
             }
             runCatching {
                 Virtualizer(0, sessionId).also {
-                    it.setStrength(if (auraPreset == "Dreamscape") 650 else 350)
+                    it.setStrength((if (auraPreset == "Dreamscape") 650 else 350).toShort())
                     it.enabled = true
                     effects += it
                 }
@@ -464,13 +464,13 @@ fun SoundprintNowPlayingScreen(
             item {
                 PlayerPanel("Lyrics", onClose = { lyricsExpanded=false }) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick={ lyricsBusy=true; lyricsError=""; /* lookup below is driven by the coroutine effect */ }) { Text(if(lyricsBusy) "Searching…" else "Find lyrics online") }
+                        OutlinedButton(onClick={ findLyrics() }, enabled=!lyricsBusy) { Text(if(lyricsBusy) "Searching…" else "Find lyrics online") }\n                        OutlinedButton(onClick={ lrcPicker.launch(arrayOf("text/plain","application/octet-stream")) }) { Text("Import") }
                         OutlinedButton(onClick={ lyricsEdit=true; lyricsDraft=lyrics }) { Text("Edit") }
-                        if (lyrics.isNotBlank()) OutlinedButton(onClick={ karaoke=true }) { Text("Karaoke") }
+                        if (lyricLines.isNotEmpty()) OutlinedButton(onClick={ karaoke=true }) { Text("Karaoke") }
                     }
                     if (lyricsEdit) {
                         OutlinedTextField(value=lyricsDraft,onValueChange={lyricsDraft=it},modifier=Modifier.fillMaxWidth().heightIn(min=150.dp),label={Text("Lyrics / LRC")})
-                        Button(onClick={ lyrics=lyricsDraft; lyricsSource="Edited locally"; lyricsEdit=false }) { Text("Save lyrics") }
+                        Button(onClick={ lyrics=lyricsDraft; lyricsSource="Edited locally"; playerPrefs.edit().putString("lyrics:" + trackId,lyricsDraft).putString("lyrics-source:" + trackId,lyricsSource).apply(); lyricsEdit=false }) { Text("Save lyrics") }
                     } else if (lyrics.isNotBlank()) {
                         Text(lyrics,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp).verticalScroll(rememberScrollState()),fontSize=13.sp,lineHeight=23.sp,textAlign=TextAlign.Center)
                         Text("Saved on this device · $lyricsSource",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -505,7 +505,7 @@ fun SoundprintNowPlayingScreen(
     if(editOpen) AlertDialog(onDismissRequest={editOpen=false},title={Text("Edit song info")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(editTitle,{editTitle=it},label={Text("Title")});OutlinedTextField(editArtist,{editArtist=it},label={Text("Artist")});OutlinedTextField(editAlbum,{editAlbum=it},label={Text("Album")});OutlinedTextField(editGenre,{editGenre=it},label={Text("Genre")})}},confirmButton={TextButton(onClick={library.updateSongMetadata(trackId,editTitle,editArtist,editAlbum,editGenre);title=editTitle;artist=editArtist;album=editAlbum;genre=editGenre;editOpen=false}){Text("Save changes")}},dismissButton={TextButton(onClick={editOpen=false}){Text("Cancel")}})
     if(sleepOpen) AlertDialog(onDismissRequest={sleepOpen=false},title={Text("Sleep timer")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Stop playback after…",fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(15,30,45,60).forEach{OutlinedButton(onClick={sleepMinutes=it.toString()}){Text("${it}m")}}};OutlinedTextField(sleepMinutes,{sleepMinutes=it},label={Text("Custom minutes")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number));if(sleepRemaining>0)Text("Remaining: $displaySleep")}},confirmButton={TextButton(onClick={sleepRemaining=(sleepMinutes.toLongOrNull()?.coerceIn(1,720)?:30)*60000L;sleepOpen=false}){Text("Start timer")}},dismissButton={TextButton(onClick={sleepRemaining=0;sleepOpen=false}){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
     if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){PlayerToggle("Gapless playback","Reduce the gap between tracks",gapless){gapless=it};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","End playback after this track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),"${crossfade}s"){crossfade=it.removeSuffix("s").toIntOrNull()?:0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
-    if(karaoke && lyrics.isNotBlank()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(14.dp)){Text(lyrics.lines().firstOrNull { it.isNotBlank() } ?: "♪",fontSize=26.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center);Text("Karaoke view",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}},confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
+    if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(14.dp)){Text(lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex)?.second ?: "Waiting for lyrics",fontSize=27.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex+1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text((activeLyricIndex+1).coerceAtLeast(0).toString() + " / " + lyricLines.size + " lines",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}},confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
     if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Bass");Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble");Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}})
 }
 
