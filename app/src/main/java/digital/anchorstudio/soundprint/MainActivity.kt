@@ -292,6 +292,8 @@ class MainActivity : ComponentActivity() {
                 if (queuedImports.any { !it.state.isFinished }) {
                     libraryStatus = "Music import is continuing in the background."
                 } else {
+                    // Clear an orphaned progress notification left by an older Activity-scoped importer.
+                    SoundprintImportNotifications(applicationContext).dismiss()
                     val recovery = runScanWithoutSwallowingCancellation {
                         withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() }
                     }
