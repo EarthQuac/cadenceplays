@@ -11,10 +11,12 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import androidx.work.WorkManager
 import androidx.work.WorkInfo
 import androidx.activity.ComponentActivity
@@ -247,7 +249,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     if (result.isSuccess) {
-                        val scan = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
+                        val scan = runScanWithoutSwallowingCancellation { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
                         refreshLibraryState()
                         libraryStatus = "Backup restored (${result.getOrNull()} records). " +
                             scan.fold({ "Recovery scan found ${it.unavailable} unavailable locations." }, { "Recovery scan failed: ${it.message}" })
@@ -284,12 +286,21 @@ class MainActivity : ComponentActivity() {
                 ) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                val recovery = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
-                refreshLibraryState()
-                libraryStatus = recovery.fold(
-                    { "Startup recovery: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
-                    { "Startup recovery failed: ${it.message ?: "Unknown error"}" }
-                )
+                val queuedImports = WorkManager.getInstance(applicationContext)
+                    .getWorkInfosForUniqueWorkFlow("soundprint_music_import_queue")
+                    .first()
+                if (queuedImports.any { !it.state.isFinished }) {
+                    libraryStatus = "Music import is continuing in the background."
+                } else {
+                    val recovery = runScanWithoutSwallowingCancellation {
+                        withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() }
+                    }
+                    refreshLibraryState()
+                    libraryStatus = recovery.fold(
+                        { "Startup recovery: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
+                        { "Startup recovery failed: ${it.message ?: "Unknown error"}" }
+                    )
+                }
             }
             val darkTheme = when (themeMode) {
                 "light" -> false
@@ -341,7 +352,7 @@ class MainActivity : ComponentActivity() {
                     onImportSingle = { singleFilePicker.launch(arrayOf("audio/*", "application/octet-stream")) },
                     onRescan = {
                         scope.launch {
-                            val result = runCatching { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
+                            val result = runScanWithoutSwallowingCancellation { withContext(Dispatchers.IO) { libraryRepository.rescanAllSavedSources() } }
                             refreshLibraryState()
                             libraryStatus = result.fold(
                                 { "Rescan complete: ${it.imported} added, ${it.updated} updated, ${it.unavailable} unavailable, ${it.errors.size} errors." },
@@ -1558,4 +1569,12 @@ private fun PaletteChoice(name: String, selected: Boolean, modifier: Modifier = 
             Text(if (name == "Emerald" || name == "Mono") "Unlock with Pro" else if (name == "Amber") "Original warm dark theme" else "Cool blue on clean white", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
     }
+}
+
+private suspend fun <T> runScanWithoutSwallowingCancellation(block: suspend () -> T): Result<T> = try {
+    Result.success(block())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (error: Exception) {
+    Result.failure(error)
 }
