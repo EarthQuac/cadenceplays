@@ -40,6 +40,8 @@ data class SmartPlaylistContext(
 private const val RECYCLE_BIN_RETENTION_MS=30L*24L*60L*60L*1000L
 
 private class LibraryManagementDatabase(context:Context):SQLiteOpenHelper(context.applicationContext,"soundprint_library_management.db",null,1) {
+    init { setWriteAheadLoggingEnabled(true) }
+
     override fun onCreate(db:SQLiteDatabase) {
         db.execSQL("CREATE TABLE history_events(id INTEGER PRIMARY KEY AUTOINCREMENT,track_id TEXT NOT NULL,event_type TEXT NOT NULL,timestamp INTEGER NOT NULL,position_ms INTEGER NOT NULL DEFAULT 0,duration_ms INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE INDEX history_track_time_idx ON history_events(track_id,timestamp DESC)")
@@ -342,11 +344,8 @@ class MusicLibraryManager(context:Context) {
         repository.tracks(query,sort,ascending).filter { !favoritesOnly||it.isFavorite }
 
     companion object {
-        @Volatile private var instance: MusicLibraryManager? = null
-        fun getInstance(context: Context): MusicLibraryManager =
-            instance ?: synchronized(this) {
-                instance ?: MusicLibraryManager(context.applicationContext).also { instance = it }
-            }
+        private val holder = ContextScopedSingleton { MusicLibraryManager(it) }
+        fun getInstance(context: Context): MusicLibraryManager = holder.get(context)
     }
 }
 

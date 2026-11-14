@@ -1,14 +1,10 @@
 package digital.anchorstudio.soundprint
 
-import android.app.Notification
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.content.pm.ServiceInfo
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
-import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -37,11 +33,14 @@ object SoundprintMusicImportQueue {
 
     private fun enqueue(context: Context, type: String, uris: List<Uri>): UUID {
         val app = context.applicationContext
+        // Some providers only hand out temporary grants; that is fine while the import runs.
         uris.forEach { uri ->
-            app.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+            runCatching {
+                app.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
         }
 
         val id = UUID.randomUUID()
@@ -114,6 +113,7 @@ class SoundprintMusicImportWorker(
                 else -> throw IllegalArgumentException("Unknown music import type.")
             }
             notifications.complete(result)
+            requestFile.delete()
             Result.success(
                 Data.Builder()
                     .putInt("imported", result.imported)
@@ -127,10 +127,9 @@ class SoundprintMusicImportWorker(
             notifications.dismiss()
             throw cancelled
         } catch (error: Exception) {
+            requestFile.delete()
             notifications.failed(error.message ?: "Soundprint couldn't finish importing your music.")
             Result.failure(workDataOf("error" to (error.message ?: "Music import failed.")))
-        } finally {
-            requestFile.delete()
         }
     }
 }

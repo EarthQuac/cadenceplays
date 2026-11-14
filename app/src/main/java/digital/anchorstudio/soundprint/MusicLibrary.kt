@@ -59,11 +59,8 @@ class MusicLibraryDatabase(context: Context) :
     init { setWriteAheadLoggingEnabled(true) }
 
     companion object {
-        @Volatile private var instance: MusicLibraryDatabase? = null
-        fun getInstance(context: Context): MusicLibraryDatabase =
-            instance ?: synchronized(this) {
-                instance ?: MusicLibraryDatabase(context.applicationContext).also { instance = it }
-            }
+        private val holder = ContextScopedSingleton { MusicLibraryDatabase(it) }
+        fun getInstance(context: Context): MusicLibraryDatabase = holder.get(context)
     }
 
     override fun onCreate(db: SQLiteDatabase) = createSchema(db)
@@ -868,11 +865,8 @@ class MusicLibraryRepository(context:Context) {
         fun result()=LibraryScanResult(visited,imported,updated,skipped,unavailable,errors)
     }
     companion object {
-        @Volatile private var instance: MusicLibraryRepository? = null
-        fun getInstance(context: Context): MusicLibraryRepository =
-            instance ?: synchronized(this) {
-                instance ?: MusicLibraryRepository(context.applicationContext).also { instance = it }
-            }
+        private val holder = ContextScopedSingleton { MusicLibraryRepository(it) }
+        fun getInstance(context: Context): MusicLibraryRepository = holder.get(context)
 
         private val AUDIO_EXTENSIONS=setOf("mp3","m4a","aac","flac","wav","ogg","opus","wma","aiff","aif","alac","3gp","amr")
     }

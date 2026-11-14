@@ -180,12 +180,19 @@ fun SoundprintNowPlayingScreen(
 
     val progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(progress, tween(180, easing = FastOutSlowInEasing), label = "player-progress")
-    var favorite by remember { mutableStateOf(library.isFavorite(trackId)) }
-    LaunchedEffect(trackId) { favorite = library.isFavorite(trackId) }
-    val track = remember(trackId, title, artist, album, genre, artwork, duration) {
-        library.song(trackId)?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork, durationMs = duration)
-    }
-    val queueTracks = remember(queueIds, currentIndex) { queueIds.drop((currentIndex + 1).coerceAtLeast(0)).mapNotNull { library.song(it) } }
+    var favorite by remember { mutableStateOf(false) }
+    LaunchedEffect(trackId) { favorite = withContext(Dispatchers.IO) { library.isFavorite(trackId) } }
+    val track = produceState<MusicTrack?>(null, trackId, title, artist, album, genre, artwork, duration) {
+        value = withContext(Dispatchers.IO) { library.song(trackId) }
+            ?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork, durationMs = duration)
+    }.value
+    val queueTracks = produceState(emptyList<MusicTrack>(), queueIds, currentIndex) {
+        val upcoming = queueIds.drop((currentIndex + 1).coerceAtLeast(0))
+        value = withContext(Dispatchers.IO) {
+            if (upcoming.size <= 200) upcoming.mapNotNull { library.song(it) }
+            else library.allSongs().associateBy { it.id }.let { byId -> upcoming.mapNotNull { byId[it] } }
+        }
+    }.value
     val displaySleep = if (sleepRemaining > 0L) "%d:%02d".format(sleepRemaining / 60000L, (sleepRemaining / 1000L) % 60L) else "Sleep"
     LaunchedEffect(trackId) {
         lyrics = playerPrefs.getString("lyrics:" + trackId, "").orEmpty()
@@ -612,7 +619,8 @@ private fun TrackArtwork(uri: String?, title: String, modifier: Modifier = Modif
             }.getOrNull()
         }
     }
-    if (bitmap != null) Image(bitmap!!.asImageBitmap(), title, modifier)
+    val loadedBitmap = bitmap
+    if (loadedBitmap != null) Image(loadedBitmap.asImageBitmap(), title, modifier)
     else Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF47382D),Color(0xFF171513)))),contentAlignment=Alignment.Center){Icon(Icons.Filled.MusicNote,null,tint=Color.White.copy(alpha=.8f),modifier=Modifier.size(52.dp))}
 }
 

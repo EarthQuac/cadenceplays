@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -257,7 +256,7 @@ internal fun SongsLibraryScreen(
                                     Text(if (scanning) "Scanning…" else if (scanResult != null) "Scan again" else "Scan library")
                                 }
                                 if (scanning) TextButton(onClick = { scanJob?.cancel() }) { Text("Cancel") }
-                                else if (scanResult != null) Text("${scanResult!!.groups.size} groups", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                else if (scanResult != null) Text("${scanResult?.groups?.size ?: 0} groups", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (scanning) {
                                 LinearProgressIndicator(progress = { scanProgress.percent / 100f }, modifier = Modifier.fillMaxWidth())
@@ -266,8 +265,9 @@ internal fun SongsLibraryScreen(
                                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            if (scanResult != null && !scanning) {
-                                val result = scanResult!!
+                            val finishedScan = scanResult
+                            if (finishedScan != null && !scanning) {
+                                val result = finishedScan
                                 Text(
                                     "${result.tracksScanned} tracks scanned · ${result.fingerprintsReused} cached fingerprints reused · ${result.groups.size} duplicate groups · ${result.matchCount} matching pairs",
                                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -361,7 +361,7 @@ internal fun SongsLibraryScreen(
                                     }
                                     TextButton(onClick = {
                                         scope.launch {
-                                            runCatching { withContext(Dispatchers.IO) { library.restoreFromRecycleBin(entry.track.id) } }
+                                            runCatchingSuspend { withContext(Dispatchers.IO) { library.restoreFromRecycleBin(entry.track.id) } }
                                             refreshLibrary()
                                         }
                                     }) {
@@ -406,8 +406,9 @@ internal fun SongsLibraryScreen(
         }
     }
 
-    if (pendingRemoval != null) {
-        val track = pendingRemoval!!
+    val removalTarget = pendingRemoval
+    if (removalTarget != null) {
+        val track = removalTarget
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
             title = { Text("Move this track to Recycle Bin?") },
@@ -416,7 +417,7 @@ internal fun SongsLibraryScreen(
                 TextButton(onClick = {
                     pendingRemoval = null
                     scope.launch {
-                        runCatching { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "TwinSense duplicate review") } }
+                        runCatchingSuspend { withContext(Dispatchers.IO) { library.moveToRecycleBin(track.id, "TwinSense duplicate review") } }
                         scanResult?.let { previous ->
                             val updated = scanner.withoutTracks(previous, setOf(track.id))
                             scanResult = updated

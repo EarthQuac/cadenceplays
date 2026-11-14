@@ -116,8 +116,6 @@ class LyricsLookupRepository(
         return JSONArray(body)
     }
 
-    private fun requestJsonObject(url: String): JSONObject = JSONObject(request(url))
-
     private fun request(url: String): String {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000

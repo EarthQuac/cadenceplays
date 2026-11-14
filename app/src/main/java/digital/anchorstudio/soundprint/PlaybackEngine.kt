@@ -27,6 +27,7 @@ import java.util.concurrent.Executor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -133,6 +134,9 @@ class SoundprintPlaybackService : MediaSessionService() {
     private var pendingListeningMs = 0L
     private var lastPersistElapsedMs = 0L
     private var lastTrackDurationMs = 0L
+    private lateinit var playbackAudioAttributes: AudioAttributes
+    @Volatile private var queueRestoreFinished = false
+    private var destroyed = false
 
     private val maintenance = object : Runnable {
         override fun run() {
@@ -143,7 +147,7 @@ class SoundprintPlaybackService : MediaSessionService() {
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
             applyPlaybackOptions()
             prepareOrCheckCrossfade()
-            handler.postDelayed(this, SAMPLE_INTERVAL_MS)
+            if (player.isPlaying || crossfadePending || crossfadeActive) handler.postDelayed(this, SAMPLE_INTERVAL_MS)
         }
     }
 
@@ -155,12 +159,15 @@ class SoundprintPlaybackService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
+        playbackAudioAttributes = audioAttributes
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
+        // Two players must never compete for audio focus: the standby player stays silent until a
+        // crossfade hands over, otherwise Android can tell the playing track to stop.
         standbyPlayer = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true)
+            .setAudioAttributes(audioAttributes, false)
             .setHandleAudioBecomingNoisy(true)
             .build()
         mediaSession = MediaSession.Builder(this, player).build()
@@ -228,9 +235,10 @@ class SoundprintPlaybackService : MediaSessionService() {
             }
         }
         player.addListener(servicePlayerListener)
+        val savedQueue = queueStore.read()
         serviceScope.launch {
-            val tracks = withContext(Dispatchers.IO) { library.allSongs() }
-            withContext(Dispatchers.Main) { restoreQueue(tracks) }
+            val tracks = if (savedQueue.queueIds.isEmpty()) emptyList() else withContext(Dispatchers.IO) { library.allSongs() }
+            withContext(Dispatchers.Main) { restoreQueue(savedQueue, tracks) }
         }
     }
 
@@ -243,6 +251,7 @@ class SoundprintPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        destroyed = true
         handler.removeCallbacks(maintenance)
         handler.removeCallbacks(crossfadeTicker)
         if (::player.isInitialized && ::standbyPlayer.isInitialized && (crossfadeActive || crossfadePending)) {
@@ -254,6 +263,9 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (::player.isInitialized) player.release()
         if (::standbyPlayer.isInitialized) standbyPlayer.release()
         drainListeningWrites()
+        // Let queued history writes finish, then stop the scope so nothing outlives the service.
+        val writesRunning = synchronized(listeningWriteQueue) { listeningWriteInFlight }
+        if (!writesRunning) serviceScope.cancel()
         super.onDestroy()
     }
 
@@ -348,6 +360,8 @@ class SoundprintPlaybackService : MediaSessionService() {
             mediaSession.setPlayer(incoming)
             player = incoming
             standbyPlayer = outgoing
+            standbyPlayer.setAudioAttributes(playbackAudioAttributes, false)
+            player.setAudioAttributes(playbackAudioAttributes, true)
             player.addListener(servicePlayerListener)
             player.volume = crossfadeBaseVolume
             standbyPlayer.volume = 0f
@@ -375,6 +389,10 @@ class SoundprintPlaybackService : MediaSessionService() {
             runCatching { mediaSession.setPlayer(outgoing) }
             player = outgoing
             standbyPlayer = incoming
+            runCatching {
+                standbyPlayer.setAudioAttributes(playbackAudioAttributes, false)
+                player.setAudioAttributes(playbackAudioAttributes, true)
+            }
             player.addListener(servicePlayerListener)
             player.volume = crossfadeBaseVolume
             standbyPlayer.removeListener(servicePlayerListener)
@@ -447,11 +465,19 @@ class SoundprintPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun restoreQueue(availableLibraryTracks: List<MusicTrack>) {
+    private fun restoreQueue(saved: PlaybackQueueSnapshot, availableLibraryTracks: List<MusicTrack>) {
+        if (destroyed || !::player.isInitialized) return
+        try {
+            restoreSavedQueue(saved, availableLibraryTracks)
+        } finally {
+            queueRestoreFinished = true
+        }
+    }
+
+    private fun restoreSavedQueue(saved: PlaybackQueueSnapshot, availableLibraryTracks: List<MusicTrack>) {
         // A user may tap a song while the service is still loading its saved queue.
         // Never let late queue restoration replace that newly requested playback.
         if (player.mediaItemCount > 0 || player.isPlaying) return
-        val saved = queueStore.read()
         if (saved.queueIds.isEmpty()) return
         val availableTracks = availableLibraryTracks.associateBy { it.id }
         val resolved = saved.queueIds.mapIndexedNotNull { oldIndex, id ->
@@ -477,6 +503,8 @@ class SoundprintPlaybackService : MediaSessionService() {
 
     private fun persistQueue() {
         if (!::player.isInitialized) return
+        // Until the saved queue has been restored, an empty player must not wipe it from storage.
+        if (!queueRestoreFinished && player.mediaItemCount == 0) return
         val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
         if (ids.isEmpty()) {
             queueStore.clear()
@@ -547,7 +575,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         drainListeningWrites()
     }
 
-    /** All history writes are serialized on Dispatchers.IO; failed batches remain queued for retry. */
+    /** All history writes are serialized on Dispatchers.IO; transient failures are retried a few times. */
     private fun drainListeningWrites() {
         val shouldStart = synchronized(listeningWriteQueue) {
             if (listeningWriteInFlight || listeningWriteQueue.isEmpty()) false
@@ -558,6 +586,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         }
         if (!shouldStart) return
         serviceScope.launch {
+            var failedAttempts = 0
             while (true) {
                 val batch = synchronized(listeningWriteQueue) {
                     if (listeningWriteQueue.isEmpty()) null else listeningWriteQueue.first()
@@ -567,13 +596,25 @@ class SoundprintPlaybackService : MediaSessionService() {
                     synchronized(listeningWriteQueue) {
                         if (listeningWriteQueue.firstOrNull() == batch) listeningWriteQueue.removeFirst()
                     }
+                    failedAttempts = 0
                 } catch (error: Exception) {
-                    Log.e("SoundprintPlayback", "Listening statistics write failed; retaining it for retry.", error)
-                    delay(5_000L)
-                    continue
+                    failedAttempts += 1
+                    // "Song not found" (the track was removed from the library) can never succeed.
+                    val giveUp = error is IllegalArgumentException || failedAttempts >= MAX_LISTENING_WRITE_ATTEMPTS || destroyed
+                    if (giveUp) {
+                        Log.w("SoundprintPlayback", "Dropping a listening statistics write that could not be saved.", error)
+                        synchronized(listeningWriteQueue) {
+                            if (listeningWriteQueue.firstOrNull() == batch) listeningWriteQueue.removeFirst()
+                        }
+                        failedAttempts = 0
+                    } else {
+                        Log.e("SoundprintPlayback", "Listening statistics write failed; retrying.", error)
+                        delay(5_000L)
+                    }
                 }
             }
             synchronized(listeningWriteQueue) { listeningWriteInFlight = false }
+            if (destroyed) serviceScope.cancel()
         }
     }
 
@@ -593,6 +634,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         const val SAMPLE_INTERVAL_MS = 1_000L
         const val PERSIST_INTERVAL_MS = 5_000L
         const val LISTENING_FLUSH_MS = 10_000L
+        const val MAX_LISTENING_WRITE_ATTEMPTS = 5
         const val SLEEP_FADE_MS = 15_000L
         const val CROSSFADE_TICK_MS = 50L
         const val KEY_SLEEP_ENDS_AT = "sleep_ends_at"

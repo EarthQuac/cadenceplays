@@ -19,6 +19,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,8 +50,11 @@ fun ListeningStatsScreen(libraryManager:MusicLibraryManager,onBack:()->Unit) {
     var range by remember { mutableStateOf(StatsRange.WEEK) }
     var refresh by remember { mutableIntStateOf(0) }
     var resetDialog by remember { mutableStateOf(false) }
-    val tracks=remember(refresh) { libraryManager.allSongs() }
-    val events=remember(refresh) { libraryManager.listeningEvents(10000) }
+    val loaded=produceState(emptyList<MusicTrack>() to emptyList<LibraryHistoryEvent>(),refresh) {
+        value=withContext(Dispatchers.IO) { libraryManager.allSongs() to libraryManager.listeningEvents(10000) }
+    }.value
+    val tracks=loaded.first
+    val events=loaded.second
     val snapshot=remember(range,tracks,events,refresh) { buildStatsSnapshot(range,tracks,events) }
     LazyColumn(
         modifier=Modifier.fillMaxSize(),

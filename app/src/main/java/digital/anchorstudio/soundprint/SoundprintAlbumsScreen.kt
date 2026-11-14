@@ -69,9 +69,10 @@ fun SoundprintAlbumsScreen(
         albums = withContext(Dispatchers.IO) { libraryManager.albums() }
     }
 
-    if (selectedAlbumId != null) {
+    val openAlbumId = selectedAlbumId
+    if (openAlbumId != null) {
         AlbumDetailNative(
-            albumId = selectedAlbumId!!,
+            albumId = openAlbumId,
             libraryManager = libraryManager,
             playback = playback,
             onBack = { selectedAlbumId = null }

@@ -41,11 +41,8 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,7 +51,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -704,7 +700,7 @@ fun ClapDiscoverScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("PICKED FOR THIS MOOD", fontSize = 10.sp, letterSpacing = 1.2.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text(selectedMood!!.title, modifier = Modifier.padding(top = 3.dp), fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(selectedMood?.title.orEmpty(), modifier = Modifier.padding(top = 3.dp), fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 }
                 if (recommendations.isNotEmpty()) {
                     TextButton(onClick = { playback.playTracks(recommendations.map { it.first }) }) { androidx.compose.material3.Icon(Icons.Filled.PlayArrow, null); Text("Play all") }
@@ -801,7 +797,7 @@ fun ClapDiscoverScreen(
                 Column(Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     SoundprintMood.entries.forEach { mood ->
                         TextButton(onClick = {
-                            scanner.saveMoodCorrection(editingTrack!!.id, mood.id)
+                            editingTrack?.let { scanner.saveMoodCorrection(it.id, mood.id) }
                             corrections = scanner.moodCorrections()
                             editingTrack = null
                         }, modifier = Modifier.fillMaxWidth()) { Text(mood.title, modifier = Modifier.fillMaxWidth()) }

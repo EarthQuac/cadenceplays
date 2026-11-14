@@ -33,17 +33,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -58,21 +54,13 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AudioFile
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -82,17 +70,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -102,7 +85,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -245,7 +227,7 @@ class MainActivity : ComponentActivity() {
             }
             val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 if (uri != null) scope.launch {
-                    val result = runCatching {
+                    val result = runCatchingSuspend {
                         withContext(Dispatchers.IO) {
                             contentResolver.openOutputStream(uri)?.use { libraryRepository.writeBackup(it) }
                                 ?: error("Android could not create the backup file.")
@@ -256,7 +238,7 @@ class MainActivity : ComponentActivity() {
             }
             val backupOpener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) scope.launch {
-                    val result = runCatching {
+                    val result = runCatchingSuspend {
                         withContext(Dispatchers.IO) {
                             contentResolver.openInputStream(uri)?.use { libraryRepository.restoreBackup(it, false) }
                                 ?: error("Android could not open this backup.")
@@ -280,7 +262,9 @@ class MainActivity : ComponentActivity() {
                                 libraryStatus = "Music import is running in the background. You can safely leave Soundprint."
                             } else {
                                 val latest = workInfos.last()
-                                when (latest.state) {
+                                val seenBefore = preferences.getString("last_handled_import_work", null) == latest.id.toString()
+                                if (!seenBefore) preferences.edit().putString("last_handled_import_work", latest.id.toString()).apply()
+                                when (if (seenBefore) null else latest.state) {
                                     WorkInfo.State.SUCCEEDED -> {
                                         refreshLibraryState()
                                         val output = latest.outputData
@@ -660,7 +644,7 @@ private fun PublicHomeScreen(onContinue: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
+                painter = painterResource(R.drawable.soundprint_icon),
                 contentDescription = null,
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
             )
@@ -753,10 +737,11 @@ private fun HomeScreen(
         HomeSearchScreen(libraryManager, playback) { searchOpen = false }
         return
     }
-    if (selectedArtist != null) {
+    val openArtist = selectedArtist
+    if (openArtist != null) {
         ArtistHomeScreen(
-            artist = selectedArtist!!,
-            tracks = libraryManager.artistTracks(selectedArtist!!),
+            artist = openArtist,
+            tracks = remember(openArtist) { libraryManager.artistTracks(openArtist) },
             playback = playback,
             onBack = { selectedArtist = null }
         )
@@ -773,7 +758,7 @@ private fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Image(painterResource(R.drawable.ic_launcher_foreground), "Soundprint", Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
+                Image(painterResource(R.drawable.soundprint_icon), "Soundprint", Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("YOUR LIBRARY", fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
@@ -1411,7 +1396,7 @@ private fun DiscoverScreen(onBack: () -> Unit) {
                         .padding(16.dp)
                 ) {
                     Text("PICKED FOR THIS MOMENT", fontSize = 10.sp, letterSpacing = 1.3.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Text(selectedMood!!, modifier = Modifier.padding(top = 5.dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(selectedMood.orEmpty(), modifier = Modifier.padding(top = 5.dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     Text("0 tracks", modifier = Modifier.padding(top = 4.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Add music to Soundprint, then return here to explore it by mood.", modifier = Modifier.padding(top = 12.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
