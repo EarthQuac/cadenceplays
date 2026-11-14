@@ -201,8 +201,8 @@ class ClapLibraryScanner(context: Context, private val library: MusicLibraryMana
                 activeEngine.prepare { progress ->
                     mutableState.value = mutableState.value.copy(
                         downloadingModel = true, modelPercent = progress.percent,
-                        stage = "Downloading CLAP model",
-                        message = "Installing the offline model · " + progress.currentAsset
+                        stage = "Downloading offline model",
+                        message = "Downloading the CLAP model from Google Play · " + progress.currentAsset
                     )
                 }
                 mutableState.value = mutableState.value.copy(
