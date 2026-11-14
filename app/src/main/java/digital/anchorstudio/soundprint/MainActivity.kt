@@ -802,17 +802,17 @@ private fun HomeScreen(
                                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                                     DropdownMenuItem(
                                         text = { Text("Play next") },
-                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_list_plus), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track), next = true) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to queue") },
-                                        leadingIcon = { Icon(Icons.Filled.QueueMusic, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_list_end), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = { menuExpanded = false; playback.enqueue(listOf(track)) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to favorites") },
-                                        leadingIcon = { Icon(Icons.Filled.Favorite, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_heart), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = {
                                             menuExpanded = false
                                             if (!libraryManager.isFavorite(track.id)) libraryManager.toggleFavorite(track.id)
@@ -821,7 +821,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Add to playlist") },
-                                        leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_plus), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = {
                                             menuExpanded = false
                                             playlistChoices = libraryManager.playlists()
@@ -831,7 +831,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Edit song information") },
-                                        leadingIcon = { Icon(Icons.Filled.Edit, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_pencil), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = {
                                             menuExpanded = false
                                             editTitle = track.title
@@ -843,7 +843,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Go to artist") },
-                                        leadingIcon = { Icon(Icons.Filled.Person, null) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_user), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)) },
                                         onClick = {
                                             menuExpanded = false
                                             selectedArtist = track.artist.ifBlank { "Unknown artist" }
@@ -851,7 +851,7 @@ private fun HomeScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text("Move to recycle bin", color = Color(0xFFE5484D)) },
-                                        leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFE5484D)) },
+                                        leadingIcon = { Image(painterResource(R.drawable.lucide_trash_2), null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(Color(0xFFE5484D))) },
                                         onClick = {
                                             menuExpanded = false
                                             recycleConfirmationTrack = track
