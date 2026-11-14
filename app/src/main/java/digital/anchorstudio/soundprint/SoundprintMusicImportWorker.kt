@@ -103,7 +103,7 @@ class SoundprintMusicImportWorker(
                 true
             ))
 
-            val repository = MusicLibraryRepository(applicationContext)
+            val repository = MusicLibraryRepository.getInstance(applicationContext)
             val result = when (type) {
                 "folder" -> repository.importTree(uris.single()) { progress ->
                     notifications.update(progress)
