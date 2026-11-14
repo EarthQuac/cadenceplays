@@ -1110,7 +1110,7 @@ private fun ArtworkStylePreview(style: PlayerDiscStyle) {
             Box(Modifier.fillMaxSize(.28f).border(1.dp, Color.White.copy(alpha = .7f), CircleShape).background(Color.Black.copy(alpha = .5f), CircleShape))
         }
         PlayerDiscStyle.NONE -> Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .8f), Color(0xFFB34B9B).copy(alpha = .5f), Color(0xFF55B8D8).copy(alpha = .7f))))
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .8f), Color(0xFFB34B9B).copy(alpha = .5f), Color(0xFF55B8D8).copy(alpha = .7f)))))
     }
 }
 
