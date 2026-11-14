@@ -879,6 +879,8 @@ private fun ArtworkCustomizerDialog(
     }
 }
 
+}
+
 @Composable
 private fun ArtworkSwitchRow(title: String, detail: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
