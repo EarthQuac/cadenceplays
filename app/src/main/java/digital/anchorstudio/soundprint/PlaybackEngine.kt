@@ -244,6 +244,10 @@ class SoundprintPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(maintenance)
+        handler.removeCallbacks(crossfadeTicker)
+        if (::player.isInitialized && ::standbyPlayer.isInitialized && (crossfadeActive || crossfadePending)) {
+            cancelCrossfade(restoreVolume = false)
+        }
         flushListeningTime()
         persistQueue()
         if (::mediaSession.isInitialized) mediaSession.release()
