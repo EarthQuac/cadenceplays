@@ -151,6 +151,8 @@ fun SoundprintNowPlayingScreen(
     var lyricsEdit by remember { mutableStateOf(false) }
     var lyricsDraft by remember { mutableStateOf("") }
     var auraNotice by remember { mutableStateOf(false) }
+    var aura by remember { mutableStateOf(false) }
+    var auraPreset by remember { mutableStateOf("Auto") }
     var audioLabOpen by remember { mutableStateOf(false) }
     var bass by remember { mutableFloatStateOf(0f) }
     var treble by remember { mutableFloatStateOf(0f) }
