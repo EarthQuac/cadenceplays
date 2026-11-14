@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
@@ -195,16 +196,19 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableStateOf(preferences.getString("theme", "dark") ?: "dark") }
             var selectedPalette by remember { mutableStateOf(preferences.getString("palette", "Amber") ?: "Amber") }
             var enteredLibrary by remember { mutableStateOf(preferences.getBoolean("has_seen_launch_landing", false)) }
-            val libraryRepository = remember { MusicLibraryRepository(applicationContext) }
-            val libraryManager = remember { MusicLibraryManager(applicationContext) }
+            val libraryRepository = remember { MusicLibraryRepository.getInstance(applicationContext) }
+            val libraryManager = remember { MusicLibraryManager.getInstance(applicationContext) }
             val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-            var libraryTrackCount by remember { mutableIntStateOf(libraryRepository.count()) }
-            var librarySources by remember { mutableStateOf(libraryRepository.allSources()) }
+            var libraryTrackCount by remember { mutableIntStateOf(0) }
+            var librarySources by remember { mutableStateOf(emptyList<MusicLibrarySource>()) }
             var libraryStatus by remember { mutableStateOf("Checking your saved music locations…") }
             val scope = rememberCoroutineScope()
-            fun refreshLibraryState() {
-                libraryTrackCount = libraryRepository.count()
-                librarySources = libraryRepository.allSources()
+            suspend fun refreshLibraryState() {
+                val snapshot = withContext(Dispatchers.IO) {
+                    libraryRepository.count() to libraryRepository.allSources()
+                }
+                libraryTrackCount = snapshot.first
+                librarySources = snapshot.second
             }
             fun enqueueMusicImport(label: String, enqueue: () -> Unit) {
                 try {
