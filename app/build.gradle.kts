@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "digital.anchorstudio.soundprint"
+        applicationId = "com.anchorstudios.soundprint"
         minSdk = 26
         targetSdk = 36
         versionCode = 6
