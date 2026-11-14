@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -499,44 +500,48 @@ fun SoundprintNowPlayingScreen(
             }
             item {
                 Spacer(Modifier.height(24.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column { Text("Quick actions", fontSize = 15.sp, fontWeight = FontWeight.SemiBold); Text("The essentials, within reach", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    Icon(Icons.Filled.GraphicEq, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Quick actions", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.2).sp)
+                        Text("The essentials, within reach", Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(painterResource(R.drawable.lucide_audio_lines), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Spacer(Modifier.height(10.dp))
-                val actions = listOf(
-                    Triple("Audio Lab", Icons.Filled.GraphicEq) { audioLabOpen = true },
-                    Triple("Aura Mode", Icons.Filled.Waves) { auraNotice = true },
-                    Triple("Playlist", Icons.Filled.Add) { playlists = library.playlists(); playlistOpen = !playlistOpen },
-                    Triple("Info", Icons.Filled.Info) { infoOpen = !infoOpen },
-                    Triple("Lyrics", Icons.Filled.MusicNote) { lyricsExpanded = true },
-                    Triple(displaySleep, Icons.Filled.NightsStay) { sleepOpen = true }
-                )
+                Spacer(Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    actions.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { (label, icon, action) ->
-                                Column(Modifier.weight(1f).height(84.dp).clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface).clickable { action() }.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
-                                    Spacer(Modifier.height(7.dp))
-                                    Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                                }
-                            }
-                            repeat(3-row.size) { Spacer(Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PlayerQuickAction("Audio Lab", R.drawable.lucide_gauge, Modifier.weight(1f)) { audioLabOpen = true }
+                        PlayerQuickAction("Aura Mode", R.drawable.lucide_waves, Modifier.weight(1f)) { auraNotice = true }
+                        PlayerQuickAction("Playlist", R.drawable.lucide_plus, Modifier.weight(1f)) { playlists = library.playlists(); playlistOpen = !playlistOpen }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PlayerQuickAction("Info", R.drawable.lucide_info, Modifier.weight(1f), selected = infoOpen) { infoOpen = !infoOpen }
+                        PlayerQuickAction("Lyrics", R.drawable.lucide_book_open_text, Modifier.weight(1f)) { lyricsExpanded = true }
+                        PlayerQuickAction(displaySleep, if (sleepRemaining > 0L) R.drawable.lucide_timer_reset else R.drawable.lucide_moon, Modifier.weight(1f), selected = sleepOpen) {
+                            sleepMinutes = if (sleepRemaining > 0L) ((sleepRemaining + 59_999L) / 60_000L).toString() else "30"
+                            sleepOpen = true
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable { moreOpen = !moreOpen }.padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .35f), RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = .6f))
+                        .clickable { moreOpen = !moreOpen }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(if (moreOpen) "Less" else "More actions", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Icon(if (moreOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
+                    Icon(painterResource(R.drawable.lucide_chevron_down), null, modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = if (moreOpen) 180f else 0f }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (moreOpen) {
+                    Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PlayerAction("Share track", Icons.Filled.Share) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
-                        PlayerAction("Restart track", Icons.Filled.Replay) { controller?.seekTo(0L) }
-                        PlayerAction("Playback options", Icons.Filled.Settings) { optionsOpen = true }
-                        PlayerAction("Customize artwork", Icons.Filled.Album) { customizerOpen = true }
+                        PlayerAction("Share track", R.drawable.lucide_share_2, Modifier.weight(1f)) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Listening to “$title” by $artist on Soundprint."), "Share track")) }
+                        PlayerAction("Restart track", R.drawable.lucide_rotate_ccw, Modifier.weight(1f)) { controller?.seekTo(0L) }
+                        PlayerAction("Playback options", R.drawable.lucide_settings_2, Modifier.weight(1f)) { optionsOpen = true }
+                        PlayerAction("Customize artwork", R.drawable.lucide_disc_3, Modifier.weight(1f)) { customizerOpen = true }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -908,8 +913,42 @@ private fun MiniPlayerControl(
 
 
 @Composable
-private fun RowScope.PlayerAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
-    Column(Modifier.weight(1f).height(82.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick=onClick).padding(6.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){Icon(icon,null,tint=MaterialTheme.colorScheme.primary);Spacer(Modifier.height(5.dp));Text(label,fontSize=9.sp,textAlign=TextAlign.Center)}
+private fun PlayerQuickAction(
+    label: String,
+    icon: Int,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier.height(84.dp).clip(RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (selected) .55f else .38f), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick).padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(painterResource(icon), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(8.dp))
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+@Composable
+private fun PlayerAction(label: String, icon: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.height(88.dp).clip(RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .38f), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = .6f))
+            .clickable(onClick = onClick).padding(horizontal = 5.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 12.sp)
+    }
 }
 @Composable
 private fun PlayerPanel(title:String,onClose:()->Unit,content:@Composable ColumnScope.()->Unit){
