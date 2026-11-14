@@ -105,6 +105,7 @@ class SoundprintPlaybackService : MediaSessionService() {
     private lateinit var library: MusicLibraryManager
     private val listeningWriteQueue = java.util.ArrayDeque<Triple<String, Long, Long>>()
     private var listeningWriteInFlight = false
+    @Volatile private var serviceDestroying = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val handler = Handler(Looper.getMainLooper())
     private var activeTrackId: String? = null
@@ -122,6 +123,7 @@ class SoundprintPlaybackService : MediaSessionService() {
         override fun run() {
             if (!::player.isInitialized) return
             sampleListeningTime()
+            drainListeningWrites()
             val now = SystemClock.elapsedRealtime()
             if (now - lastPersistElapsedMs >= PERSIST_INTERVAL_MS) persistQueue()
             handler.postDelayed(this, SAMPLE_INTERVAL_MS)
@@ -217,7 +219,8 @@ class SoundprintPlaybackService : MediaSessionService() {
         persistQueue()
         if (::mediaSession.isInitialized) mediaSession.release()
         if (::player.isInitialized) player.release()
-        serviceScope.cancel()
+        serviceDestroying = true
+        drainListeningWrites()
         super.onDestroy()
     }
 
@@ -271,11 +274,23 @@ class SoundprintPlaybackService : MediaSessionService() {
         if (recordedOccurrenceKey == occurrence) return
         recordedOccurrenceKey = occurrence
         val duration = player.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0L) ?: 0L
-        serviceScope.launch { runCatching { library.recordPlay(id, 0L, duration) } }
+        serviceScope.launch {
+            try {
+                library.recordPlay(id, 0L, duration)
+            } catch (error: Exception) {
+                Log.e("SoundprintPlayback", "Play statistics write failed for track $id.", error)
+            }
+        }
     }
 
     private fun recordSkip(id: String, positionMs: Long, durationMs: Long) {
-        serviceScope.launch { runCatching { library.recordSkip(id, positionMs, durationMs) } }
+        serviceScope.launch {
+            try {
+                library.recordSkip(id, positionMs, durationMs)
+            } catch (error: Exception) {
+                Log.e("SoundprintPlayback", "Skip statistics write failed for track $id.", error)
+            }
+        }
     }
 
     private fun sampleListeningTime() {
@@ -327,7 +342,11 @@ class SoundprintPlaybackService : MediaSessionService() {
                     break
                 }
             }
-            synchronized(listeningWriteQueue) { listeningWriteInFlight = false }
+            val shouldCancel = synchronized(listeningWriteQueue) {
+                listeningWriteInFlight = false
+                serviceDestroying && listeningWriteQueue.isEmpty()
+            }
+            if (shouldCancel) serviceScope.cancel()
         }
     }
 
