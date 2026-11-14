@@ -81,25 +81,42 @@ class ClapModelManager(context: Context) {
     private val assetPackManager by lazy { AssetPackManagerFactory.getInstance(app) }
 
     fun isInstalled(): Boolean = packFiles() != null ||
-        (BuildConfig.DEBUG && debugFiles() != null)
+        (BuildConfig.DEBUG && debugFiles() != null) ||
+        (!BuildConfig.DEBUG && legacyFiles() != null)
 
     fun installedFiles(): ClapModelFiles? {
-        val files = packFiles() ?: if (BuildConfig.DEBUG) debugFiles() else null
+        val files = packFiles()
+            ?: if (BuildConfig.DEBUG) debugFiles() else legacyFiles()
         if (files != null) verifyIfNeeded(files)
         return files
     }
 
     suspend fun install(onProgress: (ClapModelInstallProgress) -> Unit = {}): ClapModelFiles =
         withContext(Dispatchers.IO) {
-            installedFiles()?.let { return@withContext it }
-
-            val files = if (BuildConfig.DEBUG) {
-                installDebugAssets(onProgress)
-            } else {
-                fetchPlayAssetPack(onProgress)
+            packFiles()?.let { files ->
+                verifyIfNeeded(files)
+                return@withContext files
             }
-            verifyIfNeeded(files)
-            files
+
+            if (BuildConfig.DEBUG) {
+                debugFiles()?.let { return@withContext it }
+                return@withContext installDebugAssets(onProgress)
+            }
+
+            // Existing installs may still have the old private copy. Prefer the
+            // Play-managed pack, but keep that old copy usable if the device is
+            // offline; remove it as soon as the Play pack is verified.
+            val legacy = legacyFiles()
+            try {
+                fetchPlayAssetPack(onProgress).also(::verifyIfNeeded)
+            } catch (error: Exception) {
+                if (legacy != null) {
+                    verifyIfNeeded(legacy)
+                    legacy
+                } else {
+                    throw error
+                }
+            }
         }
 
     /**
@@ -107,7 +124,12 @@ class ClapModelManager(context: Context) {
      * relocate, or duplicate them in app-private storage.
      */
     fun removeInstalledModel() {
-        if (BuildConfig.DEBUG) debugModelDir.deleteRecursively()
+        if (BuildConfig.DEBUG) {
+            debugModelDir.deleteRecursively()
+        } else {
+            runCatching { assetPackManager.removePack(PACK_NAME) }
+            File(app.filesDir, "models/clap").deleteRecursively()
+        }
         preferences.edit().remove("verified_model_version").apply()
     }
 
@@ -119,6 +141,21 @@ class ClapModelManager(context: Context) {
     private fun debugFiles(): ClapModelFiles? = runCatching {
         if (!BuildConfig.DEBUG || !File(debugModelDir, ".verified").isFile) return null
         filesAt(debugModelDir)
+    }.getOrNull()
+
+    private fun legacyFiles(): ClapModelFiles? = runCatching {
+        val root = File(app.filesDir, "models/clap/$CLAP_MODEL_VERSION")
+        if (!File(root, ".verified").isFile) return null
+        ClapModelFiles(
+            audioModel = File(root, "audio_model_quantized.onnx").takeIf { it.isFile && it.length() >= AUDIO_MODEL_BYTES }
+                ?: return null,
+            textModel = File(root, "text_model_quantized.onnx").takeIf { it.isFile && it.length() >= TEXT_MODEL_BYTES }
+                ?: return null,
+            vocabulary = File(root, "vocab.json").takeIf { it.isFile && it.length() > 0L }
+                ?: return null,
+            merges = File(root, "merges.txt").takeIf { it.isFile && it.length() > 0L }
+                ?: return null
+        )
     }.getOrNull()
 
     private fun filesAt(root: File): ClapModelFiles {
@@ -248,14 +285,21 @@ class ClapModelManager(context: Context) {
     }
 
     private fun verifyIfNeeded(files: ClapModelFiles) {
-        if (preferences.getString("verified_model_version", null) == CLAP_MODEL_VERSION) return
-        check(sha256(files.audioModel) == CLAP_AUDIO_MODEL_SHA256) {
-            "The CLAP audio model failed its integrity check."
+        if (preferences.getString("verified_model_version", null) != CLAP_MODEL_VERSION) {
+            check(sha256(files.audioModel) == CLAP_AUDIO_MODEL_SHA256) {
+                "The CLAP audio model failed its integrity check."
+            }
+            check(sha256(files.textModel) == CLAP_TEXT_MODEL_SHA256) {
+                "The CLAP text model failed its integrity check."
+            }
+            preferences.edit().putString("verified_model_version", CLAP_MODEL_VERSION).apply()
         }
-        check(sha256(files.textModel) == CLAP_TEXT_MODEL_SHA256) {
-            "The CLAP text model failed its integrity check."
+
+        val legacyRoot = File(app.filesDir, "models/clap/$CLAP_MODEL_VERSION").absoluteFile.normalize()
+        val audioPath = files.audioModel.absoluteFile.normalize().path
+        if (!BuildConfig.DEBUG && !audioPath.startsWith(legacyRoot.path + File.separator)) {
+            File(app.filesDir, "models/clap").deleteRecursively()
         }
-        preferences.edit().putString("verified_model_version", CLAP_MODEL_VERSION).apply()
     }
 
     private fun sha256(file: File): String {
