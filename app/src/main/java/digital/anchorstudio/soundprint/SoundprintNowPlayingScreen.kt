@@ -116,21 +116,51 @@ fun SoundprintNowPlayingScreen(
     var duration by remember { mutableLongStateOf(0L) }
     var position by remember { mutableLongStateOf(0L) }
     var playing by remember { mutableStateOf(false) }
-    var shuffle by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
+    var shuffle by remember { mutableStateOf(false) }
+    var originalQueueIds by remember { mutableStateOf(emptyList<String>()) }
     var repeatMode by remember { mutableIntStateOf(controller?.repeatMode ?: Player.REPEAT_MODE_OFF) }
     var volume by remember { mutableFloatStateOf(controller?.volume ?: 1f) }
     var queueIds by remember { mutableStateOf(emptyList<String>()) }
     var currentIndex by remember { mutableIntStateOf(-1) }
     var showRemainingTime by remember { mutableStateOf(false) }
 
+    fun applyQueueOrder(targetOrder: List<String>) {
+        val player = controller ?: return
+        val working = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toMutableList()
+        targetOrder.forEachIndexed { targetIndex, id ->
+            val sourceIndex = (targetIndex until working.size).firstOrNull { working[it] == id }
+            if (sourceIndex != null && sourceIndex != targetIndex) {
+                player.moveMediaItem(sourceIndex, targetIndex)
+                val moved = working.removeAt(sourceIndex)
+                working.add(targetIndex, moved)
+            }
+        }
+    }
+
     LaunchedEffect(controller) {
+        val connectedPlayer = controller
+        if (connectedPlayer != null) {
+            val actualOrder = (0 until connectedPlayer.mediaItemCount).map { connectedPlayer.getMediaItemAt(it).mediaId }
+            val storedOrder = playerPrefs.getString("queue-original-order", "").orEmpty().split(',').filter { it.isNotBlank() }
+            if (playerPrefs.getBoolean("queue-shuffle", false) && storedOrder.isNotEmpty()) {
+                originalQueueIds = storedOrder
+                shuffle = true
+                connectedPlayer.shuffleModeEnabled = false
+            } else if (connectedPlayer.shuffleModeEnabled && actualOrder.size > 1) {
+                originalQueueIds = actualOrder
+                playerPrefs.edit().putString("queue-original-order", actualOrder.joinToString(",")).putBoolean("queue-shuffle", true).apply()
+                val anchor = connectedPlayer.currentMediaItemIndex.coerceIn(-1, actualOrder.lastIndex)
+                connectedPlayer.shuffleModeEnabled = false
+                applyQueueOrder(actualOrder.take(anchor + 1) + actualOrder.drop(anchor + 1).shuffled())
+                shuffle = true
+            }
+        }
         while (controller != null) {
             val player = controller
             trackId = player.currentMediaItem?.mediaId.orEmpty()
             position = player.currentPosition.coerceAtLeast(0L)
             duration = player.duration.takeIf { it > 0L && it != androidx.media3.common.C.TIME_UNSET } ?: 0L
             playing = player.isPlaying
-            shuffle = player.shuffleModeEnabled
             repeatMode = player.repeatMode
             volume = player.volume
             currentIndex = player.currentMediaItemIndex
@@ -139,11 +169,11 @@ fun SoundprintNowPlayingScreen(
         }
     }
     LaunchedEffect(trackId) {
-        val track = withContext(Dispatchers.IO) { library.song(trackId) }
-        if (track != null) {
-            title = track.title; artist = track.artist; album = track.album; genre = track.genre
-            artwork = track.artworkUri
-            duration = max(duration, track.durationMs)
+        val loaded = withContext(Dispatchers.IO) { library.ensureArtwork(trackId) ?: library.song(trackId) }
+        if (loaded != null) {
+            title = loaded.title; artist = loaded.artist; album = loaded.album; genre = loaded.genre
+            artwork = loaded.artworkUri
+            duration = max(duration, loaded.durationMs)
         }
     }
 
@@ -208,14 +238,17 @@ fun SoundprintNowPlayingScreen(
     var favorite by remember { mutableStateOf(false) }
     LaunchedEffect(trackId) { favorite = withContext(Dispatchers.IO) { library.isFavorite(trackId) } }
     val track = produceState<MusicTrack?>(null, trackId, title, artist, album, genre, artwork, duration) {
-        value = withContext(Dispatchers.IO) { library.song(trackId) }
-            ?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork, durationMs = duration)
+        val loaded = withContext(Dispatchers.IO) { library.ensureArtwork(trackId) ?: library.song(trackId) }
+        value = loaded?.copy(title = title, artist = artist, album = album, genre = genre, artworkUri = artwork ?: loaded.artworkUri, durationMs = duration)
     }.value
     val queueTracks = produceState(emptyList<Pair<Int, MusicTrack>>(), queueIds, currentIndex) {
         val upcoming = queueIds.mapIndexedNotNull { index, id -> if (index > currentIndex) index to id else null }
         value = withContext(Dispatchers.IO) {
-            if (upcoming.size <= 200) upcoming.mapNotNull { (index, id) -> library.song(id)?.let { index to it } }
-            else library.allSongs().associateBy { it.id }.let { byId -> upcoming.mapNotNull { (index, id) -> byId[id]?.let { index to it } } }
+            if (upcoming.size <= 200) upcoming.mapNotNull { (index, id) ->
+                (library.ensureArtwork(id) ?: library.song(id))?.let { index to it }
+            } else library.allSongs().associateBy { it.id }.let { byId ->
+                upcoming.mapNotNull { (index, id) -> byId[id]?.let { index to it } }
+            }
         }
     }.value
     val displaySleep = if (sleepRemaining > 0L) "%d:%02d".format(sleepRemaining / 60000L, (sleepRemaining / 1000L) % 60L) else "Sleep"
@@ -287,7 +320,7 @@ fun SoundprintNowPlayingScreen(
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             item {
@@ -313,9 +346,7 @@ fun SoundprintNowPlayingScreen(
                         label = "vinyl-angle"
                     )
                     Box(
-                        Modifier.widthIn(max = 384.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(24.dp))
-                            .background(Brush.linearGradient(listOf(PlayerSurface2, MaterialTheme.colorScheme.background, PlayerSurface)))
+                        Modifier.widthIn(max = 384.dp).fillMaxWidth().aspectRatio(1f)
                             .pointerInput(duration, doubleTapSeekSeconds) {
                                 val artworkWidth = size.width.toFloat()
                                 detectTapGestures(onDoubleTap = { offset ->
@@ -466,7 +497,29 @@ fun SoundprintNowPlayingScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    IconButton(onClick = { controller?.shuffleModeEnabled = !shuffle }, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = {
+                        val player = controller ?: return@IconButton
+                        val actualOrder = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+                        if (!shuffle) {
+                            originalQueueIds = actualOrder
+                            playerPrefs.edit().putString("queue-original-order", actualOrder.joinToString(",")).putBoolean("queue-shuffle", true).apply()
+                            val anchor = player.currentMediaItemIndex.coerceIn(-1, actualOrder.lastIndex)
+                            player.shuffleModeEnabled = false
+                            applyQueueOrder(actualOrder.take(anchor + 1) + actualOrder.drop(anchor + 1).shuffled())
+                            shuffle = true
+                        } else {
+                            val remaining = actualOrder.toMutableList()
+                            val restored = buildList {
+                                originalQueueIds.forEach { id -> if (remaining.remove(id)) add(id) }
+                                addAll(remaining)
+                            }
+                            player.shuffleModeEnabled = false
+                            applyQueueOrder(restored)
+                            shuffle = false
+                            originalQueueIds = emptyList()
+                            playerPrefs.edit().remove("queue-original-order").putBoolean("queue-shuffle", false).apply()
+                        }
+                    }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Filled.Shuffle, "Shuffle", modifier = Modifier.size(20.dp), tint = if (shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = {
@@ -713,8 +766,7 @@ fun SoundprintNowPlayingScreen(
             if (queueTracks.isNotEmpty()) item {
                 Column(
                     Modifier.fillMaxWidth().padding(top = 18.dp).clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = .82f))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .28f), RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = .72f))
                         .padding(15.dp)
                 ) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -797,26 +849,10 @@ fun SoundprintNowPlayingScreen(
     if (customizerOpen) {
         ArtworkCustomizerDialog(
             discStyle = discStyle,
-            discFinish = discFinish,
-            spin = spin,
-            spinSpeed = spinSpeed,
-            tonearm = tonearm,
             ambientGlow = ambientGlow,
             onDiscStyle = { discStyle = it },
-            onDiscFinish = { discFinish = it },
-            onSpin = { spin = it },
-            onSpinSpeed = { spinSpeed = it },
-            onTonearm = { tonearm = it },
             onAmbientGlow = { ambientGlow = it },
-            onDismiss = { customizerOpen = false },
-            onReset = {
-                discStyle = PlayerDiscStyle.VINYL
-                discFinish = PlayerDiscFinish.CLASSIC
-                spin = true
-                spinSpeed = 4
-                tonearm = true
-                ambientGlow = true
-            }
+            onDismiss = { customizerOpen = false }
         )
     }
     if (editOpen) SoundprintFloatingDialog(
@@ -1227,266 +1263,34 @@ private fun AuraListeningStage(mood:String,preset:String,onPreset:(String)->Unit
 @Composable
 private fun ArtworkCustomizerDialog(
     discStyle: PlayerDiscStyle,
-    discFinish: PlayerDiscFinish,
-    spin: Boolean,
-    spinSpeed: Int,
-    tonearm: Boolean,
     ambientGlow: Boolean,
     onDiscStyle: (PlayerDiscStyle) -> Unit,
-    onDiscFinish: (PlayerDiscFinish) -> Unit,
-    onSpin: (Boolean) -> Unit,
-    onSpinSpeed: (Int) -> Unit,
-    onTonearm: (Boolean) -> Unit,
     onAmbientGlow: (Boolean) -> Unit,
-    onDismiss: () -> Unit,
-    onReset: () -> Unit
+    onDismiss: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         ApplyCadenceDialogWindow(blurRadiusDp = 2.dp)
-        BoxWithConstraints(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f)).clickable(onClick = onDismiss),
-            contentAlignment = if (LocalConfiguration.current.screenWidthDp < 600) Alignment.BottomCenter else Alignment.Center
-        ) {
-            val compactLayout = maxWidth < 600.dp
-            val panelShape = if (compactLayout) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else RoundedCornerShape(28.dp)
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(tween(180)) +
-                    androidx.compose.animation.scaleIn(initialScale = .96f, animationSpec = tween(220, easing = FastOutSlowInEasing)) +
-                    slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 18 }
-            ) {
-                Surface(
-                    onClick = {},
-                    modifier = Modifier.fillMaxWidth().widthIn(max = 448.dp)
-                        .then(if (compactLayout) Modifier else Modifier.padding(16.dp))
-                        .shadow(26.dp, panelShape)
-                        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * .78f),
-                    shape = panelShape,
-                    color = MaterialTheme.colorScheme.background,
-                    tonalElevation = 8.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .65f))
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Customize artwork", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.25).sp)
-                        Text("Make the player feel like yours.", modifier = Modifier.padding(top = 2.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .42f)).clickable(onClick = onDismiss), contentAlignment = if (LocalConfiguration.current.screenWidthDp < 600) Alignment.BottomCenter else Alignment.Center) {
+            Surface(onClick = {}, modifier = Modifier.fillMaxWidth().widthIn(max = 400.dp).padding(horizontal = 12.dp, vertical = 12.dp).shadow(24.dp, RoundedCornerShape(26.dp)), shape = RoundedCornerShape(26.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { Text("Artwork", fontSize = 17.sp, fontWeight = FontWeight.SemiBold); Text("Keep the player look simple.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(34.dp)) { Icon(Icons.Filled.Close, "Close artwork options", modifier = Modifier.size(18.dp)) }
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Filled.Close, "Close artwork customizer", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Column(
-                    Modifier.weight(1f, fill = false).verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    Column {
-                        Text("ARTWORK STYLE", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(8.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ArtworkStyleCard(PlayerDiscStyle.VINYL, "Vinyl", "Classic record", discStyle, Modifier.weight(1f), onDiscStyle)
-                                ArtworkStyleCard(PlayerDiscStyle.CD, "CD", "Iridescent disc", discStyle, Modifier.weight(1f), onDiscStyle)
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ArtworkStyleCard(PlayerDiscStyle.ARTWORK, "Artwork disc", "Full-cover disc", discStyle, Modifier.weight(1f), onDiscStyle)
-                                ArtworkStyleCard(PlayerDiscStyle.NONE, "Cover only", "No disc effect", discStyle, Modifier.weight(1f), onDiscStyle)
-                            }
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("PLAYER STYLE", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            FilterChip(selected = discStyle != PlayerDiscStyle.NONE, onClick = { onDiscStyle(PlayerDiscStyle.VINYL) }, label = { Text("Vinyl") }, modifier = Modifier.weight(1f))
+                            FilterChip(selected = discStyle == PlayerDiscStyle.NONE, onClick = { onDiscStyle(PlayerDiscStyle.NONE) }, label = { Text("Album cover") }, modifier = Modifier.weight(1f))
                         }
                     }
-                    if (discStyle != PlayerDiscStyle.NONE) {
-                        Column {
-                            Text("FINISH", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ArtworkFinishCard(PlayerDiscFinish.CLASSIC, "Classic", discFinish, Modifier.weight(1f), onDiscFinish)
-                                ArtworkFinishCard(PlayerDiscFinish.PRISMATIC, "Prismatic", discFinish, Modifier.weight(1f), onDiscFinish)
-                                ArtworkFinishCard(PlayerDiscFinish.MIDNIGHT, "Midnight", discFinish, Modifier.weight(1f), onDiscFinish)
-                            }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("MOTION", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).padding(horizontal = 4.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("Spin while playing", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    Text("Pause when playback stops", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Switch(checked = spin, onCheckedChange = onSpin)
-                            }
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Speed", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                Spacer(Modifier.weight(1f))
-                                Row(
-                                    Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(1.dp)
-                                ) {
-                                    listOf(8 to "Slow", 4 to "Normal", 2 to "Fast").forEach { (value, label) ->
-                                        val selected = spinSpeed == value
-                                        Box(
-                                            Modifier.clip(CircleShape)
-                                                .background(if (selected) MaterialTheme.colorScheme.background else Color.Transparent)
-                                                .clickable { onSpinSpeed(value) }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                                                color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (discStyle == PlayerDiscStyle.VINYL) {
-                            ArtworkSwitchRow("Turntable arm", "Show the arm on the record", tonearm, onTonearm)
-                        }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { Text("Ambient glow", fontSize = 13.sp, fontWeight = FontWeight.Medium); Text("Soft colour from the album artwork", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        Switch(checked = ambientGlow, onCheckedChange = onAmbientGlow)
                     }
-                    ArtworkSwitchRow("Ambient glow", "Soft light behind the artwork", ambientGlow, onAmbientGlow)
-                }
-                Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = .7f)))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                    TextButton(onClick = onReset, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Button(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
-                        Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                    }
+                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), shape = CircleShape) { Text("Done", fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
-    }
-}
-}
-
-@Composable
-private fun ArtworkSwitchRow(title: String, detail: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).padding(horizontal = 4.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Text(detail, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun ArtworkStyleCard(
-    style: PlayerDiscStyle,
-    label: String,
-    detail: String,
-    selectedStyle: PlayerDiscStyle,
-    modifier: Modifier = Modifier,
-    onSelect: (PlayerDiscStyle) -> Unit
-) {
-    val selected = style == selectedStyle
-    Row(
-        modifier.clip(RoundedCornerShape(16.dp))
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .6f) else MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(16.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .07f) else MaterialTheme.colorScheme.surface.copy(alpha = .5f))
-            .clickable { onSelect(style) }.padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-            ArtworkStylePreview(style)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, Modifier.padding(top = 2.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Box(
-            Modifier.size(10.dp).then(
-                if (selected) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                    .border(3.dp, MaterialTheme.colorScheme.primary.copy(alpha = .15f), CircleShape)
-                else Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f), CircleShape)
-            )
-        )
-    }
-}
-
-@Composable
-private fun ArtworkStylePreview(style: PlayerDiscStyle) {
-    when (style) {
-        PlayerDiscStyle.VINYL -> Box(Modifier.size(40.dp).clip(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = .1f), CircleShape)
-            .background(Brush.radialGradient(listOf(Color(0xFF29292E), Color(0xFF111114), Color(0xFF29292E), Color(0xFF101013)))),
-            contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize(.28f).background(MaterialTheme.colorScheme.primary, CircleShape))
-        }
-        PlayerDiscStyle.CD -> Box(Modifier.size(40.dp).clip(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = .4f), CircleShape)
-            .background(Brush.sweepGradient(listOf(Color(0xFFC8D3DB), Color(0xFFF5D9E5), Color(0xFFA8D5CE), Color(0xFFE9E2B5), Color(0xFFA9BCE8), Color(0xFFF0F0F0)))),
-            contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize(.28f).border(1.dp, Color.White.copy(alpha = .7f), CircleShape).background(MaterialTheme.colorScheme.background, CircleShape))
-        }
-        PlayerDiscStyle.ARTWORK -> Box(Modifier.size(40.dp).clip(CircleShape)
-            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .8f), Color(0xFFB34B9B).copy(alpha = .5f), Color(0xFF55B8D8).copy(alpha = .7f)))),
-            contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize(.28f).border(1.dp, Color.White.copy(alpha = .7f), CircleShape).background(Color.Black.copy(alpha = .5f), CircleShape))
-        }
-        PlayerDiscStyle.NONE -> Box(
-            Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = .8f),
-                            Color(0xFFB34B9B).copy(alpha = .5f),
-                            Color(0xFF55B8D8).copy(alpha = .7f)
-                        )
-                    )
-                )
-        )
-    }
-}
-
-@Composable
-private fun ArtworkFinishCard(
-    finish: PlayerDiscFinish,
-    label: String,
-    selectedFinish: PlayerDiscFinish,
-    modifier: Modifier = Modifier,
-    onSelect: (PlayerDiscFinish) -> Unit
-) {
-    val selected = finish == selectedFinish
-    Column(
-        modifier.clip(RoundedCornerShape(12.dp))
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .6f) else MaterialTheme.colorScheme.outline.copy(alpha = .7f), RoundedCornerShape(12.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .07f) else MaterialTheme.colorScheme.surface.copy(alpha = .5f))
-            .clickable { onSelect(finish) }.padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(8.dp)).background(
-            when (finish) {
-                PlayerDiscFinish.CLASSIC -> Brush.linearGradient(listOf(Color(0xFF27272A), Color(0xFFD4D4D8), Color(0xFF52525B)))
-                PlayerDiscFinish.PRISMATIC -> Brush.linearGradient(listOf(Color(0xFFFB7185), Color(0xFFFACC15), Color(0xFF5EEAD4), Color(0xFF818CF8), Color(0xFFE879F9)))
-                PlayerDiscFinish.MIDNIGHT -> Brush.linearGradient(listOf(Color(0xFF020617), Color(0xFF334155), Color(0xFF020617)))
-            }
-        ))
-        Text(label, Modifier.padding(top = 8.dp), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
