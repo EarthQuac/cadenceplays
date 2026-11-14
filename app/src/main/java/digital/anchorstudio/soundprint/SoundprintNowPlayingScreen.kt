@@ -14,6 +14,7 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -148,8 +150,7 @@ fun SoundprintNowPlayingScreen(
     var karaoke by remember { mutableStateOf(false) }
     var lyricsEdit by remember { mutableStateOf(false) }
     var lyricsDraft by remember { mutableStateOf("") }
-    var aura by remember { mutableStateOf(false) }
-    var auraPreset by remember { mutableStateOf("Auto") }
+    var auraNotice by remember { mutableStateOf(false) }
     var audioLabOpen by remember { mutableStateOf(false) }
     var bass by remember { mutableFloatStateOf(0f) }
     var treble by remember { mutableFloatStateOf(0f) }
@@ -198,6 +199,10 @@ fun SoundprintNowPlayingScreen(
         }.sortedBy { it.first }
     }
     val activeLyricIndex = lyricLines.indexOfLast { it.first <= position }
+    val lyricListState = rememberLazyListState()
+    LaunchedEffect(activeLyricIndex, lyricLines.size) {
+        if (activeLyricIndex >= 0 && lyricLines.isNotEmpty()) lyricListState.animateScrollToItem((activeLyricIndex - 2).coerceAtLeast(0))
+    }
     val lyricsLookup = remember { LyricsLookupRepository() }
     fun findLyrics() {
         if (lyricsBusy) return
@@ -305,15 +310,6 @@ fun SoundprintNowPlayingScreen(
         onDispose { runCatching { equalizer?.release() } }
     }
 
-    if (aura) {
-        AuraListeningStage(
-            mood = track?.let { library.clapMoodProfile(it)?.scores?.maxByOrNull { score -> score.value }?.key } ?: "adaptive",
-            preset = auraPreset,
-            onPreset = { auraPreset = it },
-            onExit = { aura = false }
-        )
-        return
-    }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(
@@ -406,7 +402,7 @@ fun SoundprintNowPlayingScreen(
                 Spacer(Modifier.height(10.dp))
                 val actions = listOf(
                     Triple("Audio Lab", Icons.Filled.GraphicEq) { audioLabOpen = true },
-                    Triple("Aura Mode", Icons.Filled.Waves) { aura = true },
+                    Triple("Aura Mode", Icons.Filled.Waves) { auraNotice = true },
                     Triple("Playlist", Icons.Filled.Add) { playlists = library.playlists(); playlistOpen = !playlistOpen },
                     Triple("Info", Icons.Filled.Info) { infoOpen = !infoOpen },
                     Triple("Lyrics", Icons.Filled.MusicNote) { lyricsExpanded = true },
@@ -494,7 +490,20 @@ fun SoundprintNowPlayingScreen(
                         OutlinedTextField(value=lyricsDraft,onValueChange={lyricsDraft=it},modifier=Modifier.fillMaxWidth().heightIn(min=150.dp),label={Text("Lyrics / LRC")})
                         Button(onClick={ lyrics=lyricsDraft; lyricsSource="Edited locally"; playerPrefs.edit().putString("lyrics:" + trackId,lyricsDraft).putString("lyrics-source:" + trackId,lyricsSource).apply(); lyricsEdit=false }) { Text("Save lyrics") }
                     } else if (lyrics.isNotBlank()) {
-                        Text(lyrics,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp).verticalScroll(rememberScrollState()),fontSize=13.sp,lineHeight=23.sp,textAlign=TextAlign.Center)
+                        if (lyricLines.isNotEmpty()) {
+                            LazyColumn(state=lyricListState,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp),contentPadding=PaddingValues(vertical=18.dp,horizontal=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                                itemsIndexed(lyricLines) { index, line ->
+                                    val active = index == activeLyricIndex
+                                    val lineColor by animateColorAsState(if(active) MaterialTheme.colorScheme.primary.copy(alpha=.16f) else Color.Transparent,tween(420,easing=FastOutSlowInEasing),label="lyric-highlight")
+                                    val textColor by animateColorAsState(if(active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.72f),tween(420,easing=FastOutSlowInEasing),label="lyric-color")
+                                    Surface(color=lineColor,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()) {
+                                        Text(line.second.trim().ifBlank { "♪" },modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=10.dp),fontSize=if(active) 17.sp else 14.sp,lineHeight=if(active) 25.sp else 21.sp,fontWeight=if(active) FontWeight.SemiBold else FontWeight.Normal,color=textColor,textAlign=TextAlign.Center)
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(lyrics,modifier=Modifier.fillMaxWidth().heightIn(max=if(lyricsExpanded) 520.dp else 240.dp).verticalScroll(rememberScrollState()),fontSize=13.sp,lineHeight=23.sp,textAlign=TextAlign.Center)
+                        }
                         Text("Saved on this device · $lyricsSource",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         if (lyricsError.isNotBlank()) Text(lyricsError,color=MaterialTheme.colorScheme.error,fontSize=11.sp)
                     } else {
@@ -564,7 +573,17 @@ fun SoundprintNowPlayingScreen(
     if(editOpen) AlertDialog(onDismissRequest={editOpen=false},title={Text("Edit song info")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(editTitle,{editTitle=it},label={Text("Title")});OutlinedTextField(editArtist,{editArtist=it},label={Text("Artist")});OutlinedTextField(editAlbum,{editAlbum=it},label={Text("Album")});OutlinedTextField(editGenre,{editGenre=it},label={Text("Genre")})}},confirmButton={TextButton(onClick={library.updateSongMetadata(trackId,editTitle,editArtist,editAlbum,editGenre);title=editTitle;artist=editArtist;album=editAlbum;genre=editGenre;editOpen=false}){Text("Save changes")}},dismissButton={TextButton(onClick={editOpen=false}){Text("Cancel")}})
     if(sleepOpen) AlertDialog(onDismissRequest={sleepOpen=false},title={Text("Sleep timer")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Stop playback after…",fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(15,30,45,60).forEach{OutlinedButton(onClick={sleepMinutes=it.toString()}){Text("${it}m")}}};OutlinedTextField(sleepMinutes,{sleepMinutes=it},label={Text("Custom minutes")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number));if(sleepRemaining>0)Text("Remaining: $displaySleep")}},confirmButton={TextButton(onClick={sleepRemaining=(sleepMinutes.toLongOrNull()?.coerceIn(1,720)?:30)*60000L;sleepOpen=false}){Text("Start timer")}},dismissButton={TextButton(onClick={sleepRemaining=0;sleepOpen=false}){Text(if(sleepRemaining>0)"Cancel timer" else "Close")}})
     if(optionsOpen) AlertDialog(onDismissRequest={optionsOpen=false},title={Text("Playback options")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){PlayerToggle("Gapless playback","Reduce the gap between tracks",gapless){gapless=it};PlayerToggle("Loudness leveling","Keep volume consistent",loudness){loudness=it};PlayerToggle("Stop after this song","End playback after this track",stopAfterCurrent){stopAfterCurrent=it};Text("Crossfade",fontSize=12.sp,fontWeight=FontWeight.SemiBold);PlayerChoiceRow(listOf("Off","2s","4s","6s","8s"),"${crossfade}s"){crossfade=it.removeSuffix("s").toIntOrNull()?:0}}},confirmButton={TextButton(onClick={optionsOpen=false}){Text("Done")}})
-    if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(14.dp)){Text(lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex)?.second ?: "Waiting for lyrics",fontSize=27.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center);Text(lyricLines.getOrNull(activeLyricIndex+1)?.second ?: "♪",fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center);Text((activeLyricIndex+1).coerceAtLeast(0).toString() + " / " + lyricLines.size + " lines",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}},confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
+    if(karaoke && lyricLines.isNotEmpty()) AlertDialog(onDismissRequest={karaoke=false},title={Text("Soundprint · Karaoke")},text={
+        Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
+            AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex-1)?.second ?: "♪",label="karaoke-previous") { Text(it,fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.55f),textAlign=TextAlign.Center,lineHeight=22.sp) }
+            Surface(color=MaterialTheme.colorScheme.primary.copy(alpha=.12f),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().border(1.dp,MaterialTheme.colorScheme.primary.copy(alpha=.25f),RoundedCornerShape(18.dp))) {
+                AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex)?.second ?: "Waiting for lyrics",label="karaoke-current") { Text(it,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=20.dp),fontSize=27.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary,textAlign=TextAlign.Center,lineHeight=36.sp) }
+            }
+            AnimatedContent(targetState=lyricLines.getOrNull(activeLyricIndex+1)?.second ?: "♪",label="karaoke-next") { Text(it,fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.55f),textAlign=TextAlign.Center,lineHeight=22.sp) }
+            Text((activeLyricIndex+1).coerceAtLeast(0).toString() + " / " + lyricLines.size + " lines",fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    },confirmButton={TextButton(onClick={karaoke=false}){Text("Close")}})
+    if(auraNotice) AlertDialog(onDismissRequest={auraNotice=false},title={Text("Aura Mode")},text={Text("Aura Mode is temporarily paused. The audio effects and Audio Lab remain in Soundprint; the immersive mode will return later.")},confirmButton={TextButton(onClick={auraNotice=false}){Text("Got it")}})
     if(audioLabOpen) AlertDialog(onDismissRequest={audioLabOpen=false},title={Text("Audio Lab · 10-band EQ")},text={Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(3.dp)){val labels=listOf("31 Hz","62 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz");labels.forEachIndexed{index,label->Row(verticalAlignment=Alignment.CenterVertically){Text(label,modifier=Modifier.width(54.dp),fontSize=10.sp);Slider(value=eqLevels[index],onValueChange={v->eqLevels=eqLevels.toMutableList().also{it[index]=v}},valueRange=-1f..1f);Text(if(eqLevels[index]>=0)"+"+String.format("%.1f",eqLevels[index]) else String.format("%.1f",eqLevels[index]),modifier=Modifier.width(30.dp),fontSize=9.sp)}};Text("Bass",fontSize=11.sp);Slider(value=bass,onValueChange={bass=it},valueRange=-1f..1f);Text("Treble",fontSize=11.sp);Slider(value=treble,onValueChange={treble=it},valueRange=-1f..1f)}},confirmButton={TextButton(onClick={audioLabOpen=false}){Text("Done")}},dismissButton={TextButton(onClick={eqLevels=List(10){0f};bass=0f;treble=0f}){Text("Reset")}})
 }
 
