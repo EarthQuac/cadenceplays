@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -28,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class SoundprintRepeatMode { OFF, ALL, ONE }
 
@@ -101,6 +103,8 @@ class SoundprintPlaybackService : MediaSessionService() {
     private lateinit var mediaSession: MediaSession
     private lateinit var queueStore: PlaybackQueueStore
     private lateinit var library: MusicLibraryManager
+    private val listeningWriteQueue = java.util.ArrayDeque<Triple<String, Long, Long>>()
+    private var listeningWriteInFlight = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val handler = Handler(Looper.getMainLooper())
     private var activeTrackId: String? = null
@@ -127,7 +131,7 @@ class SoundprintPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         queueStore = PlaybackQueueStore(this)
-        library = MusicLibraryManager(applicationContext)
+        library = MusicLibraryManager.getInstance(applicationContext)
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -192,7 +196,10 @@ class SoundprintPlaybackService : MediaSessionService() {
                 persistQueue()
             }
         })
-        restoreQueue()
+        serviceScope.launch {
+            val tracks = withContext(Dispatchers.IO) { library.allSongs() }
+            withContext(Dispatchers.Main) { restoreQueue(tracks) }
+        }
         handler.postDelayed(maintenance, SAMPLE_INTERVAL_MS)
     }
 
@@ -214,10 +221,10 @@ class SoundprintPlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private fun restoreQueue() {
+    private fun restoreQueue(availableLibraryTracks: List<MusicTrack>) {
         val saved = queueStore.read()
         if (saved.queueIds.isEmpty()) return
-        val availableTracks = library.allSongs().associateBy { it.id }
+        val availableTracks = availableLibraryTracks.associateBy { it.id }
         val resolved = saved.queueIds.mapIndexedNotNull { oldIndex, id ->
             availableTracks[id]?.let { oldIndex to it }
         }
@@ -290,10 +297,38 @@ class SoundprintPlaybackService : MediaSessionService() {
     private fun flushListeningTime() {
         val id = activeTrackId
         val listened = pendingListeningMs
-        if (id != null && listened > 0L) {
-            runCatching { library.recordListeningTime(id, listened, lastTrackDurationMs) }
-        }
         pendingListeningMs = 0L
+        if (id != null && listened > 0L) {
+            synchronized(listeningWriteQueue) {
+                listeningWriteQueue.addLast(Triple(id, listened, lastTrackDurationMs))
+            }
+        }
+        drainListeningWrites()
+    }
+
+    /** All history writes are serialized on Dispatchers.IO; failed batches remain queued for retry. */
+    private fun drainListeningWrites() {
+        synchronized(listeningWriteQueue) {
+            if (listeningWriteInFlight || listeningWriteQueue.isEmpty()) return
+            listeningWriteInFlight = true
+        }
+        serviceScope.launch {
+            while (true) {
+                val batch = synchronized(listeningWriteQueue) {
+                    if (listeningWriteQueue.isEmpty()) null else listeningWriteQueue.first()
+                } ?: break
+                try {
+                    library.recordListeningTime(batch.first, batch.second, batch.third)
+                    synchronized(listeningWriteQueue) {
+                        if (listeningWriteQueue.firstOrNull() == batch) listeningWriteQueue.removeFirst()
+                    }
+                } catch (error: Exception) {
+                    Log.e("SoundprintPlayback", "Listening statistics write failed; retaining it for retry.", error)
+                    break
+                }
+            }
+            synchronized(listeningWriteQueue) { listeningWriteInFlight = false }
+        }
     }
 
     private fun SoundprintRepeatMode.toPlayerRepeatMode() = when (this) {
