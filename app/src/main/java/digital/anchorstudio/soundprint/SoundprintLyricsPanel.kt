@@ -172,11 +172,6 @@ fun SoundprintLyricsPanel(
         animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "lyrics-panel-height"
     )
-    val lyricsCenterPadding by animateDpAsState(
-        targetValue = if (expanded) 200.dp else 104.dp,
-        animationSpec = tween(240, easing = FastOutSlowInEasing),
-        label = "lyrics-panel-center-padding"
-    )
     val density = LocalDensity.current
     val centreScrollOffsetPx = with(density) { (if (expanded) 448.dp else 256.dp).roundToPx() / 2 - 24.dp.roundToPx() }
     val lines = remember(lyrics) { parseSoundprintLrc(lyrics) }
@@ -215,7 +210,7 @@ fun SoundprintLyricsPanel(
         if (!karaokeMode && activeIndex >= 0 && lines.isNotEmpty()) {
             // A leading/trailing spacer gives the first and last lines enough
             // scroll range to stay centred, not just the middle of the list.
-            listState.animateScrollToItem(activeIndex + 1, scrollOffset = -centreScrollOffsetPx)
+            listState.animateScrollToItem(activeIndex, scrollOffset = -centreScrollOffsetPx)
         }
     }
 
@@ -498,12 +493,9 @@ fun SoundprintLyricsPanel(
                 if (lines.isNotEmpty()) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxWidth().height(lyricsViewportHeight),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = lyricsViewportHeight),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item(key = "lyrics-leading-centre-space") {
-                            Spacer(Modifier.height((lyricsCenterPadding - 8.dp).coerceAtLeast(0.dp)))
-                        }
                         itemsIndexed(lines) { index, line ->
                             val active = index == activeIndex
                             val upcoming = index == activeIndex + 1
@@ -541,9 +533,6 @@ fun SoundprintLyricsPanel(
                                     textAlign = TextAlign.Center
                                 )
                             }
-                        }
-                        item(key = "lyrics-trailing-centre-space") {
-                            Spacer(Modifier.height(lyricsCenterPadding))
                         }
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
