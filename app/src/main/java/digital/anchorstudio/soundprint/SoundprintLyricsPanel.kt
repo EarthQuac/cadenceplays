@@ -167,8 +167,6 @@ fun SoundprintLyricsPanel(
     var selectedSyncLine by remember(trackId) { mutableIntStateOf(0) }
     var syncMenuOpen by remember(trackId) { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val centredLineOffsetPx = with(density) { -(lyricsViewportHeight.roundToPx() / 2 - 24.dp.roundToPx()) }
     val lyricsViewportHeight by animateDpAsState(
         targetValue = if (expanded) 448.dp else 256.dp,
         animationSpec = tween(240, easing = FastOutSlowInEasing),
@@ -179,6 +177,8 @@ fun SoundprintLyricsPanel(
         animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "lyrics-panel-center-padding"
     )
+    val density = LocalDensity.current
+    val centreScrollOffsetPx = with(density) { lyricsViewportHeight.roundToPx() / 2 - 24.dp.roundToPx() }
     val lines = remember(lyrics) { parseSoundprintLrc(lyrics) }
     val activeIndex = remember(lines, position, syncOffset, syncAnchors) {
         lines.indexOfLast { alignSoundprintLyricTime(it.timeMs, syncAnchors) + (syncOffset * 1000f).toLong() <= position }
@@ -211,11 +211,11 @@ fun SoundprintLyricsPanel(
         syncAnchors = restored
     }
 
-    LaunchedEffect(activeIndex, lines.size, karaokeMode, expanded) {
+    LaunchedEffect(activeIndex, lines.size, karaokeMode, expanded, lyricsViewportHeight) {
         if (!karaokeMode && activeIndex >= 0 && lines.isNotEmpty()) {
-            // The list has half a viewport of leading/trailing padding, so the
-            // active row is always brought to the visual centre.
-            listState.animateScrollToItem(activeIndex, scrollOffset = centredLineOffsetPx)
+            // A leading/trailing spacer gives the first and last lines enough
+            // scroll range to stay centred, not just the middle of the list.
+            listState.animateScrollToItem(activeIndex + 1, scrollOffset = -centreScrollOffsetPx)
         }
     }
 
@@ -500,9 +500,11 @@ fun SoundprintLyricsPanel(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxWidth().height(lyricsViewportHeight),
-                        contentPadding = PaddingValues(vertical = lyricsCenterPadding),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item(key = "lyrics-leading-centre-space") {
+                            Spacer(Modifier.height((lyricsCenterPadding - 8.dp).coerceAtLeast(0.dp)))
+                        }
                         itemsIndexed(lines) { index, line ->
                             val active = index == activeIndex
                             val upcoming = index == activeIndex + 1
@@ -540,6 +542,9 @@ fun SoundprintLyricsPanel(
                                     textAlign = TextAlign.Center
                                 )
                             }
+                        }
+                        item(key = "lyrics-trailing-centre-space") {
+                            Spacer(Modifier.height(lyricsCenterPadding))
                         }
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
