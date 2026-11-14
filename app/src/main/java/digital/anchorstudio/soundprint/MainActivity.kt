@@ -25,6 +25,15 @@ import androidx.work.WorkManager
 import androidx.work.WorkInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -494,61 +503,77 @@ private fun SoundprintApp(
             PublicHomeScreen(onContinue = onEnterLibrary)
         } else Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (nowPlayingOpen) {
-                    SoundprintNowPlayingScreen(
-                        controller = playbackConnection.controller,
-                        library = libraryManager,
-                        onBack = { nowPlayingOpen = false }
-                    )
-                } else if (proOpen) {
-                    ProScreen(onBack = { proOpen = false })
-                } else if (statsOpen) {
-                    ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
-                } else if (settingsOpen) {
-                    SettingsScreen(
-                        libraryManager = libraryManager,
-                        themeMode = themeMode,
-                        onThemeModeChange = onThemeModeChange,
-                        selectedPalette = selectedPalette,
-                        onPaletteChange = onPaletteChange,
-                        onBack = { settingsOpen = false },
-                        onOpenPro = { settingsOpen = false; proOpen = true },
-                        libraryTrackCount = libraryTrackCount,
-                        librarySources = librarySources,
-                        libraryStatus = libraryStatus,
-                        onImportMusic = onImportMusic,
-                        onImportFiles = onImportFiles,
-                        onRescan = onRescan,
-                        onRemoveSource = onRemoveSource,
-                        onBackup = onBackup,
-                        onRestore = onRestore,
-                        onClearLibrary = {
-                            screenScope.launch {
-                                clapScanner.clearLibraryState()
-                                playbackConnection.clearQueue()
-                                onClearLibrary()
-                            }
-                        },
-                    )
-                } else {
-                    when (selectedTab) {
-                        0 -> HomeScreen(
-                            libraryManager = libraryManager,
-                            playback = playbackConnection,
-                            libraryTrackCount = libraryTrackCount,
-                            onSettings = { settingsOpen = true },
-                            onImportAudio = onImportFiles,
-                            onImportSingle = onImportSingle,
-                            onImportFolder = onImportMusic,
-                            onRescan = onRescan,
-                            onListeningStats = { statsOpen = true },
-                            onOpenPro = { proOpen = true },
-                            onOpenSongs = { selectedTab = 1 }
+                val activeScreen = when {
+                    nowPlayingOpen -> "now-playing"
+                    proOpen -> "pro"
+                    statsOpen -> "stats"
+                    settingsOpen -> "settings"
+                    else -> "tab-$selectedTab"
+                }
+                AnimatedContent(
+                    targetState = activeScreen,
+                    transitionSpec = {
+                        (fadeIn(tween(220)) + slideInHorizontally(
+                            animationSpec = tween(260, easing = FastOutSlowInEasing)
+                        ) { it / 18 }) togetherWith
+                            (fadeOut(tween(160)) + slideOutHorizontally(
+                                animationSpec = tween(200, easing = FastOutSlowInEasing)
+                            ) { -it / 24 }) using SizeTransform(clip = false)
+                    },
+                    label = "soundprint-screen-transition"
+                ) { screen ->
+                    when (screen) {
+                        "now-playing" -> SoundprintNowPlayingScreen(
+                            controller = playbackConnection.controller,
+                            library = libraryManager,
+                            onBack = { nowPlayingOpen = false }
                         )
-                        1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, playbackConnection, onImportFiles) { selectedTab = 0 }
-                        2 -> SoundprintAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
-                        3 -> SoundprintPlaylistsScreen(libraryManager, playbackConnection, clapScanner)
-                        else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
+                        "pro" -> ProScreen(onBack = { proOpen = false })
+                        "stats" -> ListeningStatsScreen(libraryManager = libraryManager, onBack = { statsOpen = false })
+                        "settings" -> SettingsScreen(
+                            libraryManager = libraryManager,
+                            themeMode = themeMode,
+                            onThemeModeChange = onThemeModeChange,
+                            selectedPalette = selectedPalette,
+                            onPaletteChange = onPaletteChange,
+                            onBack = { settingsOpen = false },
+                            onOpenPro = { settingsOpen = false; proOpen = true },
+                            libraryTrackCount = libraryTrackCount,
+                            librarySources = librarySources,
+                            libraryStatus = libraryStatus,
+                            onImportMusic = onImportMusic,
+                            onImportFiles = onImportFiles,
+                            onRescan = onRescan,
+                            onRemoveSource = onRemoveSource,
+                            onBackup = onBackup,
+                            onRestore = onRestore,
+                            onClearLibrary = {
+                                screenScope.launch {
+                                    clapScanner.clearLibraryState()
+                                    playbackConnection.clearQueue()
+                                    onClearLibrary()
+                                }
+                            },
+                        )
+                        else -> when (screen.removePrefix("tab-").toIntOrNull() ?: 0) {
+                            0 -> HomeScreen(
+                                libraryManager = libraryManager,
+                                playback = playbackConnection,
+                                libraryTrackCount = libraryTrackCount,
+                                onSettings = { settingsOpen = true },
+                                onImportAudio = onImportFiles,
+                                onImportSingle = onImportSingle,
+                                onImportFolder = onImportMusic,
+                                onRescan = onRescan,
+                                onListeningStats = { statsOpen = true },
+                                onOpenPro = { proOpen = true },
+                                onOpenSongs = { selectedTab = 1 }
+                            )
+                            1 -> LibraryScreen("Songs", "Your music, all in one place.", Icons.Filled.MusicNote, libraryManager, playbackConnection, onImportFiles) { selectedTab = 0 }
+                            2 -> SoundprintAlbumsScreen(libraryManager, playbackConnection, onImportFiles, libraryTrackCount)
+                            3 -> SoundprintPlaylistsScreen(libraryManager, playbackConnection, clapScanner)
+                            else -> ClapDiscoverScreen(libraryManager, clapScanner, playbackConnection) { selectedTab = 0 }
+                        }
                     }
                 }
             }
